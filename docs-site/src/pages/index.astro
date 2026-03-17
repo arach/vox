@@ -1,0 +1,123 @@
+---
+import DocsLayout from '../layouts/DocsLayout.astro'
+import { navGroups } from '../lib/nav'
+---
+
+<DocsLayout title="Documentation" headings={[]} rawMarkdown="" agentMarkdown="">
+  <div class="vox-hero">
+    <h1 class="vox-hero-title">
+      The <em>fastest</em> transcription framework for builders and tinkerers.
+    </h1>
+    <p class="vox-hero-body">
+      Vox is a minimal macOS runtime for on-device transcription. Swift services handle the audio engine, a Bun CLI gives operators measurable output, and a TypeScript SDK lets you embed voice into any app — menu bar, Raycast, browser extension, or editor plugin. Everything runs locally, everything is instrumented, everything is yours.
+    </p>
+  </div>
+
+  <div class="vox-sections">
+    {navGroups.map((group) => (
+      <div class="vox-section">
+        <p class="vox-section-label">{group.title}</p>
+        <div class="vox-cards">
+          {group.items.map((item) => (
+            <a href={item.href} class="vox-card">
+              <span class="vox-card-title">{item.title}</span>
+              <span class="vox-card-arrow">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </span>
+            </a>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+
+  <style>
+    .vox-hero {
+      margin-bottom: 2.5rem;
+    }
+
+    .vox-hero-title {
+      font-family: 'Instrument Serif', serif;
+      font-weight: 400;
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      color: var(--color-text);
+      margin: 0 0 1.5rem;
+      max-width: 18ch;
+    }
+
+    .vox-hero-title em {
+      color: var(--color-accent);
+      font-style: italic;
+    }
+
+    .vox-hero-body {
+      font-family: 'Geist', sans-serif;
+      font-size: 15px;
+      font-weight: 300;
+      line-height: 1.75;
+      color: var(--color-text-muted);
+      margin: 0;
+      max-width: 56ch;
+    }
+
+    .vox-sections {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .vox-section-label {
+      font-family: 'Geist Mono', monospace;
+      font-size: 10px;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--color-text-muted);
+      margin: 0 0 0.6rem;
+    }
+
+    .vox-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 8px;
+    }
+
+    .vox-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-radius: 3px 8px 8px 3px;
+      border: 1px solid var(--color-border);
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+
+    .vox-card:hover {
+      border-color: var(--color-text-muted);
+      background: var(--color-surface);
+    }
+
+    .vox-card-title {
+      font-family: 'Geist Mono', monospace;
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+      color: var(--color-text);
+    }
+
+    .vox-card-arrow {
+      color: var(--color-text-muted);
+      opacity: 0;
+      transform: translateX(-4px);
+      transition: all 0.15s;
+    }
+
+    .vox-card:hover .vox-card-arrow {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  </style>
+</DocsLayout>

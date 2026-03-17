@@ -1,0 +1,11 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Astro
+dist
+.astro
+
+# Misc
+.DS_Store
+*.log

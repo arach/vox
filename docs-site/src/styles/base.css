@@ -1,0 +1,63 @@
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    color-scheme: light;
+    font-family: "Geist", system-ui, -apple-system, sans-serif;
+    font-weight: 300;
+    background: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  body {
+    min-height: 100vh;
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    position: relative;
+  }
+
+  [data-theme='dark'] {
+    color-scheme: dark;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-weight: 400;
+    letter-spacing: 0.025em;
+    color: var(--color-text);
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: var(--color-accent-strong);
+  }
+
+  img {
+    max-width: 100%;
+    display: block;
+  }
+
+  pre {
+    position: relative;
+  }
+
+  code {
+    font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .root {
+    isolation: isolate;
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "vox",
+  "groups": [
+    {
+      "id": "getting-started",
+      "title": "Getting Started",
+      "items": [
+        { "id": "overview", "title": "Overview" },
+        { "id": "quickstart", "title": "Quickstart" }
+      ]
+    },
+    {
+      "id": "core",
+      "title": "Core",
+      "items": [
+        { "id": "observability", "title": "Observability" },
+        { "id": "architecture", "title": "Architecture" }
+      ]
+    },
+    {
+      "id": "integrations",
+      "title": "For Agents",
+      "items": [
+        { "id": "api", "title": "API" },
+        { "id": "sdk", "title": "SDK" },
+        { "id": "skill", "title": "Operator Playbook" }
+      ]
+    },
+    {
+      "id": "runtime",
+      "title": "Runtime",
+      "items": [
+        { "id": "runtime", "title": "Runtime" }
+      ]
+    }
+  ]
+}

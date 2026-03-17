@@ -1,0 +1,56 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+
+export async function getStaticPaths() {
+  const markdownFiles = import.meta.glob('../../../docs/**/*.md')
+
+  const entries = Object.entries(markdownFiles).filter(([filePath]) => {
+    if (filePath.endsWith('.agent.md')) return false
+    return true
+  })
+
+  return Promise.all(
+    entries.map(async ([filePath, loader]) => {
+      const page = await loader()
+      const slug = filePath.split('/docs/')[1].replace(/\.md$/, '')
+
+      return {
+        params: { slug },
+        props: { page, filePath },
+      }
+    }),
+  )
+}
+
+const { page, filePath } = Astro.props
+const { Content, frontmatter } = page
+const headings = (await page.getHeadings?.()) ?? page.headings ?? []
+const slug = Astro.params.slug || 'api'
+const fileName = slug.split('/').pop() ?? 'Docs'
+const fallbackTitle = fileName
+  .split('-')
+  .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+  .join(' ')
+const title = frontmatter?.title ?? fallbackTitle
+const description = frontmatter?.description
+
+const rawMarkdownFiles = import.meta.glob('../../../docs/**/*.md', {
+  query: '?raw',
+  import: 'default',
+})
+const agentMarkdownFiles = import.meta.glob('../../../docs/**/*.agent.md', {
+  query: '?raw',
+  import: 'default',
+})
+
+const rawLoader = rawMarkdownFiles[filePath]
+const rawMarkdown = rawLoader ? await rawLoader() : ''
+
+const agentFilePath = filePath.replace(/\.md$/, '.agent.md')
+const agentLoader = agentMarkdownFiles[agentFilePath]
+const agentMarkdown = agentLoader ? await agentLoader() : ''
+---
+
+<DocsLayout title={title} headings={headings} description={description} rawMarkdown={rawMarkdown} agentMarkdown={agentMarkdown}>
+  <Content />
+</DocsLayout>

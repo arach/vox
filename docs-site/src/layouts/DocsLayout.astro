@@ -1,0 +1,211 @@
+---
+import BaseLayout from './BaseLayout.astro'
+import SidebarNav from '../components/SidebarNav.astro'
+import Toc from '../components/Toc.astro'
+
+const {
+  title = 'Docs',
+  headings = [],
+  description,
+  badge,
+  rawMarkdown = '',
+  agentMarkdown = '',
+} = Astro.props
+---
+
+<BaseLayout title={title} description={description}>
+  <nav class="dl-sidebar" data-pagefind-ignore>
+    <SidebarNav />
+  </nav>
+
+  <main class="dl-main">
+    <div class="dl-content-area">
+      <div class="dl-page-actions">
+        {rawMarkdown && (
+          <button class="dl-copy-btn" data-copy-agent-button>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy for agent
+          </button>
+        )}
+        {rawMarkdown && (
+          <button class="dl-copy-btn" data-copy-markdown-button>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy markdown
+          </button>
+        )}
+      </div>
+
+      <article class="doc-content" data-pagefind-body>
+        {badge && (
+          <span class="dl-badge">{badge}</span>
+        )}
+        <h1>{title}</h1>
+        {description && (
+          <p style="color: var(--color-text-muted); font-size: 15px;">{description}</p>
+        )}
+        <slot />
+      </article>
+
+      <div class="dl-agent-footer">
+        <span class="dl-agent-footer-label">For AI agents</span>
+        <div class="dl-agent-footer-links">
+          <a href="/llms.txt">llms.txt</a>
+          <span class="dl-agent-footer-sep">|</span>
+          <a href="/llms-full.txt">llms-full.txt</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="dl-toc" data-pagefind-ignore>
+    <Toc headings={headings} />
+  </aside>
+
+  <style is:inline>
+    .dl-sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--color-border);
+      overflow-y: auto;
+      padding: 16px 12px 20px 20px;
+      position: sticky;
+      top: 48px;
+      height: calc(100vh - 48px);
+      align-self: flex-start;
+    }
+
+    @media (max-width: 768px) {
+      .dl-sidebar { display: none; }
+    }
+
+    .dl-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .dl-content-area {
+      max-width: 768px;
+      margin: 0 auto;
+      padding: 16px 24px 80px;
+      position: relative;
+    }
+
+    .dl-page-actions {
+      position: absolute;
+      top: 16px;
+      right: 24px;
+      display: flex;
+      gap: 8px;
+      z-index: 5;
+    }
+
+    .dl-copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--color-border);
+      background: none;
+      color: var(--color-text-muted);
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .dl-copy-btn:hover {
+      color: var(--color-text);
+      border-color: var(--color-text-muted);
+    }
+
+    .dl-badge {
+      display: inline-block;
+      margin-bottom: 12px;
+      padding: 4px 10px;
+      font-family: 'Geist Mono', monospace;
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      border-radius: 999px;
+      border: 1px solid var(--color-border);
+      color: var(--color-accent);
+    }
+
+    .dl-agent-footer {
+      margin-top: 40px;
+      padding-top: 24px;
+      border-top: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .dl-agent-footer-label {
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+    }
+
+    .dl-agent-footer-links {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .dl-agent-footer-links a {
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px;
+      color: var(--color-text-muted);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .dl-agent-footer-links a:hover { color: var(--color-accent); }
+
+    .dl-agent-footer-sep {
+      color: var(--color-border);
+      font-size: 11px;
+    }
+
+    .dl-toc {
+      width: 268px;
+      flex-shrink: 0;
+      padding: 16px 20px 40px 16px;
+      position: sticky;
+      top: 48px;
+      height: calc(100vh - 48px);
+      overflow-y: auto;
+      align-self: flex-start;
+    }
+
+    @media (max-width: 1280px) {
+      .dl-toc { display: none; }
+    }
+  </style>
+
+  <script is:inline define:vars={{ rawMarkdown, agentMarkdown }}>
+    const safeCopy = async (content, btn) => {
+      if (!content) return
+      try {
+        await navigator.clipboard.writeText(content)
+        if (btn) {
+          const orig = btn.textContent
+          btn.textContent = ' Copied!'
+          setTimeout(() => { btn.textContent = orig }, 2000)
+        }
+      } catch {}
+    }
+
+    document.querySelector('[data-copy-agent-button]')?.addEventListener('click', function() {
+      safeCopy(agentMarkdown || rawMarkdown, this)
+    })
+
+    document.querySelector('[data-copy-markdown-button]')?.addEventListener('click', function() {
+      safeCopy(rawMarkdown, this)
+    })
+  </script>
+</BaseLayout>

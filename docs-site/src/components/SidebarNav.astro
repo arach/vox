@@ -1,0 +1,140 @@
+---
+import { navGroups } from '../lib/nav'
+
+const currentPath = Astro.url.pathname.replace(/\/$/, '') || '/'
+---
+
+<nav>
+  {navGroups.map((group, i) => (
+    <div class={`dl-nav-section ${i > 0 ? 'dl-nav-section--bordered' : ''}`}>
+      <button class="dl-nav-label" data-nav-toggle aria-expanded="true">
+        {group.title}
+        <svg class="dl-nav-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div data-nav-list>
+        <ul class="dl-nav-list">
+          {group.items.map((item) => {
+            const isActive = currentPath === item.href
+            return (
+              <li>
+                <a
+                  href={item.href}
+                  class={`dl-nav-item ${isActive ? 'active' : ''}`}
+                >
+                  {item.title}
+                </a>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    </div>
+  ))}
+
+  <div class="dl-nav-section dl-nav-section--bordered">
+    <div class="dl-nav-label dl-nav-label--static">For AI Agents</div>
+    <ul class="dl-nav-list">
+      <li><a href="/llms.txt" class="dl-nav-item dl-nav-item--muted">llms.txt</a></li>
+      <li><a href="/llms-full.txt" class="dl-nav-item dl-nav-item--muted">llms-full.txt</a></li>
+    </ul>
+  </div>
+</nav>
+
+<style is:inline>
+  .dl-nav-section { margin-bottom: 4px; }
+
+  .dl-nav-section--bordered {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .dl-nav-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0;
+    margin-bottom: 8px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  .dl-nav-label:hover { color: var(--color-text); }
+
+  .dl-nav-label--static {
+    cursor: default;
+  }
+
+  .dl-nav-label--static:hover { color: var(--color-text-muted); }
+
+  .dl-nav-chevron {
+    transition: transform 0.2s;
+    opacity: 0.5;
+  }
+
+  .dl-nav-label[aria-expanded='false'] .dl-nav-chevron {
+    transform: rotate(-90deg);
+  }
+
+  [data-nav-list][data-collapsed='true'] {
+    display: none;
+  }
+
+  .dl-nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 2px;
+  }
+
+  .dl-nav-item {
+    display: block;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 300;
+    color: color-mix(in srgb, var(--color-text) 55%, transparent);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+
+  .dl-nav-item:hover {
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-border) 40%, transparent);
+  }
+
+  .dl-nav-item.active {
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  }
+
+  .dl-nav-item--muted {
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px;
+    color: var(--color-text-muted);
+  }
+
+  .dl-nav-item--muted:hover {
+    color: var(--color-text);
+  }
+</style>
+
+<script is:inline>
+  document.querySelectorAll('[data-nav-toggle]').forEach(function (btn) {
+    var list = btn.parentElement.querySelector('[data-nav-list]')
+    if (!list) return
+    btn.addEventListener('click', function () {
+      var expanded = btn.getAttribute('aria-expanded') === 'true'
+      btn.setAttribute('aria-expanded', String(!expanded))
+      list.dataset.collapsed = String(expanded)
+    })
+  })
+</script>

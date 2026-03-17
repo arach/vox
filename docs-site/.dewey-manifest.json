@@ -1,0 +1,82 @@
+{
+  "deweyVersion": "0.3.4",
+  "createdAt": "2026-03-17T03:48:45.566Z",
+  "updatedAt": "2026-03-17T03:48:45.566Z",
+  "template": "astro",
+  "theme": "hudson",
+  "projectName": "vox",
+  "defaultPage": "api",
+  "files": {
+    "astro.config.mjs": {
+      "owner": "dewey",
+      "hash": "b029e304dd9b00eaf49fc2e0ae9ee88cc66bdd9b886c731d6123e062dce03956",
+      "version": "0.3.4"
+    },
+    "tsconfig.json": {
+      "owner": "dewey",
+      "hash": "4231804747c4ecd0059d6ecbc2f1d148d485024a2932651cb23805c7e09a7bd1",
+      "version": "0.3.4"
+    },
+    "src/styles/global.css": {
+      "owner": "dewey",
+      "hash": "c0805fa5bd0d87ed0d97b46927a95e0826e280233caab5b244c4014c31420c77",
+      "version": "0.3.4"
+    },
+    "src/styles/tokens.css": {
+      "owner": "dewey",
+      "hash": "7f5a5b09f81e5799f5acfba61f8b1648567345b843dd02048f0e3d2fb3184882",
+      "version": "0.3.4"
+    },
+    "src/styles/base.css": {
+      "owner": "dewey",
+      "hash": "f4d302147d6e9b115cb46d37fa6df08766209e70d993264eb8effe569fc05eae",
+      "version": "0.3.4"
+    },
+    "src/styles/markdown.css": {
+      "owner": "dewey",
+      "hash": "b1ee85ae814eba1ca0f7fe35bc4afad302745041f615f9a92062b339b31332e6",
+      "version": "0.3.4"
+    },
+    "src/layouts/BaseLayout.astro": {
+      "owner": "dewey",
+      "hash": "fd713b58cb7c35f849cc6fecd8ab6437009af1abaeb7ce8e06bd704fdf7eaf41",
+      "version": "0.3.4"
+    },
+    "src/layouts/DocsLayout.astro": {
+      "owner": "dewey",
+      "hash": "eabcad32b251db62709599c72060e6dddedc86f82766448b3277691b0587294c",
+      "version": "0.3.4"
+    },
+    "src/components/SidebarNav.astro": {
+      "owner": "dewey",
+      "hash": "ceccc88e7c496b13ffb3412a28ae8c3a6701581d52dc924a12a7c03bdc69b905",
+      "version": "0.3.4"
+    },
+    "src/components/Toc.astro": {
+      "owner": "dewey",
+      "hash": "2d3d1e1f03d0d87b9ef2ff16861a56a6f4650addc2c3fb2ddc11b709ac711a00",
+      "version": "0.3.4"
+    },
+    "src/lib/nav.ts": {
+      "owner": "dewey",
+      "hash": "929298bc6c429163608d5d3352b3b0fdf308841c39e517af9e16ff4df7f2b781",
+      "version": "0.3.4"
+    },
+    "src/pages/index.astro": {
+      "owner": "dewey",
+      "hash": "46296c1995245943d5e8fbc222442749f4f45371adaff858c449978a183a6a64",
+      "version": "0.3.4"
+    },
+    "src/pages/docs/[...slug].astro": {
+      "owner": "dewey",
+      "hash": "57d18d150ca88996bf36f3b0da8b6872ddd3f5117e0d1d1a2c59aec30a0d370d",
+      "version": "0.3.4"
+    },
+    "package.json": {
+      "owner": "consumer"
+    },
+    ".gitignore": {
+      "owner": "consumer"
+    }
+  }
+}
