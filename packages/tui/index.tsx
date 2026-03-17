@@ -540,7 +540,7 @@ function VoicePanel({
       const s = Math.floor((Date.now() - recordingStart) / 1000);
       const m = Math.floor(s / 60);
       setElapsed(m > 0 ? `${m}:${String(s % 60).padStart(2, "0")}` : `0:${String(s).padStart(2, "0")}`);
-    }, 200);
+    }, 1000);
     return () => clearInterval(iv);
   }, [recordingStart, voiceState]);
 
@@ -574,7 +574,7 @@ function VoicePanel({
         {history.slice(-15).reverse().map((r) => {
           const sel = r.id === selectedId;
           return (
-            <box key={`v-${r.id}`} flexDirection="column" marginBottom={1}>
+            <React.Fragment key={`v-${r.id}`}>
               <box flexDirection="row" gap={2}>
                 <text fg={sel ? C.text : C.dim}>{sel ? "▸" : " "}</text>
                 <text fg={C.dim}>{r.timestamp}</text>
@@ -589,8 +589,10 @@ function VoicePanel({
                   </>
                 )}
               </box>
-              <text fg={sel ? C.text : C.muted}>{"  "}{r.text || "(empty)"}</text>
-            </box>
+              <box marginBottom={1}>
+                <text fg={sel ? C.text : C.muted}>{"  "}{r.text || "(empty)"}</text>
+              </box>
+            </React.Fragment>
           );
         })}
       </box>
