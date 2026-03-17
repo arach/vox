@@ -569,32 +569,40 @@ function VoicePanel({
       </box>
 
       {/* Transcript history */}
-      <box border borderStyle="rounded" borderColor={C.border} title={`Transcripts (${history.length})  ↑↓ select · c copy`} padding={1} flexDirection="column" flexGrow={1}>
+      <box border borderStyle="rounded" borderColor={C.border} title={`Transcripts (${history.length})  ↑↓ select · c copy`} padding={1} flexDirection="column" flexGrow={1} overflow="hidden">
         {history.length === 0 && <text fg={C.dim}>No voice recordings yet. Hold space to record.</text>}
-        {history.slice(-15).reverse().map((r) => {
-          const sel = r.id === selectedId;
-          return (
-            <React.Fragment key={`v-${r.id}`}>
-              <box flexDirection="row" gap={2}>
-                <text fg={sel ? C.text : C.dim}>{sel ? "▸" : " "}</text>
-                <text fg={C.dim}>{r.timestamp}</text>
-                <text fg={C.accent}>{fmtMs(r.elapsedMs)}</text>
-                {r.metrics && (
-                  <>
-                    <text fg={C.cyan}>infer {fmtMs(r.metrics.inferenceMs)}</text>
-                    {speedFactor(r.metrics) > 0 && (
-                      <text fg={C.accent}>{speedFactor(r.metrics).toFixed(1)}x</text>
-                    )}
-                    <text fg={C.dim}>audio {fmtMs(r.metrics.audioDurationMs)}</text>
-                  </>
-                )}
-              </box>
-              <box marginBottom={1}>
-                <text fg={sel ? C.text : C.muted}>{"  "}{r.text || "(empty)"}</text>
-              </box>
-            </React.Fragment>
-          );
-        })}
+        {history.length > 0 && (
+          <text fg={C.dim} wrapMode="word">
+            {history.slice(-15).reverse().map((r, i) => {
+              const sel = r.id === selectedId;
+              const sp = r.metrics ? speedFactor(r.metrics) : 0;
+              const metaParts = [
+                r.timestamp,
+                fmtMs(r.elapsedMs),
+                r.metrics ? `infer ${fmtMs(r.metrics.inferenceMs)}` : null,
+                r.metrics && sp > 0 ? `${sp.toFixed(1)}x` : null,
+                r.metrics ? `audio ${fmtMs(r.metrics.audioDurationMs)}` : null,
+              ].filter(Boolean).join("  ");
+              return (
+                <React.Fragment key={`v-${r.id}`}>
+                  {i > 0 && "\n\n"}
+                  <span fg={sel ? C.text : C.dim}>{sel ? "▸ " : "  "}</span>
+                  <span fg={C.dim}>{r.timestamp}</span>
+                  {"  "}<span fg={C.accent}>{fmtMs(r.elapsedMs)}</span>
+                  {r.metrics && (
+                    <>
+                      {"  "}<span fg={C.cyan}>infer {fmtMs(r.metrics.inferenceMs)}</span>
+                      {sp > 0 && <>{"  "}<span fg={C.accent}>{sp.toFixed(1)}x</span></>}
+                      {"  "}<span fg={C.dim}>audio {fmtMs(r.metrics.audioDurationMs)}</span>
+                    </>
+                  )}
+                  {"\n"}
+                  <span fg={sel ? C.text : C.muted}>{"  "}{r.text || "(empty)"}</span>
+                </React.Fragment>
+              );
+            })}
+          </text>
+        )}
       </box>
     </box>
   );
@@ -658,12 +666,22 @@ function App() {
   // Voice state
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [partialText, setPartialText] = useState("");
-  const [voiceHistory, setVoiceHistory] = useState<VoiceRecord[]>(() => readVoiceLog());
+  const [voiceHistory, setVoiceHistory] = useState<VoiceRecord[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<number | null>(null);
   const [configIndex, setConfigIndex] = useState(0);
   const [recordingStart, setRecordingStart] = useState<number | null>(null);
   const sessionRef = useRef<ReturnType<typeof client.createLiveSession> | null>(null);
-  const voiceSeqRef = useRef(voiceHistory.length);
+  const voiceSeqRef = useRef(0);
+
+  // Defer loading voice history so layout measures correctly on first pass
+  useEffect(() => {
+    const history = readVoiceLog();
+    if (history.length > 0) {
+      voiceSeqRef.current = history.length;
+      setVoiceHistory(history);
+      setSelectedVoiceId(history[history.length - 1].id);
+    }
+  }, []);
 
   const addLog = useCallback((level: LogEntry["level"], message: string) => {
     setLogs((prev) => [...prev.slice(-50), { id: ++logSeq, time: ts(), level, message }]);
