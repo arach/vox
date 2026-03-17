@@ -9,7 +9,7 @@ const DocsApp = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex min-h-screen items-center justify-center bg-canvas text-secondary">
+      <div className="flex min-h-screen items-center justify-center bg-canvas font-mono text-secondary">
         Loading docs…
       </div>
     ),
@@ -58,8 +58,19 @@ export default function DocsClientPage({
       currentPage={initialPage}
       onNavigate={(pageId) => router.push(`/docs/${pageId}`)}
       providerProps={{
-        theme: "warm",
-        defaultDark: false,
+        theme: {
+          preset: "mono",
+          colors: {
+            background: "#0a0a0a",
+            foreground: "#e5e5e5",
+            accent: "#34d399",
+          },
+          fonts: {
+            sans: "var(--font-sans)",
+            mono: "var(--font-mono)",
+          },
+        },
+        defaultDark: true,
         components: {
           Link: NextLink,
         },

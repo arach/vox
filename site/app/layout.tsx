@@ -1,26 +1,19 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Space_Grotesk, Instrument_Serif } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://vox.arach.dev";
 
-const plexMono = IBM_Plex_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-});
-
-const spaceGrotesk = Space_Grotesk({
+const geist = Geist({
   variable: "--font-sans",
   subsets: ["latin"],
   weight: ["400", "500", "700"],
 });
 
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-display",
+const geistMono = Geist_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
+  weight: ["400", "500", "700"],
 });
 
 export const metadata: Metadata = {
@@ -50,7 +43,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${spaceGrotesk.variable} ${plexMono.variable} ${instrumentSerif.variable}`}>
+      <body className={`${geist.variable} ${geistMono.variable}`}>
         {children}
       </body>
     </html>
