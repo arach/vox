@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight, Activity, AudioLines, Boxes, Github, Radar, TerminalSquare, Waypoints } from "lucide-react";
 import { CopyCommand } from "../components/copy-command";
+import { ScreenshotLightbox } from "../components/screenshot-lightbox";
 
 const featureCards = [
   {
@@ -138,10 +139,12 @@ export default function Home() {
 
             <div className="relative overflow-hidden rounded-xl border border-line-strong bg-panel shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
               <div className="absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top,rgba(52,211,153,0.18),transparent_60%)]" />
-              <img
+              <ScreenshotLightbox
                 src="/tui-dashboard.png"
                 alt="Vox runtime dashboard showing performance stats, per-client breakdown, and recent transcriptions"
-                className="relative w-full rounded-xl"
+                title="vox tui"
+                caption="Runtime dashboard — performance stats, per-client breakdown, and recent transcriptions at a glance."
+                className="relative"
               />
             </div>
           </div>
