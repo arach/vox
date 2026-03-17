@@ -136,22 +136,13 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="relative overflow-hidden rounded-xl border border-line-strong bg-panel p-5 text-ink shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+            <div className="relative overflow-hidden rounded-xl border border-line-strong bg-panel shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
               <div className="absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top,rgba(52,211,153,0.18),transparent_60%)]" />
-              <div className="relative">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">performance.jsonl</span>
-                  <Activity className="h-4 w-4 text-accent-bright" />
-                </div>
-                <div className="mt-5 space-y-2 rounded-lg border border-line bg-canvas p-4 font-mono text-[11px] leading-6 text-secondary">
-                  <div>{`{"clientId":"vox-cli","totalMs":127}`}</div>
-                  <div>{`{"clientId":"raycast","inferenceMs":268}`}</div>
-                  <div>{`{"clientId":"browser-ext","audioDurationMs":5110}`}</div>
-                </div>
-                <p className="mt-5 border-t border-line pt-4 text-[13px] leading-7 text-muted">
-                  Start local, export when you need to.
-                </p>
-              </div>
+              <img
+                src="/tui-dashboard.png"
+                alt="Vox runtime dashboard showing performance stats, per-client breakdown, and recent transcriptions"
+                className="relative w-full rounded-xl"
+              />
             </div>
           </div>
         </div>
