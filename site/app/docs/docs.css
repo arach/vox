@@ -1,0 +1,12 @@
+.dewey-app {
+  --dewey-bg: #f7f3ea;
+  --dewey-panel: #fbf8f2;
+  --dewey-text: #111827;
+  --dewey-muted: #697586;
+  --dewey-border: rgba(17, 24, 39, 0.11);
+  --dewey-accent: #0b8b83;
+}
+
+body {
+  background: #f7f3ea;
+}

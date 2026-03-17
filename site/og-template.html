@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      :root {
+        --bg: #f7f3ea;
+        --ink: #111827;
+        --muted: #516072;
+        --accent: #0b8b83;
+        --accent-bright: #27d6c3;
+        --line: rgba(17, 24, 39, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        width: 1200px;
+        height: 630px;
+        background:
+          radial-gradient(circle at 14% 16%, rgba(39, 214, 195, 0.20), transparent 18rem),
+          radial-gradient(circle at 82% 20%, rgba(17, 24, 39, 0.08), transparent 14rem),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0)),
+          var(--bg);
+        color: var(--ink);
+        font-family: "Space Grotesk", sans-serif;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(to right, rgba(17, 24, 39, 0.05) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(17, 24, 39, 0.05) 1px, transparent 1px);
+        background-size: 44px 44px;
+        mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent 90%);
+      }
+
+      .wrap {
+        position: relative;
+        height: 100%;
+        padding: 56px 64px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .topline,
+      .footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      h1 {
+        margin: 0;
+        max-width: 900px;
+        font-family: "Instrument Serif", serif;
+        font-size: 82px;
+        line-height: 0.98;
+        letter-spacing: -0.05em;
+      }
+
+      .sub {
+        margin-top: 24px;
+        max-width: 780px;
+        font-size: 28px;
+        line-height: 1.45;
+        color: var(--muted);
+      }
+
+      .panel {
+        width: 440px;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: rgba(255, 255, 255, 0.62);
+        padding: 22px 24px;
+        box-shadow: 0 24px 70px rgba(17, 24, 39, 0.10);
+      }
+
+      .label {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+      }
+
+      .stat {
+        margin-top: 18px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 18px;
+        line-height: 1.8;
+      }
+
+      .wave {
+        height: 72px;
+        margin-top: 18px;
+        border-radius: 999px;
+        background:
+          radial-gradient(circle at 14% 50%, rgba(39, 214, 195, 0.24), transparent 16%),
+          linear-gradient(90deg, transparent, rgba(17, 24, 39, 0.16) 12%, transparent 23%, rgba(17, 24, 39, 0.16) 36%, transparent 48%, rgba(17, 24, 39, 0.16) 61%, transparent 73%, rgba(17, 24, 39, 0.16) 85%, transparent),
+          linear-gradient(180deg, transparent 44%, rgba(39, 214, 195, 0.85) 48%, rgba(17, 24, 39, 0.12) 49%, transparent 52%);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grid"></div>
+    <div class="wrap">
+      <div class="topline">
+        <span>Vox</span>
+        <span>Local transcription runtime</span>
+      </div>
+      <div>
+        <h1>Local transcription for apps that need to move fast.</h1>
+        <div class="sub">Swift runtime, Bun CLI, TypeScript SDK, warm-up semantics, and latency by client.</div>
+      </div>
+      <div class="footer">
+        <div class="panel">
+          <div class="label">Operator view</div>
+          <div class="stat">
+            total: avg=151ms<br />
+            inference: avg=151ms<br />
+            speed: 35.25x realtime
+          </div>
+          <div class="wave"></div>
+        </div>
+        <span>github.com/arach/vox</span>
+      </div>
+    </div>
+  </body>
+  </html>

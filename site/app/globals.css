@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+:root {
+  --canvas: #f7f3ea;
+  --panel: #fbf8f2;
+  --ink: #111827;
+  --secondary: #3f4a59;
+  --muted: #697586;
+  --accent: #0b8b83;
+  --accent-bright: #27d6c3;
+  --line: rgba(17, 24, 39, 0.11);
+  --line-strong: rgba(17, 24, 39, 0.18);
+  --wave: rgba(11, 139, 131, 0.09);
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-panel: var(--panel);
+  --color-ink: var(--ink);
+  --color-secondary: var(--secondary);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-bright: var(--accent-bright);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-wave: var(--wave);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-display: var(--font-display);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(39, 214, 195, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0)),
+    var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans), sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--accent);
+  color: white;
+}
+
+.hero-mesh {
+  background:
+    radial-gradient(circle at 18% 22%, rgba(39, 214, 195, 0.20), transparent 18rem),
+    radial-gradient(circle at 84% 0%, rgba(17, 24, 39, 0.08), transparent 16rem),
+    radial-gradient(circle at 72% 64%, rgba(11, 139, 131, 0.16), transparent 22rem);
+  animation: mesh-float 12s ease-in-out infinite alternate;
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(to right, rgba(17, 24, 39, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(17, 24, 39, 0.06) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.65), transparent 92%);
+}
+
+.signal-panel::before {
+  content: "";
+  display: block;
+  height: 84px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 12% 60%, rgba(39, 214, 195, 0.24), transparent 18%),
+    radial-gradient(circle at 34% 40%, rgba(39, 214, 195, 0.16), transparent 22%),
+    linear-gradient(90deg, transparent, rgba(17, 24, 39, 0.18) 10%, transparent 22%, rgba(17, 24, 39, 0.18) 34%, transparent 46%, rgba(17, 24, 39, 0.18) 58%, transparent 70%, rgba(17, 24, 39, 0.18) 82%, transparent),
+    linear-gradient(180deg, transparent 45%, rgba(39, 214, 195, 0.7) 48%, rgba(17, 24, 39, 0.10) 49%, transparent 52%);
+  opacity: 0.9;
+}
+
+@keyframes mesh-float {
+  from {
+    transform: translateY(-12px);
+    opacity: 0.85;
+  }
+  to {
+    transform: translateY(12px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .hero-mesh {
+    animation: none;
+  }
+}

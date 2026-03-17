@@ -1,13 +1,26 @@
 {
   "name": "vox",
   "private": true,
+  "description": "Local-first macOS transcription runtime with Swift services, a Bun CLI, and a TypeScript SDK.",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "site"
   ],
   "packageManager": "bun@1.2.15",
   "scripts": {
     "build": "bun run --cwd packages/client build && bun run --cwd packages/cli build && swift build --package-path swift",
+    "build:all": "bun run build && bun run site:build",
+    "site:dev": "bun run --cwd site dev",
+    "site:build": "bun run --cwd site build",
+    "site:lint": "bun run --cwd site lint",
+    "site:og": "bun run --cwd site og",
+    "docs:generate": "dewey generate",
+    "docs:audit": "dewey audit",
+    "docs:agent": "dewey agent",
     "test": "bun test packages/client/test packages/cli/test && swift test --package-path swift",
     "test:e2e": "swift build --package-path swift --product voxd && VOX_E2E=1 bun test packages/client/test/transcribe-file.e2e.test.ts"
+  },
+  "devDependencies": {
+    "@arach/dewey": "^0.3.4"
   }
 }
