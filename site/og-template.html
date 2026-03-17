@@ -108,79 +108,63 @@
         height: 100%;
         padding: 48px 72px;
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 420px;
-        column-gap: 48px;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        column-gap: 36px;
       }
 
       .left {
         display: flex;
-        align-items: center;
-        padding-top: 28px;
+        align-items: flex-start;
+        padding-top: 78px;
+        padding-left: 24px;
       }
 
       .right {
         display: flex;
         flex-direction: column;
         align-items: flex-end;
-        justify-content: space-between;
-        padding-top: 4px;
+        justify-content: flex-start;
+        padding-top: 264px;
         text-align: right;
-      }
-
-      .tag {
-        padding: 10px 16px;
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.03);
-        color: var(--muted);
-        font-family: "JetBrains Mono", monospace;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
       }
 
       .hero {
         display: flex;
         flex-direction: column;
-        justify-content: center;
-        max-width: 700px;
+        justify-content: flex-start;
+        max-width: 760px;
       }
 
       h1 {
         margin: 0;
         font-family: "Instrument Serif", serif;
-        font-size: 98px;
+        font-size: 76px;
         line-height: 0.9;
         letter-spacing: -0.05em;
         font-weight: 400;
       }
 
-      .accent {
+      .fastest {
         color: var(--accent);
+      }
+
+      .builders {
+        color: #d1d5db;
         font-style: italic;
       }
 
       .sub {
-        margin-top: 22px;
+        margin-top: 28px;
         color: var(--muted);
         font-family: "JetBrains Mono", monospace;
-        font-size: 20px;
-        line-height: 1.7;
-        letter-spacing: 0.02em;
-      }
-
-      .right-stack {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 22px;
-        width: 100%;
-        margin-top: 64px;
+        font-size: 18px;
+        line-height: 1.65;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
       }
 
       .panel {
-        width: 100%;
+        width: 360px;
         padding: 22px 24px 20px;
         border: 1px solid var(--line);
         border-radius: 18px;
@@ -213,13 +197,6 @@
         border-radius: 999px;
         background: linear-gradient(90deg, transparent, var(--accent) 28%, var(--accent-strong) 72%, transparent);
       }
-
-      .site {
-        color: var(--muted);
-        font-family: "JetBrains Mono", monospace;
-        font-size: 18px;
-        font-weight: 500;
-      }
     </style>
   </head>
   <body>
@@ -231,32 +208,25 @@
       <div class="left">
         <div class="hero">
           <h1>
-            The fastest transcription
+            <span class="fastest">The fastest</span> transcription
             <br />
-            <span class="accent">framework for builders.</span>
+            framework for <span class="builders">builders.</span>
           </h1>
+          <div class="sub">Native macOS. Private. Observable.</div>
         </div>
       </div>
 
       <div class="right">
-        <div class="tag">macOS local runtime</div>
-
-        <div class="right-stack">
-          <div class="sub">Native macOS. Fast. Observable.</div>
-
-          <div class="panel">
-            <div class="panel-label">Operator view</div>
-            <div class="panel-stat">
-              inference: ~151ms
-              <br />
-              tags: clientId / route / modelId
-              <br />
-              speed: 35.25x realtime
-            </div>
-            <div class="panel-accent"></div>
+        <div class="panel">
+          <div class="panel-label">Operator view</div>
+          <div class="panel-stat">
+            inference: ~151ms
+            <br />
+            tags: clientId / route / modelId
+            <br />
+            speed: 35.25x realtime
           </div>
-
-          <div class="site">vox.arach.dev/gh</div>
+          <div class="panel-accent"></div>
         </div>
       </div>
     </div>
