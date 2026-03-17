@@ -1,0 +1,27 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "vox",
+    },
+    "packages/cli": {
+      "name": "@vox/cli",
+      "version": "0.1.0",
+      "bin": {
+        "vox": "./src/index.ts",
+      },
+      "dependencies": {
+        "@vox/client": "workspace:*",
+      },
+    },
+    "packages/client": {
+      "name": "@vox/client",
+      "version": "0.1.0",
+    },
+  },
+  "packages": {
+    "@vox/cli": ["@vox/cli@workspace:packages/cli"],
+
+    "@vox/client": ["@vox/client@workspace:packages/client"],
+  }
+}

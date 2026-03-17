@@ -1,0 +1,14 @@
+{
+  "name": "@vox/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "vox": "./src/index.ts"
+  },
+  "dependencies": {
+    "@vox/client": "workspace:*"
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun --format esm"
+  }
+}

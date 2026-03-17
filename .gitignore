@@ -1,0 +1,11 @@
+.DS_Store
+node_modules
+dist
+coverage
+swift/.build
+swift/.swiftpm
+*.log
+.runtime
+.swift-cache
+(A Document Being Saved By swift-test*
+THREAD_HANDOFF.md
