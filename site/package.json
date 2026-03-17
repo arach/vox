@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "bun run og && next build",
     "start": "serve out",
     "lint": "eslint",
-    "og": "npx @arach/og og-template.html -o public/og.png"
+    "og": "bun run scripts/generate-og.ts"
   },
   "dependencies": {
     "@arach/dewey": "^0.3.4",
