@@ -14,7 +14,8 @@
       "title": "Core",
       "items": [
         { "id": "observability", "title": "Observability" },
-        { "id": "architecture", "title": "Architecture" }
+        { "id": "architecture", "title": "Architecture" },
+        { "id": "providers", "title": "Provider Protocol" }
       ]
     },
     {

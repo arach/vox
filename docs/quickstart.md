@@ -6,72 +6,41 @@
 - Bun
 - Swift 6.2+
 
-## Install
+## Clone, build, verify
 
 ```bash
-git clone https://github.com/arach/vox.git
-cd vox
-bun install
+git clone https://github.com/arach/vox.git && cd vox
+bun install && bun run build
+vox daemon start
+vox doctor
 ```
 
-## Build
+`doctor` confirms the daemon, model, and backend are healthy. You should see `ready: true`.
+
+## Transcribe
 
 ```bash
-bun run build
+vox warmup start
+vox transcribe file /path/to/audio.wav --metrics
 ```
 
-## Start the daemon
+The first command warms the model so you skip cold-start cost. The second transcribes a file and prints stage timings alongside the text.
+
+## Measure and inspect
 
 ```bash
-bun packages/cli/src/index.ts daemon start
+vox transcribe bench /path/to/audio.wav 5
+vox perf dashboard --client vox-cli
 ```
 
-## Verify
-
-```bash
-bun packages/cli/src/index.ts doctor
-```
-
-Expected healthy output includes:
-
-- `ready: true`
-- `runtime`
-- `backend`
-- `model`
-
-## Try File Transcription
-
-```bash
-bun packages/cli/src/index.ts transcribe file /path/to/audio.wav
-```
-
-If you want to avoid cold-start model cost before the first real request:
-
-```bash
-bun packages/cli/src/index.ts warmup start
-```
-
-## Measure Warm Performance
-
-```bash
-bun packages/cli/src/index.ts transcribe bench /path/to/audio.wav 5
-```
-
-## Inspect Telemetry
-
-```bash
-bun packages/cli/src/index.ts perf dashboard
-```
-
-## Typical healthy flow
-
-1. `doctor` reports `ready: true`
-2. `warmup status` reports that Parakeet is ready or warming
-3. `transcribe file` returns transcript text and optional metrics
-4. `perf dashboard` shows samples tagged with your `clientId`
+`bench` runs five passes so you can see warm-path variance. `perf dashboard` shows latency samples tagged by client, route, and model.
 
 ## Common failure cases
 
-- Missing model: run `vox models list` and `vox models install`
-- Cold runtime: issue `warmup start` or `warmup schedule`
-- No performance data: run a transcription command first so the runtime emits samples
+- Missing model: `vox models list` then `vox models install`
+- Cold runtime: `vox warmup start` or `vox warmup schedule`
+- No performance data: run a transcription first so the runtime emits samples
+
+## Next steps
+
+Try the [sample app](https://github.com/arach/vox/tree/main/examples/transcribe-tui) — a terminal transcription tool that connects to the runtime, warms the model, and shows stage-level timing bars for every file you feed it.

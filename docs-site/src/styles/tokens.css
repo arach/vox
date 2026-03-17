@@ -21,11 +21,11 @@
     --color-bg: #0a0a0a;
     --color-surface: #141414;
     --color-surface-muted: #1a1a1a;
-    --color-border: #262626;
+    --color-border: rgba(255, 255, 255, 0.09);
     --color-text: #e5e5e5;
     --color-text-muted: #737373;
     --color-accent: #34d399;
-    --color-accent-strong: #34d399;
+    --color-accent-strong: #6ee7b7;
     --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.35);
   }
 }

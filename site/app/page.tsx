@@ -42,6 +42,9 @@ export default function Home() {
             <Link href="/docs/overview" className="rounded-md px-3 py-2 transition-colors hover:bg-wave hover:text-ink">
               Docs
             </Link>
+            <Link href="/blog" className="rounded-md px-3 py-2 transition-colors hover:bg-wave hover:text-ink">
+              Blog
+            </Link>
             <Link href="#runtime" className="rounded-md px-3 py-2 transition-colors hover:bg-wave hover:text-ink">
               Runtime
             </Link>
