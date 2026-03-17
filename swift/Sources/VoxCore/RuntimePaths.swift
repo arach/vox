@@ -26,6 +26,10 @@ public enum RuntimePaths {
         voxHomeURL().appendingPathComponent("performance.jsonl")
     }
 
+    public static func providersConfigURL() -> URL {
+        voxHomeURL().appendingPathComponent("providers.json")
+    }
+
     public static func ensureDirectories() throws {
         try FileManager.default.createDirectory(
             at: voxHomeURL(),
