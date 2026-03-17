@@ -1,11 +1,14 @@
 import Dispatch
 import Foundation
 import VoxCore
+import VoxEngine
 import VoxService
 
 #if canImport(Darwin)
 import Darwin
 #endif
+
+let log = VoxLog.daemon
 
 func parsePort() -> UInt16 {
     let arguments = CommandLine.arguments
@@ -16,8 +19,27 @@ func parsePort() -> UInt16 {
     return UInt16(arguments[index + 1]) ?? 42137
 }
 
+func loadEngine() -> EngineManager {
+    let configURL = RuntimePaths.providersConfigURL()
+    guard FileManager.default.fileExists(atPath: configURL.path) else {
+        log.info("No providers.json found, using default ParakeetProvider")
+        return EngineManager()
+    }
+
+    do {
+        let config = try ProvidersConfig.load(from: configURL)
+        log.info("Loaded \(config.providers.count) provider(s) from providers.json")
+        let registry = ProviderRegistry(config: config)
+        return EngineManager(provider: registry)
+    } catch {
+        log.error("Failed to parse providers.json: \(error.localizedDescription) — falling back to default")
+        return EngineManager()
+    }
+}
+
 let port = parsePort()
-let service = VoxRuntimeService(port: port)
+let engine = loadEngine()
+let service = VoxRuntimeService(port: port, engine: engine)
 
 do {
     try service.start()
