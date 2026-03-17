@@ -25,7 +25,6 @@
       "name": "@vox/site",
       "version": "0.1.0",
       "dependencies": {
-        "@arach/dewey": "^0.3.4",
         "lucide-react": "^0.577.0",
         "next": "16.1.6",
         "react": "19.2.3",

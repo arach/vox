@@ -6,7 +6,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig = {
   output: "export",
   trailingSlash: true,
-  transpilePackages: ["@arach/dewey"],
   images: {
     unoptimized: true,
   },

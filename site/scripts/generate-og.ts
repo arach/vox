@@ -2,7 +2,17 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { execFileSync } from "child_process";
-import { getDocPages } from "../lib/docs";
+
+const docPages = [
+  { id: "overview", title: "Overview", group: "Getting Started" },
+  { id: "quickstart", title: "Quickstart", group: "Getting Started" },
+  { id: "observability", title: "Observability", group: "Core" },
+  { id: "architecture", title: "Architecture", group: "Core" },
+  { id: "api", title: "API", group: "For Agents" },
+  { id: "sdk", title: "SDK", group: "For Agents" },
+  { id: "skill", title: "Operator Playbook", group: "For Agents" },
+  { id: "runtime", title: "Runtime", group: "Runtime" },
+];
 
 const siteRoot = process.cwd();
 const publicRoot = join(siteRoot, "public");
@@ -256,7 +266,7 @@ try {
   );
   renderToPng(docsIndexHtml, join(publicRoot, "og", "docs.png"));
 
-  for (const page of getDocPages()) {
+  for (const page of docPages) {
     const html = writeTempHtml(
       page.id,
       renderDocTemplate(page.title, `${page.group} / Docs`, "Swift runtime. Bun CLI. TypeScript SDK."),
