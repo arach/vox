@@ -2,15 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
     <style>
       :root {
-        --bg: #0a0a0a;
-        --panel: #141414;
-        --ink: #e5e5e5;
-        --muted: #8b8b8b;
+        --bg: #09090b;
+        --panel: rgba(20, 20, 22, 0.92);
+        --ink: #fafafa;
+        --muted: #a1a1aa;
+        --soft: #71717a;
         --accent: #34d399;
-        --accent-bright: #6ee7b7;
-        --line: rgba(255, 255, 255, 0.12);
+        --accent-strong: #10b981;
+        --line: rgba(255, 255, 255, 0.1);
+        --grid: rgba(255, 255, 255, 0.045);
       }
 
       * {
@@ -21,121 +26,263 @@
         margin: 0;
         width: 1200px;
         height: 630px;
-        background:
-          radial-gradient(circle at 14% 16%, rgba(52, 211, 153, 0.18), transparent 18rem),
-          radial-gradient(circle at 82% 20%, rgba(255, 255, 255, 0.06), transparent 14rem),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
-          var(--bg);
-        color: var(--ink);
-        font-family: "Geist", sans-serif;
         position: relative;
         overflow: hidden;
+        background:
+          radial-gradient(circle at 12% 16%, rgba(52, 211, 153, 0.16), transparent 22rem),
+          radial-gradient(circle at 90% 82%, rgba(52, 211, 153, 0.09), transparent 18rem),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+          var(--bg);
+        color: var(--ink);
+        font-family: "Inter", sans-serif;
       }
 
       .grid {
         position: absolute;
         inset: 0;
         background-image:
-          linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-          linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-        background-size: 44px 44px;
-        mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent 90%);
+          linear-gradient(to right, var(--grid) 1px, transparent 1px),
+          linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+        background-size: 48px 48px;
+      }
+
+      .corner {
+        position: absolute;
+        width: 88px;
+        height: 88px;
+        opacity: 0.75;
+      }
+
+      .corner::before,
+      .corner::after {
+        content: "";
+        position: absolute;
+        background: linear-gradient(90deg, var(--accent), transparent);
+      }
+
+      .corner::before {
+        width: 88px;
+        height: 2px;
+      }
+
+      .corner::after {
+        width: 2px;
+        height: 88px;
+        background: linear-gradient(180deg, var(--accent), transparent);
+      }
+
+      .corner.tl {
+        top: 60px;
+        left: 60px;
+      }
+
+      .corner.br {
+        right: 60px;
+        bottom: 60px;
+        transform: rotate(180deg);
       }
 
       .wrap {
         position: relative;
         height: 100%;
-        padding: 56px 64px;
+        padding: 58px 64px 54px;
         display: flex;
         flex-direction: column;
+      }
+
+      .top {
+        display: flex;
+        align-items: center;
         justify-content: space-between;
       }
 
-      .topline,
-      .footer {
-        display: flex;
-        justify-content: space-between;
+      .brand {
+        display: inline-flex;
         align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        border: 1px solid rgba(52, 211, 153, 0.28);
+        border-radius: 12px;
+        background: rgba(16, 185, 129, 0.08);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      }
+
+      .brand-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--accent);
+        box-shadow: 0 0 18px rgba(52, 211, 153, 0.65);
+      }
+
+      .brand-text {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
-        letter-spacing: 0.18em;
-        font-size: 14px;
+      }
+
+      .tag {
+        padding: 8px 14px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.03);
         color: var(--muted);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .hero {
+        display: flex;
+        flex: 1;
+        align-items: center;
+      }
+
+      .hero-copy {
+        max-width: 760px;
       }
 
       h1 {
         margin: 0;
-        max-width: 920px;
-        font-family: "Geist Mono", monospace;
-        font-size: 74px;
-        line-height: 1;
-        letter-spacing: -0.04em;
+        font-size: 88px;
+        line-height: 0.92;
+        letter-spacing: -0.06em;
+        font-weight: 800;
+      }
+
+      h1 .accent {
+        color: var(--accent);
       }
 
       .sub {
-        margin-top: 24px;
-        max-width: 820px;
+        margin-top: 28px;
+        max-width: 720px;
         font-size: 28px;
         line-height: 1.45;
         color: var(--muted);
       }
 
+      .bottom {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 28px;
+      }
+
       .panel {
-        width: 440px;
+        width: 460px;
+        padding: 20px 22px;
         border: 1px solid var(--line);
         border-radius: 18px;
-        background: rgba(20, 20, 20, 0.96);
-        padding: 22px 24px;
+        background: var(--panel);
         box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
       }
 
-      .label {
-        font-family: "Geist Mono", monospace;
+      .panel-label {
+        color: var(--soft);
+        font-family: "JetBrains Mono", monospace;
         font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
-        letter-spacing: 0.14em;
-        color: var(--muted);
       }
 
-      .stat {
-        margin-top: 18px;
-        font-family: "Geist Mono", monospace;
+      .panel-stat {
+        margin-top: 14px;
+        font-family: "JetBrains Mono", monospace;
         font-size: 18px;
-        line-height: 1.8;
+        line-height: 1.85;
+        color: var(--ink);
       }
 
-      .wave {
-        height: 72px;
+      .panel-accent {
+        height: 4px;
         margin-top: 18px;
-        border-radius: 14px;
-        background:
-          radial-gradient(circle at 14% 50%, rgba(52, 211, 153, 0.24), transparent 16%),
-          linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16) 12%, transparent 23%, rgba(255, 255, 255, 0.16) 36%, transparent 48%, rgba(255, 255, 255, 0.16) 61%, transparent 73%, rgba(255, 255, 255, 0.16) 85%, transparent),
-          linear-gradient(180deg, transparent 44%, rgba(52, 211, 153, 0.85) 48%, rgba(255, 255, 255, 0.12) 49%, transparent 52%);
+        border-radius: 999px;
+        background: linear-gradient(90deg, transparent, var(--accent) 30%, var(--accent-strong) 70%, transparent);
+        opacity: 0.9;
+      }
+
+      .links {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 10px;
+        text-align: right;
+      }
+
+      .site {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 24px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--ink);
+      }
+
+      .meta {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 14px;
+        color: var(--soft);
+      }
+
+      .meta .sep {
+        margin: 0 10px;
+        color: rgba(255, 255, 255, 0.18);
       }
     </style>
   </head>
   <body>
     <div class="grid"></div>
+    <div class="corner tl"></div>
+    <div class="corner br"></div>
+
     <div class="wrap">
-      <div class="topline">
-        <span>Vox</span>
-        <span>Developer-first transcription runtime</span>
+      <div class="top">
+        <div class="brand">
+          <div class="brand-dot"></div>
+          <div class="brand-text">Vox</div>
+        </div>
+        <div class="tag">macOS local runtime</div>
       </div>
-      <div>
-        <h1>Local transcription with a runtime surface you can actually operate.</h1>
-        <div class="sub">Swift daemon, Bun CLI, TypeScript SDK, warm-up controls, and tagged latency by client, route, and model.</div>
+
+      <div class="hero">
+        <div class="hero-copy">
+          <h1>
+            Local transcription.
+            <br />
+            <span class="accent">Latency you can inspect.</span>
+          </h1>
+          <div class="sub">
+            Swift daemon, Bun CLI, TypeScript SDK, warm-up controls, and per-client metrics for developer tools and macOS apps.
+          </div>
+        </div>
       </div>
-      <div class="footer">
+
+      <div class="bottom">
         <div class="panel">
-          <div class="label">Operator view</div>
-          <div class="stat">
-            total: avg=151ms<br />
-            inference: avg=151ms<br />
+          <div class="panel-label">Operator view</div>
+          <div class="panel-stat">
+            warm inference: ~151ms
+            <br />
+            tags: clientId / route / modelId
+            <br />
             speed: 35.25x realtime
           </div>
-          <div class="wave"></div>
+          <div class="panel-accent"></div>
         </div>
-        <span>github.com/arach/vox</span>
+
+        <div class="links">
+          <div class="site">vox.arach.dev</div>
+          <div class="meta">
+            docs and downloads
+            <span class="sep">/</span>
+            source at <span style="color: var(--muted)">vox.arach.dev/gh</span>
+          </div>
+        </div>
       </div>
     </div>
   </body>
