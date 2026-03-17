@@ -1,0 +1,17 @@
+{
+  "name": "vox-transcribe-tui",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Terminal transcription dashboard built on the Vox SDK",
+  "type": "module",
+  "scripts": {
+    "start": "bun run index.tsx",
+    "dev": "bun run --watch index.tsx"
+  },
+  "dependencies": {
+    "@vox/client": "file:../../packages/client",
+    "@opentui/core": "latest",
+    "@opentui/react": "latest",
+    "react": "^19.0.0"
+  }
+}
