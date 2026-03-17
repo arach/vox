@@ -45,6 +45,9 @@ async function main(argv: string[]): Promise<void> {
     case "transcribe":
       await handleTranscribe(subcommand, rest);
       return;
+    case "tui":
+      launchTui();
+      return;
     case "help":
     case undefined:
       printUsage();
@@ -551,6 +554,17 @@ async function waitForEnter(): Promise<void> {
   });
 }
 
+function launchTui(): void {
+  const tuiPath = join(REPO_ROOT, "packages", "tui", "index.tsx");
+  const proc = Bun.spawnSync(["bun", "run", tuiPath], {
+    cwd: REPO_ROOT,
+    stdout: "inherit",
+    stderr: "inherit",
+    stdin: "inherit",
+  });
+  process.exit(proc.exitCode ?? 0);
+}
+
 function printUsage(): void {
   console.log(`Vox CLI
 
@@ -563,7 +577,8 @@ Usage:
   vox perf dashboard [--client <clientId>] [--route <route>] [--last <n>]
   vox transcribe file [--metrics] <path>
   vox transcribe bench <path> [runs]
-  vox transcribe live`);
+  vox transcribe live
+  vox tui`);
 }
 
 main(process.argv.slice(2)).catch((error) => {

@@ -1,0 +1,20 @@
+{
+  "name": "@vox/tui",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Vox runtime dashboard — models, providers, performance, and logs",
+  "type": "module",
+  "bin": {
+    "vox-tui": "./index.tsx"
+  },
+  "scripts": {
+    "start": "bun run index.tsx",
+    "dev": "bun run --watch index.tsx"
+  },
+  "dependencies": {
+    "@vox/client": "workspace:*",
+    "@opentui/core": "latest",
+    "@opentui/react": "latest",
+    "react": "^19.0.0"
+  }
+}

@@ -20,6 +20,8 @@
     "docs:generate": "dewey generate",
     "docs:audit": "dewey audit",
     "docs:agent": "dewey agent",
+    "tui": "bun run --cwd packages/tui index.tsx",
+    "example:tui": "INIT_CWD=\"$PWD\" bun run --cwd examples/transcribe-tui index.tsx",
     "test": "bun test packages/client/test packages/cli/test && swift test --package-path swift",
     "test:e2e": "swift build --package-path swift --product voxd && VOX_E2E=1 bun test packages/client/test/transcribe-file.e2e.test.ts"
   },
