@@ -362,11 +362,15 @@ function App({ initialFiles }: { initialFiles: string[] }) {
   // keyboard
   useKeyboard((key) => {
     if (key.name === "escape" || (key.name === "c" && key.ctrl)) {
-      process.exit(0);
+      quit();
+      return;
+    }
+    if (key.name === "q" && !input) {
+      quit();
+      return;
     }
     if (key.name === "return") {
       const trimmed = input.trim();
-      if (trimmed === "q" || trimmed === "quit") { process.exit(0); return; }
       if (trimmed) transcribeFile(trimmed);
       setInput("");
       return;
@@ -448,4 +452,10 @@ function App({ initialFiles }: { initialFiles: string[] }) {
 
 const files = process.argv.slice(2);
 const renderer = await createCliRenderer();
+
+function quit() {
+  client.disconnect();
+  renderer.destroy();
+}
+
 createRoot(renderer).render(<App initialFiles={files} />);
