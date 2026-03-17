@@ -33,11 +33,11 @@ That split makes it easier to build multi-client products where a menu bar app, 
 
 ```bash
 bun install
+bun run dev
 bun run build
 bun run build:all
 bun run test
 bun run test:e2e
-bun run site:dev
 bun run site:build
 bun run site:og
 bun run docs:generate
@@ -87,3 +87,8 @@ Tagged latency samples are appended to `~/.vox/performance.jsonl`.
 - generated handoff files include `AGENTS.md`, `llms.txt`, `docs.json`, and `install.md`
 - the website and `/docs` experience live in `site/`
 - the OG image is generated from `site/og-template.html`
+
+## Release Automation
+
+- GitHub Pages deploys from [`.github/workflows/deploy-pages.yml`](/Users/arach/dev/vox/.github/workflows/deploy-pages.yml) to `https://vox.arach.dev`
+- npm publishing runs from [`.github/workflows/publish-packages.yml`](/Users/arach/dev/vox/.github/workflows/publish-packages.yml) and publishes `@vox/client` before `@vox/cli`

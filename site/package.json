@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "serve out",
     "lint": "eslint",
     "og": "npx @arach/og og-template.html -o public/og.png"
   },
@@ -24,6 +24,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "serve": "^14.2.4",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

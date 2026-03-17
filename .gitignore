@@ -1,6 +1,7 @@
 .DS_Store
 node_modules
 .next
+site/out
 dist
 coverage
 swift/.build

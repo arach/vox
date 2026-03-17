@@ -1,5 +1,14 @@
 import DocsClientPage from "./client";
-import { getDocsNavigation, getPageContent, getPageId, getSerializedDocs } from "../../../lib/docs";
+import { getDocPages, getDocsNavigation, getPageContent, getPageId, getSerializedDocs } from "../../../lib/docs";
+
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return [
+    { slug: [] },
+    ...getDocPages().map((page) => ({ slug: [page.id] })),
+  ];
+}
 
 export default async function DocsPage({
   params,

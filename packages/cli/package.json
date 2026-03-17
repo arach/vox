@@ -2,11 +2,26 @@
   "name": "@vox/cli",
   "version": "0.1.0",
   "type": "module",
+  "description": "CLI for the Vox local transcription runtime.",
   "bin": {
-    "vox": "./src/index.ts"
+    "vox": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "bun": ">=1.2.15"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arach/vox.git",
+    "directory": "packages/cli"
   },
   "dependencies": {
-    "@vox/client": "workspace:*"
+    "@vox/client": "0.1.0"
   },
   "scripts": {
     "build": "bun build ./src/index.ts --outdir ./dist --target bun --format esm"

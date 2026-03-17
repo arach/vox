@@ -12,6 +12,10 @@ const docPages = [
   { id: "skill", title: "Operator Playbook", file: "skill.md", group: "Reference" },
 ] as const;
 
+export function getDocPages() {
+  return [...docPages];
+}
+
 function docsRoot(): string {
   return join(process.cwd(), "..", "docs");
 }
