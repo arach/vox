@@ -179,17 +179,37 @@ public struct WarmupStatus: Codable, Sendable, Equatable {
     }
 }
 
+public struct WordTiming: Sendable, Equatable {
+    public let word: String
+    public let start: Double   // seconds
+    public let end: Double     // seconds
+    public let confidence: Float
+
+    public init(word: String, start: Double, end: Double, confidence: Float) {
+        self.word = word
+        self.start = start
+        self.end = end
+        self.confidence = confidence
+    }
+
+    public func dictionaryValue() -> [String: Any] {
+        ["word": word, "start": start, "end": end, "confidence": confidence]
+    }
+}
+
 public struct TranscriptionOutput: Sendable, Equatable {
     public let modelId: String
     public let text: String
     public let elapsedMs: Int
     public let metrics: TranscriptionMetrics
+    public let words: [WordTiming]
 
-    public init(modelId: String, text: String, elapsedMs: Int, metrics: TranscriptionMetrics) {
+    public init(modelId: String, text: String, elapsedMs: Int, metrics: TranscriptionMetrics, words: [WordTiming] = []) {
         self.modelId = modelId
         self.text = text
         self.elapsedMs = elapsedMs
         self.metrics = metrics
+        self.words = words
     }
 
     public func dictionaryValue() -> [String: Any] {
@@ -197,7 +217,8 @@ public struct TranscriptionOutput: Sendable, Equatable {
             "modelId": modelId,
             "text": text,
             "elapsedMs": elapsedMs,
-            "metrics": metrics.dictionaryValue()
+            "metrics": metrics.dictionaryValue(),
+            "words": words.map { $0.dictionaryValue() }
         ]
     }
 }

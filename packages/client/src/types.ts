@@ -67,11 +67,19 @@ export interface WarmupStatus {
   lastError?: string | null;
 }
 
+export interface WordTiming {
+  word: string;
+  start: number;   // seconds
+  end: number;      // seconds
+  confidence: number;
+}
+
 export interface FileTranscriptionResult {
   modelId: string;
   text: string;
   elapsedMs: number;
   metrics?: TranscriptionMetrics;
+  words: WordTiming[];
 }
 
 export interface TranscriptionMetrics {

@@ -88,8 +88,18 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
             totalMs: trace.elapsedMs
         )
 
+        // Surface word-level timestamps from Parakeet's token timings
+        let words: [WordTiming] = (result.tokenTimings ?? []).map { timing in
+            WordTiming(
+                word: timing.token.trimmingCharacters(in: .whitespaces),
+                start: timing.startTime,
+                end: timing.endTime,
+                confidence: timing.confidence
+            )
+        }.filter { !$0.word.isEmpty }
+
         log.info("Trace complete \(trace.summary, privacy: .public)")
-        return TranscriptionOutput(modelId: self.modelID, text: result.text, elapsedMs: metrics.totalMs, metrics: metrics)
+        return TranscriptionOutput(modelId: self.modelID, text: result.text, elapsedMs: metrics.totalMs, metrics: metrics, words: words)
 #else
         throw NSError(domain: "VoxEngine", code: 5, userInfo: [
             NSLocalizedDescriptionKey: "FluidAudio is unavailable in this build."
