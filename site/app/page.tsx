@@ -195,9 +195,9 @@ export default function Home() {
                 <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">CLI</span>
               </div>
               <div className="font-mono text-[12px] leading-7">
-                <div className="text-muted">$ npx @vox-ai/cli install</div>
+                <div className="text-muted">$ npx @vox/cli install</div>
                 <div className="text-secondary">daemon installed, LaunchAgent registered</div>
-                <div className="mt-3 text-muted">$ npx @vox-ai/cli doctor</div>
+                <div className="mt-3 text-muted">$ npx @vox/cli doctor</div>
                 <div className="text-ink">daemon: running</div>
                 <div className="text-ink">backend: parakeet</div>
                 <div className="text-accent">ready</div>
