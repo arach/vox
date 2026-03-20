@@ -25,11 +25,11 @@ const instrumentSerif = Instrument_Serif({
 
 export const metadata: Metadata = {
   title: "Vox",
-  description: "Local-first transcription runtime for macOS apps, CLIs, and developer tools.",
+  description: "The easiest transcription framework for builders and tinkerers. On-device, measurable, yours.",
   metadataBase: new URL(siteUrl),
   openGraph: {
-    title: "Vox",
-    description: "A local-first transcription runtime for macOS apps, CLIs, and developer tools.",
+    title: "Vox — The easiest transcription framework for builders and tinkerers",
+    description: "A minimal macOS runtime. Swift services, Bun CLI, TypeScript SDK. On-device, measurable, yours.",
     url: siteUrl,
     siteName: "Vox",
     type: "website",
@@ -37,8 +37,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Vox",
-    description: "Local-first transcription runtime for macOS apps, CLIs, and developer tools.",
+    title: "Vox — The easiest transcription framework for builders and tinkerers",
+    description: "A minimal macOS runtime. Swift services, Bun CLI, TypeScript SDK. On-device, measurable, yours.",
     images: ["/og.png"],
   },
 };

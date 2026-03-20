@@ -6,6 +6,17 @@ import { posts } from "./posts";
 export const metadata: Metadata = {
   title: "Blog - Vox",
   description: "Updates, technical deep dives, and announcements from the Vox project.",
+  openGraph: {
+    title: "Blog - Vox",
+    description: "Updates, technical deep dives, and announcements from the Vox project.",
+    images: [{ url: "/og/blog.png" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Blog - Vox",
+    description: "Updates, technical deep dives, and announcements from the Vox project.",
+    images: ["/og/blog.png"],
+  },
 };
 
 function formatDate(dateStr: string) {

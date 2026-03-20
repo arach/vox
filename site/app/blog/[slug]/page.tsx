@@ -14,6 +14,17 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   return {
     title: `${post.title} - Vox`,
     description: post.summary,
+    openGraph: {
+      title: `${post.title} - Vox`,
+      description: post.summary,
+      images: [{ url: `/og/blog/${post.slug}.png` }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${post.title} - Vox`,
+      description: post.summary,
+      images: [`/og/blog/${post.slug}.png`],
+    },
   };
 }
 

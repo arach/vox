@@ -6,6 +6,7 @@ import { execFileSync } from "child_process";
 const docPages = [
   { id: "overview", title: "Overview", group: "Getting Started" },
   { id: "quickstart", title: "Quickstart", group: "Getting Started" },
+  { id: "web-integration", title: "Web Integration", group: "For Builders" },
   { id: "observability", title: "Observability", group: "Core" },
   { id: "architecture", title: "Architecture", group: "Core" },
   { id: "api", title: "API", group: "For Agents" },
@@ -272,6 +273,30 @@ try {
       renderDocTemplate(page.title, `${page.group} / Docs`, "Swift runtime. Bun CLI. TypeScript SDK."),
     );
     renderToPng(html, join(docsOgRoot, `${page.id}.png`));
+  }
+
+  // Blog index
+  const blogOgRoot = join(publicRoot, "og", "blog");
+  mkdirSync(blogOgRoot, { recursive: true });
+
+  const blogIndexHtml = writeTempHtml(
+    "blog-index",
+    renderDocTemplate("Blog", "Vox", "Notes on building a local transcription runtime."),
+  );
+  renderToPng(blogIndexHtml, join(publicRoot, "og", "blog.png"));
+
+  // Blog posts
+  const blogPosts = [
+    { slug: "why-vox", title: "Why I Built Vox" },
+    { slug: "perf-dashboard", title: "The Performance Dashboard" },
+  ];
+
+  for (const post of blogPosts) {
+    const html = writeTempHtml(
+      `blog-${post.slug}`,
+      renderDocTemplate(post.title, "Blog", "vox.arach.dev/blog"),
+    );
+    renderToPng(html, join(blogOgRoot, `${post.slug}.png`));
   }
 } finally {
   rmSync(tempRoot, { recursive: true, force: true });
