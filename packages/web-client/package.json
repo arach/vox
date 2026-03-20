@@ -1,0 +1,42 @@
+{
+  "name": "@voxd/client",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Browser client for the Vox Companion local transcription runtime.",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arach/vox.git",
+    "directory": "packages/web-client"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "bun run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  },
+  "keywords": [
+    "vox",
+    "transcription",
+    "local",
+    "asr",
+    "speech-to-text",
+    "companion"
+  ],
+  "license": "MIT"
+}
