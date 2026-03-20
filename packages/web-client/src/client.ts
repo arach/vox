@@ -5,6 +5,8 @@ import type {
   JobAccepted,
   JobStatus,
   AlignmentResult,
+  TranscribeOptions,
+  TranscriptionResult,
   CompanionState,
   VoxDClientOptions,
 } from "./types.js";
@@ -14,24 +16,42 @@ const DEFAULT_PROBE_TIMEOUT = 2000;
 const DEFAULT_POLL_INTERVAL = 500;
 
 /**
- * Browser client for the Vox Companion local transcription runtime.
+ * Create a VoxD client instance.
  *
  * @example
  * ```ts
- * import { VoxDClient } from "@voxd/client";
+ * import { createVoxdClient } from "@voxd/client";
  *
- * const vox = new VoxDClient();
+ * const client = createVoxdClient();
  *
- * if (await vox.probe()) {
- *   const caps = await vox.capabilities();
- *   if (caps.features.alignment) {
- *     const result = await vox.align({
- *       source: { audioUrl: "https://example.com/clip.mp3" },
- *     });
- *     console.log(result.words);
- *   }
+ * if (await client.probe()) {
+ *   const result = await client.transcribe({
+ *     audio: audioBlob,
+ *     language: "en",
+ *     timestamps: true,
+ *   });
+ *   console.log(result.text);
+ *   console.log(result.words);
  * }
  * ```
+ */
+export function createVoxdClient(options?: VoxDClientOptions): VoxDClient {
+  return new VoxDClient(options);
+}
+
+/**
+ * Browser client for the Vox Companion local transcription runtime.
+ *
+ * Supports:
+ * - Sending recorded audio (Blob/File/ArrayBuffer) for transcription
+ * - Getting word-level timestamps for alignment
+ * - Checking companion capabilities
+ * - Probing companion availability
+ *
+ * Does NOT handle:
+ * - Microphone selection or browser permissions
+ * - MediaDevices API or getUserMedia
+ * - Raw audio capture
  */
 export class VoxDClient {
   private readonly base: string;
@@ -40,8 +60,12 @@ export class VoxDClient {
   private _state: CompanionState = "unknown";
 
   constructor(options?: VoxDClientOptions) {
-    const port = options?.port ?? DEFAULT_PORT;
-    this.base = `http://127.0.0.1:${port}`;
+    if (options?.baseUrl) {
+      this.base = options.baseUrl.replace(/\/$/, "");
+    } else {
+      const port = options?.port ?? DEFAULT_PORT;
+      this.base = `http://127.0.0.1:${port}`;
+    }
     this.probeTimeout = options?.probeTimeout ?? DEFAULT_PROBE_TIMEOUT;
     this.pollInterval = options?.pollInterval ?? DEFAULT_POLL_INTERVAL;
   }
@@ -87,7 +111,56 @@ export class VoxDClient {
     return res.json();
   }
 
-  // ── Jobs ─────────────────────────────────────────────────
+  // ── Transcription ──────────────────────────────────────
+
+  /**
+   * Transcribe audio from a Blob, File, or ArrayBuffer.
+   *
+   * This uploads the audio to the local companion and returns
+   * the transcription result. Optionally includes word-level
+   * timestamps for playback alignment.
+   *
+   * @example
+   * ```ts
+   * const result = await client.transcribe({
+   *   audio: blob,
+   *   language: "en",
+   *   timestamps: true,
+   * });
+   * console.log(result.text);
+   * console.log(result.words); // word-level timestamps
+   * ```
+   */
+  async transcribe(options: TranscribeOptions): Promise<TranscriptionResult> {
+    const { audio, format, language, timestamps, metadata } = options;
+
+    // Build multipart form
+    const form = new FormData();
+
+    if (audio instanceof Blob) {
+      const ext = format ?? inferFormat(audio.type) ?? "wav";
+      form.append("audio", audio, `audio.${ext}`);
+    } else {
+      // ArrayBuffer — wrap in Blob
+      const ext = format ?? "wav";
+      const blob = new Blob([audio], { type: mimeForFormat(ext) });
+      form.append("audio", blob, `audio.${ext}`);
+    }
+
+    if (format) form.append("format", format);
+    if (language) form.append("language", language);
+    if (timestamps) form.append("timestamps", "true");
+    if (metadata) form.append("metadata", JSON.stringify(metadata));
+
+    const res = await this.fetch("/transcribe", {
+      method: "POST",
+      body: form,
+    });
+
+    return res.json();
+  }
+
+  // ── Alignment (URL-based) ──────────────────────────────
 
   /**
    * Create a job on the companion.
@@ -109,11 +182,10 @@ export class VoxDClient {
   }
 
   /**
-   * Submit an alignment job and wait for the result.
-   * This is the high-level convenience method most apps should use.
+   * Submit an alignment job (via audio URL) and wait for the result.
    *
-   * @returns The alignment result with word-level timestamps.
-   * @throws If the job fails or the companion is unreachable.
+   * Use `transcribe()` instead if you have the audio data locally.
+   * This method is for when the companion should fetch audio from a URL.
    */
   async align(
     options: Omit<CreateJobOptions, "type">,
@@ -220,4 +292,23 @@ export class VoxDError extends Error {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function inferFormat(mimeType: string): string | undefined {
+  if (mimeType.includes("mp3") || mimeType.includes("mpeg")) return "mp3";
+  if (mimeType.includes("wav")) return "wav";
+  if (mimeType.includes("aac") || mimeType.includes("mp4")) return "aac";
+  if (mimeType.includes("opus") || mimeType.includes("ogg")) return "opus";
+  return undefined;
+}
+
+function mimeForFormat(format: string): string {
+  switch (format) {
+    case "mp3": return "audio/mpeg";
+    case "wav": return "audio/wav";
+    case "aac": return "audio/aac";
+    case "opus": return "audio/ogg; codecs=opus";
+    case "pcm16": return "audio/pcm";
+    default: return "application/octet-stream";
+  }
 }

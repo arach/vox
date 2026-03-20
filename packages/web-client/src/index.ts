@@ -1,4 +1,4 @@
-export { VoxDClient, VoxDError } from "./client.js";
+export { VoxDClient, VoxDError, createVoxdClient } from "./client.js";
 export type {
   VoxHealth,
   VoxCapabilities,
@@ -12,4 +12,8 @@ export type {
   AlignmentResult,
   CompanionState,
   VoxDClientOptions,
+  TranscribeOptions,
+  TranscriptionResult,
+  RealtimeOptions,
+  RealtimeSession,
 } from "./types.js";
