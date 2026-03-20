@@ -76,7 +76,7 @@ export default function Home() {
               <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
                 <Link
                   href="https://github.com/arach/vox/releases/latest/download/Vox.dmg"
-                  className="group inline-flex h-11 items-center gap-2 rounded-lg bg-accent px-6 font-mono text-[12px] uppercase tracking-[0.1em] text-canvas transition-all hover:bg-accent/90"
+                  className="group inline-flex h-11 items-center gap-2 rounded-lg bg-emerald-500 px-6 font-mono text-[12px] uppercase tracking-[0.1em] text-black transition-all hover:bg-emerald-400"
                 >
                   <Download className="h-3.5 w-3.5" />
                   Download for macOS
@@ -181,7 +181,7 @@ export default function Home() {
               <div className="mt-5">
                 <Link
                   href="https://github.com/arach/vox/releases/latest/download/Vox.dmg"
-                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-5 font-mono text-[11px] uppercase tracking-[0.1em] text-canvas transition-all hover:bg-accent/90"
+                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-emerald-500 px-5 font-mono text-[11px] uppercase tracking-[0.1em] text-black transition-all hover:bg-emerald-400"
                 >
                   <Download className="h-3.5 w-3.5" />
                   Vox.dmg
