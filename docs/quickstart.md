@@ -6,11 +6,10 @@
 - Bun
 - Swift 6.2+
 
-## Clone, build, verify
+## Install and verify
 
 ```bash
-git clone https://github.com/arach/vox.git && cd vox
-bun install && bun run build
+npx @vox-ai/cli install
 vox daemon start
 vox doctor
 ```

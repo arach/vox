@@ -61,7 +61,7 @@ Vox records both:
 
 ```json
 {
-  "clientId": "raycast",
+  "clientId": "menu-bar",
   "route": "transcribe.file",
   "modelId": "parakeet:v3",
   "audioDurationMs": 5110,

@@ -38,7 +38,7 @@ Vox is intentionally split into operator and integration surfaces:
 
 - app teams can embed `@vox/client` and preserve `clientId`
 - operators can use `vox` to inspect health, warm-up, and performance
-- the daemon can stay warm across multiple consumers instead of each app loading its own model
+- the daemon serves menu bar apps, browser extensions, editor integrations, and the CLI without each reinventing the runtime
 
 That makes Vox a better fit for developer tools and desktop workflows than a single-purpose SDK that hides the runtime lifecycle.
 
@@ -49,22 +49,22 @@ That makes Vox a better fit for developer tools and desktop workflows than a sin
 ```bash
 bun install
 bun run build
-bun packages/cli/src/index.ts doctor
+vox doctor
 ```
 
 ### Warm the model before expected speech
 
 ```bash
-bun packages/cli/src/index.ts warmup start
-bun packages/cli/src/index.ts warmup schedule 500 parakeet:v3
+vox warmup start
+vox warmup schedule 500 parakeet:v3
 ```
 
 ### Measure real transcription performance
 
 ```bash
-bun packages/cli/src/index.ts transcribe file --metrics /tmp/sample.wav
-bun packages/cli/src/index.ts transcribe bench /tmp/sample.wav 5
-bun packages/cli/src/index.ts perf dashboard --client vox-cli
+vox transcribe file --metrics /tmp/sample.wav
+vox transcribe bench /tmp/sample.wav 5
+vox perf dashboard --client vox-cli
 ```
 
 ## Public Repository Goals

@@ -10,6 +10,7 @@ let package = Package(
         .library(name: "VoxCore", targets: ["VoxCore"]),
         .library(name: "VoxEngine", targets: ["VoxEngine"]),
         .library(name: "VoxService", targets: ["VoxService"]),
+        .library(name: "VoxBridge", targets: ["VoxBridge"]),
         .executable(name: "voxd", targets: ["voxd"])
     ],
     dependencies: [
@@ -27,6 +28,10 @@ let package = Package(
         .target(
             name: "VoxService",
             dependencies: ["VoxCore", "VoxEngine"]
+        ),
+        .target(
+            name: "VoxBridge",
+            dependencies: ["VoxCore"]
         ),
         .executableTarget(
             name: "voxd",

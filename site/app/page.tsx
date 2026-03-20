@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { ArrowUpRight, Activity, AudioLines, Boxes, Github, Radar, TerminalSquare, Waypoints } from "lucide-react";
+import { ArrowUpRight, Activity, AudioLines, Boxes, Download, Github, Radar, TerminalSquare, Waypoints } from "lucide-react";
 import { CopyCommand } from "../components/copy-command";
 import { ScreenshotLightbox } from "../components/screenshot-lightbox";
 
 const featureCards = [
   {
     icon: AudioLines,
-    title: "Warm, local inference",
-    body: "Swift services host Parakeet locally so apps can warm the model ahead of speech instead of paying a cold-start tax on the first command.",
+    title: "Fast local inference",
+    body: "Swift services host Parakeet locally so apps can preload the model ahead of speech instead of paying a cold-start tax on the first command.",
   },
   {
     icon: Radar,
@@ -17,7 +17,7 @@ const featureCards = [
   {
     icon: Boxes,
     title: "Multi-client runtime",
-    body: "One daemon serves menu bar apps, Raycast commands, browser extensions, editor integrations, and the CLI without each reinventing the runtime.",
+    body: "One daemon serves menu bar apps, browser extensions, editor integrations, and the CLI without each reinventing the runtime.",
   },
   {
     icon: Waypoints,
@@ -67,14 +67,20 @@ export default function Home() {
           <div className="grid gap-12 py-12 lg:grid-cols-[1.3fr_0.7fr] lg:items-end lg:gap-14">
             <div>
               <h1 className="max-w-[18ch] overflow-visible font-display text-4xl leading-[1.08] tracking-[-0.04em] sm:text-6xl lg:text-[5.8rem]">
-                The <em className="text-emerald">fastest</em> transcription framework for <em className="text-muted">builders</em> and <em className="text-muted">tinkerers.</em>
+                The <em className="text-emerald">easiest</em> transcription framework for <em className="text-muted">builders</em> and <em className="text-muted">thinkers.</em>
               </h1>
               <p className="mt-8 max-w-lg text-base leading-8 text-secondary">
                 A minimal macOS runtime. Swift services, Bun CLI, TypeScript SDK. On-device, measurable, yours.
               </p>
 
               <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-                <CopyCommand command="git clone https://github.com/arach/vox.git" />
+                <Link
+                  href="https://github.com/arach/vox/releases/latest/download/Vox.dmg"
+                  className="group inline-flex h-11 items-center gap-2 rounded-lg bg-accent px-6 font-mono text-[12px] uppercase tracking-[0.1em] text-canvas transition-all hover:bg-accent/90"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download for macOS
+                </Link>
                 <Link
                   href="/docs/overview"
                   className="group inline-flex h-11 items-center gap-2 rounded-[3px_8px_8px_3px] border border-line-strong px-5 font-mono text-[12px] uppercase tracking-[0.1em] text-secondary transition-all hover:border-accent/50 hover:text-ink hover:bg-wave"
@@ -91,7 +97,7 @@ export default function Home() {
                 <TerminalSquare className="h-4 w-4 text-accent" />
               </div>
               <div className="mt-4 rounded-lg border border-line bg-canvas p-4 font-mono text-[12px] leading-6 text-secondary">
-                <div className="text-muted">$ vox perf --client raycast</div>
+                <div className="text-muted">$ vox perf --client cli</div>
                 <div className="mt-2 text-ink">p50=132ms p95=197ms 35x realtime</div>
                 <div className="mt-3 text-muted">$ vox transcribe /tmp/sample.wav</div>
                 <div className="text-ink">done: 127ms (35x realtime)</div>
@@ -133,7 +139,7 @@ export default function Home() {
                 Stage timings for every transcription. Slice by client, route, and model.
               </p>
               <div className="mt-8">
-                <CopyCommand command="vox perf dashboard --client raycast" />
+                <CopyCommand command="vox perf dashboard --client cli" />
               </div>
             </div>
 
@@ -151,28 +157,51 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Get started - single terminal narrative */}
+      {/* Get started */}
       <section className="border-t border-line bg-panel px-6 py-20 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-6xl">
-          <div className="grid gap-12 lg:grid-cols-[1fr_1fr] lg:items-start">
-            <div>
-              <h2 className="max-w-[20ch] font-display text-3xl italic leading-tight tracking-[-0.03em] sm:text-5xl">
-                Up and running in four commands.
-              </h2>
-              <p className="mt-5 max-w-md text-[15px] leading-7 text-secondary">
-                Clone, install, build, verify. The doctor command confirms the daemon, model, and backend are healthy on your Mac.
+          <div className="mb-14">
+            <h2 className="max-w-[20ch] font-display text-3xl italic leading-tight tracking-[-0.03em] sm:text-5xl">
+              Install once, transcribe anywhere.
+            </h2>
+            <p className="mt-5 max-w-lg text-[15px] leading-7 text-secondary">
+              Vox runs as a lightweight daemon on your Mac. Install the companion app or use the CLI — either way, any web app on your machine gets local transcription for free.
+            </p>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-2">
+            <div className="rounded-xl border border-line-strong bg-canvas p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+              <div className="mb-4 flex items-center gap-3">
+                <Download className="h-4 w-4 text-accent" />
+                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Download</span>
+              </div>
+              <p className="text-[15px] leading-7 text-secondary">
+                Drag Vox to Applications. The daemon starts automatically on login — nothing to manage, nothing to close.
               </p>
+              <div className="mt-5">
+                <Link
+                  href="https://github.com/arach/vox/releases/latest/download/Vox.dmg"
+                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-5 font-mono text-[11px] uppercase tracking-[0.1em] text-canvas transition-all hover:bg-accent/90"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Vox.dmg
+                </Link>
+              </div>
             </div>
-            <div className="rounded-xl border border-line-strong bg-canvas p-5 font-mono text-[12px] leading-7 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
-              <div className="text-muted">$ git clone https://github.com/arach/vox.git</div>
-              <div className="text-muted">$ cd vox && bun install</div>
-              <div className="text-secondary">resolved 148 packages</div>
-              <div className="mt-3 text-muted">$ bun run build</div>
-              <div className="text-secondary">sdk, cli, daemon built</div>
-              <div className="mt-3 text-muted">$ vox doctor</div>
-              <div className="text-ink">daemon: running</div>
-              <div className="text-ink">backend: parakeet</div>
-              <div className="text-accent">ready</div>
+
+            <div className="rounded-xl border border-line-strong bg-canvas p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+              <div className="mb-4 flex items-center gap-3">
+                <TerminalSquare className="h-4 w-4 text-accent" />
+                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">CLI</span>
+              </div>
+              <div className="font-mono text-[12px] leading-7">
+                <div className="text-muted">$ npx @vox-ai/cli install</div>
+                <div className="text-secondary">daemon installed, LaunchAgent registered</div>
+                <div className="mt-3 text-muted">$ npx @vox-ai/cli doctor</div>
+                <div className="text-ink">daemon: running</div>
+                <div className="text-ink">backend: parakeet</div>
+                <div className="text-accent">ready</div>
+              </div>
             </div>
           </div>
         </div>

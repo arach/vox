@@ -291,7 +291,7 @@ The TypeScript SDK lives in `packages/client/`.
 ```ts
 import { VoxClient } from "@vox/client";
 
-const client = new VoxClient({ clientId: "raycast" });
+const client = new VoxClient({ clientId: "menu-bar" });
 
 await client.connect();
 await client.scheduleWarmup("parakeet:v3", 500);
@@ -345,7 +345,7 @@ interface FileTranscriptionResult {
 
 ## Integration advice
 
-- use a stable `clientId` per product surface such as `raycast`, `browser-extension`, or `vox-cli`
+- use a stable `clientId` per product surface such as `menu-bar`, `browser-extension`, or `vox-cli`
 - warm on intent, not on every keystroke
 - benchmark with representative audio clips and read `inferenceMs` separately from `totalMs`
 - preserve the raw metrics in your own telemetry if the app already exports traces
@@ -415,7 +415,7 @@ Vox records both:
 
 ```json
 {
-  "clientId": "raycast",
+  "clientId": "menu-bar",
   "route": "transcribe.file",
   "modelId": "parakeet:v3",
   "audioDurationMs": 5110,

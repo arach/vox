@@ -19,9 +19,8 @@ Recommended operator loop:
 Use stable product-surface IDs instead of per-user or per-session IDs:
 
 - `vox-cli`
-- `raycast`
-- `browser-extension`
 - `menu-bar`
+- `browser-extension`
 - `editor-plugin`
 
 This keeps dashboard slices meaningful over time.

@@ -19,7 +19,7 @@ Vox makes the runtime explicit instead:
 - `@vox/client` gives apps a typed JSON-RPC integration surface
 - `vox` gives operators a local tool for health checks, benchmarks, and dashboards
 
-That split makes it easier to build multi-client products where a menu bar app, Raycast command, browser extension, or editor plugin can all talk to the same warm runtime.
+That split makes it easier to build multi-client products where a menu bar app, browser extension, or editor plugin can all talk to the same warm runtime.
 
 ## Layout
 
