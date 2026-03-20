@@ -67,10 +67,10 @@ export default function Home() {
           <div className="grid gap-12 py-12 lg:grid-cols-[1.3fr_0.7fr] lg:items-end lg:gap-14">
             <div>
               <h1 className="max-w-[18ch] overflow-visible font-display text-4xl leading-[1.08] tracking-[-0.04em] sm:text-6xl lg:text-[5.8rem]">
-                The <em className="text-emerald">easiest</em> transcription framework for <em className="text-muted">builders</em> and <em className="text-muted">tinkerers.</em>
+                One engine to power <em className="text-emerald">all</em> your voice apps.
               </h1>
               <p className="mt-8 max-w-lg text-base leading-8 text-secondary">
-                A minimal macOS runtime. Swift services, Bun CLI, TypeScript SDK. On-device, measurable, yours.
+                Talk anywhere, instantly. On-device transcription that runs as a lightweight macOS daemon — one runtime for every app on your machine.
               </p>
 
               <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center">

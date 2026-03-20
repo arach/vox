@@ -294,7 +294,7 @@ try {
   for (const post of blogPosts) {
     const html = writeTempHtml(
       `blog-${post.slug}`,
-      renderDocTemplate(post.title, "Blog", "vox.arach.dev/blog"),
+      renderDocTemplate(post.title, "Blog", "voxd.cc/blog"),
     );
     renderToPng(html, join(blogOgRoot, `${post.slug}.png`));
   }

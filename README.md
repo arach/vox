@@ -90,5 +90,5 @@ Tagged latency samples are appended to `~/.vox/performance.jsonl`.
 
 ## Release Automation
 
-- GitHub Pages deploys from [`.github/workflows/deploy-pages.yml`](/Users/arach/dev/vox/.github/workflows/deploy-pages.yml) to `https://vox.arach.dev`
+- GitHub Pages deploys from [`.github/workflows/deploy-pages.yml`](/Users/arach/dev/vox/.github/workflows/deploy-pages.yml) to `https://voxd.cc`
 - npm publishing runs from [`.github/workflows/publish-packages.yml`](/Users/arach/dev/vox/.github/workflows/publish-packages.yml) and publishes `@vox/client` before `@vox/cli`

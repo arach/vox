@@ -36,7 +36,7 @@ jobs:
 
       - name: Build static site
         env:
-          NEXT_PUBLIC_SITE_URL: https://vox.arach.dev
+          NEXT_PUBLIC_SITE_URL: https://voxd.cc
         run: bun run site:build
 
       - name: Upload Pages artifact
