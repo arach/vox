@@ -34,6 +34,13 @@
         "react": "^19.0.0",
       },
     },
+    "packages/web-client": {
+      "name": "@voxd/client",
+      "version": "0.1.0",
+      "devDependencies": {
+        "typescript": "^5.9.2",
+      },
+    },
     "site": {
       "name": "@vox/site",
       "version": "0.1.0",
@@ -427,6 +434,8 @@
     "@vox/site": ["@vox/site@workspace:site"],
 
     "@vox/tui": ["@vox/tui@workspace:packages/tui"],
+
+    "@voxd/client": ["@voxd/client@workspace:packages/web-client"],
 
     "@webgpu/types": ["@webgpu/types@0.1.69", "", {}, "sha512-RPmm6kgRbI8e98zSD3RVACvnuktIja5+yLgDAkTmxLr90BEwdTXRQWNLF3ETTTyH/8mKhznZuN5AveXYFEsMGQ=="],
 
