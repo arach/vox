@@ -243,6 +243,221 @@ function renderDocTemplate(title: string, eyebrow: string, detail: string) {
 </html>`;
 }
 
+function renderLandingTemplate(title: string, eyebrow: string, detail: string) {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #09090b;
+        --panel: rgba(20, 20, 22, 0.94);
+        --ink: #fafafa;
+        --muted: #a1a1aa;
+        --soft: #71717a;
+        --accent: #34d399;
+        --accent-strong: #10b981;
+        --line: rgba(255, 255, 255, 0.1);
+        --grid: rgba(255, 255, 255, 0.045);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+        position: relative;
+        background:
+          radial-gradient(circle at 8% 14%, rgba(52, 211, 153, 0.14), transparent 24rem),
+          radial-gradient(circle at 92% 86%, rgba(52, 211, 153, 0.08), transparent 20rem),
+          var(--bg);
+        color: var(--ink);
+        font-family: "Inter", sans-serif;
+      }
+
+      .grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(to right, var(--grid) 1px, transparent 1px),
+          linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+        background-size: 48px 48px;
+        opacity: 0.18;
+      }
+
+      .grid::before,
+      .grid::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(to right, var(--grid) 1px, transparent 1px),
+          linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+        background-size: 48px 48px;
+      }
+
+      .grid::before {
+        opacity: 0.5;
+        mask-image: radial-gradient(circle at 48px 48px, black 0, black 19rem, transparent 34rem);
+      }
+
+      .grid::after {
+        opacity: 0.36;
+        mask-image: radial-gradient(circle at calc(100% - 48px) calc(100% - 48px), black 0, black 18rem, transparent 34rem);
+      }
+
+      .corner {
+        position: absolute;
+        width: 96px;
+        height: 96px;
+        opacity: 0.72;
+      }
+
+      .corner::before,
+      .corner::after {
+        content: "";
+        position: absolute;
+      }
+
+      .corner::before {
+        width: 96px;
+        height: 2px;
+        background: linear-gradient(90deg, var(--accent), transparent);
+      }
+
+      .corner::after {
+        width: 2px;
+        height: 96px;
+        background: linear-gradient(180deg, var(--accent), transparent);
+      }
+
+      .corner.tl { top: 48px; left: 48px; }
+      .corner.br { right: 48px; bottom: 48px; transform: rotate(180deg); }
+
+      .wrap {
+        position: relative;
+        height: 100%;
+        padding: 74px 96px 68px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        column-gap: 40px;
+      }
+
+      .left {
+        display: flex;
+        align-items: center;
+      }
+
+      .wordmark {
+        color: var(--ink);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 38px;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow {
+        margin-top: 34px;
+        color: var(--accent);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 22px 0 0;
+        max-width: 760px;
+        font-family: "Instrument Serif", serif;
+        font-size: 84px;
+        line-height: 0.92;
+        letter-spacing: -0.05em;
+        font-weight: 400;
+      }
+
+      .detail {
+        margin-top: 30px;
+        color: var(--muted);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 20px;
+        line-height: 1.7;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .right {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+      }
+
+      .panel {
+        width: 360px;
+        padding: 22px 24px 20px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--panel);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+      }
+
+      .panel-label {
+        color: var(--soft);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .panel-body {
+        margin-top: 12px;
+        color: var(--ink);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 16px;
+        font-weight: 500;
+        line-height: 1.8;
+      }
+
+      .panel-accent {
+        height: 4px;
+        margin-top: 18px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, transparent, var(--accent) 28%, var(--accent-strong) 72%, transparent);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grid"></div>
+    <div class="corner tl"></div>
+    <div class="corner br"></div>
+    <div class="wrap">
+      <div class="left">
+        <div>
+          <div class="wordmark">Vox</div>
+          <div class="eyebrow">${shellEscape(eyebrow)}</div>
+          <h1>${shellEscape(title)}</h1>
+          <div class="detail">${shellEscape(detail)}</div>
+        </div>
+      </div>
+      <div class="right">
+        <div class="panel">
+          <div class="panel-label">Bridge</div>
+          <div class="panel-body">npm install @voxd/client<br />probe() + transcribe()<br />Local companion on macOS</div>
+          <div class="panel-accent"></div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>`;
+}
+
 function renderToPng(htmlPath: string, outputPath: string) {
   execFileSync("bun", ["x", "@arach/og", htmlPath, "-o", outputPath], {
     cwd: siteRoot,
@@ -260,6 +475,17 @@ try {
   mkdirSync(docsOgRoot, { recursive: true });
 
   renderToPng(join(siteRoot, "og-template.html"), join(publicRoot, "og.png"));
+  renderToPng(
+    writeTempHtml(
+      "web",
+      renderLandingTemplate(
+        "Local transcription for apps that live in the browser.",
+        "Web SDK",
+        "Install. Probe. Transcribe locally.",
+      ),
+    ),
+    join(publicRoot, "og", "web.png"),
+  );
 
   const docsIndexHtml = writeTempHtml(
     "docs-index",
