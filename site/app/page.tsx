@@ -139,7 +139,7 @@ export default function Home() {
                 Stage timings for every transcription. Slice by client, route, and model.
               </p>
               <div className="mt-8">
-                <CopyCommand command="vox perf dashboard --client cli" />
+                <CopyCommand command="vox tui" />
               </div>
             </div>
 
