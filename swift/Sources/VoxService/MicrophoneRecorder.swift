@@ -39,7 +39,7 @@ actor MicrophoneRecorder {
 
         self.recorder = recorder
         self.currentURL = url
-        log.info("Recording started: \(url.lastPathComponent, privacy: .public)")
+        log.info("Recording started: \(url.lastPathComponent)")
         return url
     }
 
@@ -53,14 +53,17 @@ actor MicrophoneRecorder {
         recorder.stop()
         self.recorder = nil
         self.currentURL = nil
+        log.info("Recording stopped: \(currentURL.lastPathComponent)")
         return currentURL
     }
 
     func cancel() {
+        let current = currentURL
         recorder?.stop()
         recorder = nil
-        if let currentURL {
-            try? FileManager.default.removeItem(at: currentURL)
+        if let current {
+            try? FileManager.default.removeItem(at: current)
+            log.warning("Recording cancelled: \(current.lastPathComponent)")
         }
         self.currentURL = nil
     }

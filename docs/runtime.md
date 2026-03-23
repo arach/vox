@@ -7,6 +7,7 @@
 3. The client triggers file transcription or a live session.
 4. `VoxEngine` runs Parakeet locally and returns transcript text, word timings, and stage metrics.
 5. The runtime records a tagged performance sample to `~/.vox/performance.jsonl`.
+6. The daemon appends operational logs to `~/.vox/logs/voxd.log`.
 
 ## Warm-Up Semantics
 
@@ -48,6 +49,7 @@ Current route names worth preserving:
 
 - `transcribe.file`
 - `transcribe.startSession`
+- `transcribe.sessionStatus`
 - `transcribe.stopSession`
 - `transcribe.cancelSession`
 - `warmup.status`
@@ -66,6 +68,7 @@ Key properties:
 - session ownership is associated with both `connectionID` and `clientId`
 - stop/cancel semantics are explicit
 - final transcript events include metrics and word-level timestamps
+- active session state is inspectable for operator recovery
 
 ## Important Swift entry points
 

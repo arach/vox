@@ -41,4 +41,23 @@ struct LiveSessionCoordinatorTests {
         #expect(finished?.sessionId == session.sessionId)
         #expect(coordinator.current(id: nil) == nil)
     }
+
+    @Test("Status exposes the active session owner and state")
+    func statusReflectsActiveSession() throws {
+        let coordinator = LiveSessionCoordinator()
+        let session = try coordinator.begin(
+            connectionID: "a",
+            clientId: "client-a",
+            modelId: "parakeet:v3",
+            progress: { _, _ in },
+            reply: { _, _ in }
+        )
+
+        let status = coordinator.status()
+        #expect(status?.sessionId == session.sessionId)
+        #expect(status?.clientId == "client-a")
+        #expect(status?.modelId == "parakeet:v3")
+        #expect(status?.state == .starting)
+        #expect(status?.connectionID == "a")
+    }
 }

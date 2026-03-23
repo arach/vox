@@ -468,6 +468,7 @@ function ConfigPanel({
     ...(providerEntries.length === 0 ? [{ section: "Providers" as string, label: "—", value: "using defaults" }] : []),
     { section: "Storage", label: "home", value: home },
     { label: "runtime", value: join(home, "runtime.json"), info: existsSync(join(home, "runtime.json")) ? "✓" : "—" },
+    { label: "daemon log", value: join(home, "logs", "voxd.log"), info: existsSync(join(home, "logs", "voxd.log")) ? "✓" : "—" },
     { label: "performance", value: join(home, "performance.jsonl"), info: existsSync(join(home, "performance.jsonl")) ? "✓" : "—" },
     { label: "voice log", value: join(home, "voice.jsonl"), info: existsSync(join(home, "voice.jsonl")) ? "✓" : "—" },
     { label: "providers", value: join(home, "providers.json"), info: existsSync(join(home, "providers.json")) ? "✓" : "—" },

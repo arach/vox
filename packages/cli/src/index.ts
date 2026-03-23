@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, rmSync } from "fs";
 import { join, resolve } from "path";
 import { createInterface } from "readline";
 import {
@@ -42,6 +42,9 @@ async function main(argv: string[]): Promise<void> {
       return;
     case "perf":
       await handlePerf(subcommand, rest);
+      return;
+    case "logs":
+      handleLogs(subcommand, rest);
       return;
     case "transcribe":
       await handleTranscribe(subcommand, rest);
@@ -185,6 +188,21 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
       });
       return;
     }
+    case "status": {
+      await withClient(async (client) => {
+        printLiveSessionStatus(await client.getLiveSessionStatus());
+      });
+      return;
+    }
+    case "cancel": {
+      const sessionId = rest.find((value) => !value.startsWith("--"));
+      await withClient(async (client) => {
+        const result = await client.cancelLiveSession(sessionId);
+        console.log(`cancelled: ${result.cancelled}`);
+        console.log(`session: ${result.sessionId}`);
+      });
+      return;
+    }
     default:
       throw new Error(`Unknown transcribe command: ${subcommand ?? "(missing)"}`);
   }
@@ -226,6 +244,28 @@ async function handlePerf(subcommand: string | undefined, rest: string[]): Promi
   }
 }
 
+function handleLogs(subcommand: string | undefined, rest: string[]): void {
+  const args = subcommand?.startsWith("--") ? [subcommand, ...rest] : rest;
+  const tail = Number(readOption(args, "--tail") ?? 80);
+  if (!Number.isInteger(tail) || tail < 1) {
+    throw new Error(`Expected a positive integer tail count, received: ${readOption(args, "--tail") ?? "(missing)"}`);
+  }
+
+  const target = !subcommand || subcommand.startsWith("--") ? "daemon" : subcommand;
+  const path = resolveLogPath(target);
+  if (!existsSync(path)) {
+    console.log(`No log at ${path}`);
+    return;
+  }
+
+  console.log(`log: ${path}`);
+  const content = readFileSync(path, "utf8");
+  const lines = content.split("\n").filter(Boolean);
+  for (const line of lines.slice(-tail)) {
+    console.log(line);
+  }
+}
+
 async function withClient<T>(fn: (client: VoxClient) => Promise<T>): Promise<T> {
   await ensureDaemonRunning();
   const client = new VoxClient({ clientId: "vox-cli" });
@@ -239,8 +279,11 @@ async function withClient<T>(fn: (client: VoxClient) => Promise<T>): Promise<T> 
 
 async function ensureDaemonRunning(): Promise<RuntimeInfo> {
   const existing = readRuntimeInfo();
-  if (existing && processIsRunning(existing.pid)) {
-    return existing;
+  if (existing) {
+    const listenerPid = findListeningPid(existing.port);
+    if (listenerPid && processIsRunning(listenerPid)) {
+      return listenerPid === existing.pid ? existing : { ...existing, pid: listenerPid };
+    }
   }
 
   buildDaemon();
@@ -255,8 +298,11 @@ async function ensureDaemonRunning(): Promise<RuntimeInfo> {
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     const runtime = readRuntimeInfo();
-    if (runtime && processIsRunning(runtime.pid)) {
-      return runtime;
+    if (runtime) {
+      const listenerPid = findListeningPid(runtime.port);
+      if (listenerPid && processIsRunning(listenerPid)) {
+        return listenerPid === runtime.pid ? runtime : { ...runtime, pid: listenerPid };
+      }
     }
     await Bun.sleep(200);
   }
@@ -282,14 +328,35 @@ function buildDaemon(): void {
 
 async function stopDaemon(): Promise<void> {
   const runtime = readRuntimeInfo();
-  if (!runtime || !processIsRunning(runtime.pid)) {
+  const port = runtime?.port ?? 42137;
+  const pids = new Set<number>();
+
+  if (runtime && processIsRunning(runtime.pid)) {
+    pids.add(runtime.pid);
+  }
+  const listenerPid = findListeningPid(port);
+  if (listenerPid && processIsRunning(listenerPid)) {
+    pids.add(listenerPid);
+  }
+
+  if (pids.size === 0) {
+    rmSync(getRuntimeFilePath(), { force: true });
     return;
   }
 
-  process.kill(runtime.pid, "SIGTERM");
+  for (const pid of pids) {
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch {
+      // Ignore already-exited processes.
+    }
+  }
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {
-    if (!processIsRunning(runtime.pid) && !existsSync(getRuntimeFilePath())) {
+    const activePid = findListeningPid(port);
+    const anyRunning = [...pids].some((pid) => processIsRunning(pid));
+    if (!activePid && !anyRunning) {
+      rmSync(getRuntimeFilePath(), { force: true });
       return;
     }
     await Bun.sleep(100);
@@ -298,15 +365,31 @@ async function stopDaemon(): Promise<void> {
 
 function printDaemonStatus(): void {
   const runtime = readRuntimeInfo();
-  if (!runtime) {
+  const port = runtime?.port ?? 42137;
+  const listenerPid = findListeningPid(port);
+  if (!runtime && !listenerPid) {
     console.log("Vox daemon is not running.");
     return;
   }
 
-  const running = processIsRunning(runtime.pid);
-  console.log(`status: ${running ? "running" : "stale"}`);
-  console.log(`pid: ${runtime.pid}`);
-  console.log(`port: ${runtime.port}`);
+  const runtimeRunning = runtime ? processIsRunning(runtime.pid) : false;
+  const status = listenerPid
+    ? "running"
+    : runtimeRunning
+      ? "detached"
+      : "stale";
+
+  console.log(`status: ${status}`);
+  if (listenerPid) {
+    console.log(`pid: ${listenerPid}`);
+  } else if (runtime) {
+    console.log(`pid: ${runtime.pid}`);
+  }
+  console.log(`port: ${port}`);
+  if (runtime && listenerPid && runtime.pid !== listenerPid) {
+    console.log(`runtime pid: ${runtime.pid}`);
+    console.log("warning: runtime.json does not match the process holding the port");
+  }
   console.log(`runtime: ${getRuntimeFilePath()}`);
 }
 
@@ -343,6 +426,20 @@ function printWarmupStatus(status: WarmupStatus): void {
   if (status.lastError) {
     console.log(`error: ${status.lastError}`);
   }
+}
+
+function printLiveSessionStatus(status: Awaited<ReturnType<VoxClient["getLiveSessionStatus"]>>): void {
+  if (!status) {
+    console.log("active: no");
+    return;
+  }
+
+  console.log("active: yes");
+  console.log(`session: ${status.sessionId}`);
+  console.log(`client: ${status.clientId}`);
+  console.log(`model: ${status.modelId}`);
+  console.log(`state: ${status.state}`);
+  console.log(`started: ${status.startedAt}`);
 }
 
 interface PerformanceSample {
@@ -533,6 +630,20 @@ function readPerformanceSamples(logPath: string): PerformanceSample[] {
     .map((line) => JSON.parse(line) as PerformanceSample);
 }
 
+function resolveLogPath(target: string): string {
+  const home = getVoxHome();
+  switch (target) {
+    case "daemon":
+      return join(home, "logs", "voxd.log");
+    case "performance":
+      return join(home, "performance.jsonl");
+    case "voice":
+      return join(home, "voice.jsonl");
+    default:
+      throw new Error(`Unknown logs target: ${target}`);
+  }
+}
+
 function readOption(args: string[], name: string): string | undefined {
   const index = args.indexOf(name);
   if (index === -1) {
@@ -586,6 +697,27 @@ function processIsRunning(pid: number): boolean {
   }
 }
 
+function findListeningPid(port: number): number | null {
+  const result = Bun.spawnSync([
+    "lsof",
+    "-nP",
+    `-iTCP:${port}`,
+    "-sTCP:LISTEN",
+    "-t",
+  ], {
+    stdout: "pipe",
+    stderr: "ignore",
+  });
+
+  if (result.exitCode !== 0) {
+    return null;
+  }
+
+  const output = result.stdout.toString().trim().split("\n").find(Boolean);
+  const pid = Number(output);
+  return Number.isInteger(pid) && pid > 0 ? pid : null;
+}
+
 async function waitForEnter(): Promise<void> {
   const rl = createInterface({
     input: process.stdin,
@@ -620,8 +752,11 @@ Usage:
   vox warmup status|start [modelId]
   vox warmup schedule [delayMs] [modelId]
   vox perf dashboard [--client <clientId>] [--route <route>] [--last <n>]
+  vox logs [daemon|performance|voice] [--tail <n>]
   vox transcribe file [--metrics] [--timestamps] <path>
   vox transcribe bench <path> [runs]
+  vox transcribe status
+  vox transcribe cancel [sessionId]
   vox transcribe live [--timestamps]
   vox tui`);
 }

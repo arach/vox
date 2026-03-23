@@ -111,6 +111,15 @@ export interface SessionStateEvent {
   previous?: SessionState | null;
 }
 
+export interface LiveSessionStatus {
+  sessionId: string;
+  connectionId: string;
+  clientId: string;
+  modelId: string;
+  startedAt: string;
+  state: SessionState;
+}
+
 export interface SessionFinalEvent {
   sessionId: string;
   text: string;

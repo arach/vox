@@ -7,6 +7,7 @@ import { parseWordTimings } from "./words.ts";
 import type {
   DoctorReport,
   FileTranscriptionResult,
+  LiveSessionStatus,
   ModelInfo,
   ModelProgress,
   WarmupStatus,
@@ -131,6 +132,32 @@ export class VoxClient {
       elapsedMs: Number(result.elapsedMs ?? 0),
       metrics: parseTranscriptionMetrics(result.metrics, Number(result.elapsedMs ?? 0)),
       words: parseWordTimings(result.words),
+    };
+  }
+
+  async getLiveSessionStatus(): Promise<LiveSessionStatus | null> {
+    const result = await this.call("transcribe.sessionStatus");
+    const raw = result.session;
+    if (!raw || typeof raw !== "object") {
+      return null;
+    }
+
+    const session = raw as Record<string, unknown>;
+    return {
+      sessionId: String(session.sessionId ?? ""),
+      connectionId: String(session.connectionId ?? ""),
+      clientId: String(session.clientId ?? ""),
+      modelId: String(session.modelId ?? ""),
+      startedAt: String(session.startedAt ?? ""),
+      state: String(session.state ?? "error") as LiveSessionStatus["state"],
+    };
+  }
+
+  async cancelLiveSession(sessionId?: string): Promise<{ cancelled: boolean; sessionId: string }> {
+    const result = await this.call("transcribe.cancelSession", sessionId ? { sessionId } : undefined);
+    return {
+      cancelled: Boolean(result.cancelled),
+      sessionId: String(result.sessionId ?? sessionId ?? ""),
     };
   }
 

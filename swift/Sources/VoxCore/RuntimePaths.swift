@@ -26,6 +26,18 @@ public enum RuntimePaths {
         voxHomeURL().appendingPathComponent("performance.jsonl")
     }
 
+    public static func voiceLogURL() -> URL {
+        voxHomeURL().appendingPathComponent("voice.jsonl")
+    }
+
+    public static func logsDirectoryURL() -> URL {
+        voxHomeURL().appendingPathComponent("logs", isDirectory: true)
+    }
+
+    public static func daemonLogURL() -> URL {
+        logsDirectoryURL().appendingPathComponent("voxd.log")
+    }
+
     public static func providersConfigURL() -> URL {
         voxHomeURL().appendingPathComponent("providers.json")
     }
@@ -33,6 +45,10 @@ public enum RuntimePaths {
     public static func ensureDirectories() throws {
         try FileManager.default.createDirectory(
             at: voxHomeURL(),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: logsDirectoryURL(),
             withIntermediateDirectories: true
         )
     }

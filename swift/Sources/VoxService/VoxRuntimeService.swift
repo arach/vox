@@ -22,6 +22,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
 
     public func start() throws {
         registerHandlers()
+        try bridge.start()
         let runtime = RuntimeInfo(
             version: VoxVersion.current,
             serviceName: "Vox",
@@ -30,7 +31,6 @@ public final class VoxRuntimeService: @unchecked Sendable {
             startedAt: startedAt
         )
         try RuntimeRegistry.write(runtime)
-        bridge.start()
     }
 
     public func stop() {
@@ -169,6 +169,15 @@ public final class VoxRuntimeService: @unchecked Sendable {
             }
         }
 
+        bridge.handle("transcribe.sessionStatus") { [weak self] _, reply in
+            guard let self else { return }
+            if let session = self.sessions.status() {
+                reply(["session": session.dictionaryValue()], nil)
+            } else {
+                reply(["session": NSNull()], nil)
+            }
+        }
+
         bridge.handleStreaming("transcribe.startSession") { [weak self] params, progress, reply in
             guard let self else { return }
             let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
@@ -184,6 +193,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
                         progress: progress,
                         reply: reply
                     )
+                    self.log.info("Starting live session \(session.sessionId) for client \(clientId) model \(modelId)")
                     session.progress("session.state", [
                         "sessionId": session.sessionId,
                         "state": SessionState.starting.rawValue,
@@ -198,6 +208,11 @@ public final class VoxRuntimeService: @unchecked Sendable {
                     ])
                     _ = await self.warmup.start(modelId: modelId, requestedBy: clientId)
                 } catch {
+                    if let active = self.sessions.status() {
+                        self.log.warning("Failed to start live session for client \(clientId): \(error.localizedDescription) active=\(active.sessionId) state=\(active.state.rawValue) owner=\(active.clientId)")
+                    } else {
+                        self.log.error("Failed to start live session for client \(clientId): \(error.localizedDescription)")
+                    }
                     reply(nil, error.localizedDescription)
                 }
             }
@@ -235,6 +250,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
                     ))
 
                     session.state = .done
+                    self.log.info("Completed live session \(session.sessionId) for client \(session.clientId) elapsed=\(output.elapsedMs)ms textLength=\(output.text.count)")
                     session.progress("session.final", [
                         "sessionId": session.sessionId,
                         "text": output.text,
@@ -267,6 +283,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
                             error: error.localizedDescription
                         ))
                     }
+                    self.log.error("Failed to stop live session \(requestedID ?? "current"): \(error.localizedDescription)")
                     if let session = self.sessions.finish(id: requestedID) {
                         session.reply(nil, error.localizedDescription)
                     }
@@ -286,6 +303,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
 
                 await self.recorder.cancel()
                 session.state = .cancelled
+                self.log.warning("Cancelled live session \(session.sessionId) for client \(session.clientId)")
                 session.progress("session.state", [
                     "sessionId": session.sessionId,
                     "state": SessionState.cancelled.rawValue,
@@ -334,6 +352,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
         }
 
         await recorder.cancel()
+        log.warning("Connection \(connectionID) closed, cancelled live session \(session.sessionId) for client \(session.clientId)")
         session.reply(nil, "session_cancelled:connection_closed")
     }
 }

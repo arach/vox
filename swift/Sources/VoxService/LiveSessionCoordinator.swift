@@ -5,6 +5,26 @@ final class LiveSessionCoordinator: @unchecked Sendable {
     typealias ProgressHandler = @Sendable (_ event: String, _ data: [String: Any]) -> Void
     typealias ReplyHandler = @Sendable (_ result: [String: Any]?, _ error: String?) -> Void
 
+    struct SessionStatus: Sendable {
+        let sessionId: String
+        let connectionID: String
+        let clientId: String
+        let modelId: String
+        let startedAt: Date
+        let state: SessionState
+
+        func dictionaryValue() -> [String: Any] {
+            [
+                "sessionId": sessionId,
+                "connectionId": connectionID,
+                "clientId": clientId,
+                "modelId": modelId,
+                "startedAt": ISO8601DateFormatter().string(from: startedAt),
+                "state": state.rawValue
+            ]
+        }
+    }
+
     final class Session: @unchecked Sendable {
         let sessionId: String
         let connectionID: String
@@ -85,6 +105,21 @@ final class LiveSessionCoordinator: @unchecked Sendable {
         guard let activeSession else { return nil }
         guard let id else { return activeSession }
         return activeSession.sessionId == id ? activeSession : nil
+    }
+
+    func status() -> SessionStatus? {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard let activeSession else { return nil }
+        return SessionStatus(
+            sessionId: activeSession.sessionId,
+            connectionID: activeSession.connectionID,
+            clientId: activeSession.clientId,
+            modelId: activeSession.modelId,
+            startedAt: activeSession.startedAt,
+            state: activeSession.state
+        )
     }
 
     func finish(id: String?) -> Session? {

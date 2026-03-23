@@ -68,6 +68,9 @@ vox models list
 vox models install
 vox warmup start
 vox warmup schedule 500
+vox logs daemon --tail 80
+vox transcribe status
+vox transcribe cancel
 vox transcribe file --timestamps /path/to/audio.wav
 vox transcribe bench /path/to/audio.wav 5
 vox perf dashboard
@@ -78,6 +81,7 @@ vox transcribe live --timestamps
 
 The daemon writes runtime discovery metadata to `~/.vox/runtime.json`.
 Tagged latency samples are appended to `~/.vox/performance.jsonl`.
+Daemon logs are appended to `~/.vox/logs/voxd.log`, even when `voxd` is auto-started by the CLI.
 
 `bun run test:e2e` is an opt-in macOS integration suite. It boots `voxd`, preloads the model, synthesizes short speech samples with `say`, and verifies real `transcribe file` output against keyword checks.
 

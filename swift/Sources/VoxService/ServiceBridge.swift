@@ -2,6 +2,43 @@ import Foundation
 import Network
 import VoxCore
 
+private final class StartupGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private let signal = DispatchSemaphore(value: 0)
+    private var resolved = false
+    private var startupError: Error?
+
+    func markReady() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !resolved else { return }
+        resolved = true
+        signal.signal()
+    }
+
+    func markFailed(_ error: Error) {
+        lock.lock()
+        defer { lock.unlock() }
+        startupError = error
+        guard !resolved else { return }
+        resolved = true
+        signal.signal()
+    }
+
+    func wait(timeout: DispatchTime) throws {
+        switch signal.wait(timeout: timeout) {
+        case .success:
+            if let startupError {
+                throw startupError
+            }
+        case .timedOut:
+            throw NSError(domain: "VoxService", code: 1001, userInfo: [
+                NSLocalizedDescriptionKey: "Timed out waiting for ServiceBridge to start."
+            ])
+        }
+    }
+}
+
 public final class ServiceBridge: @unchecked Sendable {
     public typealias Handler = (
         _ params: [String: Any]?,
@@ -46,7 +83,7 @@ public final class ServiceBridge: @unchecked Sendable {
         lock.unlock()
     }
 
-    public func start() {
+    public func start() throws {
         let parameters = NWParameters.tcp
         parameters.allowLocalEndpointReuse = true
 
@@ -57,18 +94,22 @@ public final class ServiceBridge: @unchecked Sendable {
         do {
             listener = try NWListener(using: parameters, on: .init(rawValue: port)!)
         } catch {
-            log.error("Failed to create WebSocket listener: \(error.localizedDescription, privacy: .public)")
+            log.error("Failed to create WebSocket listener: \(error.localizedDescription)")
             return
         }
+
+        let startup = StartupGate()
 
         listener?.stateUpdateHandler = { [weak self] state in
             guard let self else { return }
             switch state {
             case .ready:
-                self.log.info("ServiceBridge listening on ws://\(self.bindAddress, privacy: .public):\(self.port)")
+                self.log.info("ServiceBridge listening on ws://\(self.bindAddress):\(self.port)")
+                startup.markReady()
             case .failed(let error):
-                self.log.error("Listener failed: \(error.localizedDescription, privacy: .public)")
+                self.log.error("Listener failed: \(error.localizedDescription)")
                 self.listener?.cancel()
+                startup.markFailed(error)
             case .cancelled:
                 self.log.info("Listener cancelled")
             default:
@@ -81,6 +122,13 @@ public final class ServiceBridge: @unchecked Sendable {
         }
 
         listener?.start(queue: queue)
+        do {
+            try startup.wait(timeout: .now() + 5)
+        } catch {
+            listener?.cancel()
+            listener = nil
+            throw error
+        }
     }
 
     public func stop() {
@@ -126,7 +174,7 @@ public final class ServiceBridge: @unchecked Sendable {
         connection.receiveMessage { [weak self] content, _, _, error in
             guard let self else { return }
             if let error {
-                self.log.warning("Receive error: \(error.localizedDescription, privacy: .public)")
+                self.log.warning("Receive error: \(error.localizedDescription)")
                 connection.cancel()
                 return
             }

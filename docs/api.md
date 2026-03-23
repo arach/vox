@@ -25,6 +25,7 @@ This page describes the public protocol and SDK-facing shapes that other apps sh
 
 - `transcribe.file`
 - `transcribe.startSession`
+- `transcribe.sessionStatus`
 - `transcribe.stopSession`
 - `transcribe.cancelSession`
 
