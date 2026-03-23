@@ -14,6 +14,7 @@ import {
   type RuntimeInfo,
   type TranscriptionMetrics,
   type WarmupStatus,
+  type WordTiming,
 } from "@vox/client";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
@@ -109,15 +110,19 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
   switch (subcommand) {
     case "file": {
       const showMetrics = rest.includes("--metrics");
+      const showTimestamps = rest.includes("--timestamps");
       const filePath = rest.find((value) => !value.startsWith("--"));
       if (!filePath) {
-        throw new Error("Usage: vox transcribe file [--metrics] <path>");
+        throw new Error("Usage: vox transcribe file [--metrics] [--timestamps] <path>");
       }
       await withClient(async (client) => {
         const result = await client.transcribeFile(resolve(process.cwd(), filePath));
         console.log(result.text);
         if (showMetrics && result.metrics) {
           printTranscriptionMetrics(result.metrics);
+        }
+        if (showTimestamps) {
+          printWordTimings(result.words);
         }
       });
       return;
@@ -156,6 +161,7 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
       return;
     }
     case "live": {
+      const showTimestamps = rest.includes("--timestamps");
       await withClient(async (client) => {
         const session = client.createLiveSession();
         session.on("state", ({ state }) => {
@@ -164,8 +170,11 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
         session.on("partial", ({ text }) => {
           console.error(`partial: ${text}`);
         });
-        session.on("final", ({ text }) => {
+        session.on("final", ({ text, words }) => {
           console.log(text);
+          if (showTimestamps) {
+            printWordTimings(words);
+          }
         });
 
         const transcriptPromise = session.start();
@@ -427,6 +436,34 @@ function printTranscriptionMetrics(metrics: TranscriptionMetrics): void {
   console.error(`total: ${formatMs(metrics.totalMs)} (${formatSpeed(metrics.realtimeFactor)})`);
 }
 
+export function formatWordTimings(words: WordTiming[]): string[] {
+  if (words.length === 0) {
+    return ["timestamps: unavailable"];
+  }
+
+  const startWidth = Math.max("start".length, ...words.map((word) => formatSeconds(word.start).length));
+  const endWidth = Math.max("end".length, ...words.map((word) => formatSeconds(word.end).length));
+  const confidenceWidth = Math.max("conf".length, ...words.map((word) => formatConfidence(word.confidence).length));
+  const rows = [
+    `timestamps (${words.length} words):`,
+    `  ${pad("start", startWidth, true)}  ${pad("end", endWidth, true)}  ${pad("conf", confidenceWidth, true)}  word`,
+  ];
+
+  for (const word of words) {
+    rows.push(
+      `  ${pad(formatSeconds(word.start), startWidth, true)}  ${pad(formatSeconds(word.end), endWidth, true)}  ${pad(formatConfidence(word.confidence), confidenceWidth, true)}  ${word.word}`,
+    );
+  }
+
+  return rows;
+}
+
+function printWordTimings(words: WordTiming[]): void {
+  for (const line of formatWordTimings(words)) {
+    console.error(line);
+  }
+}
+
 function printBenchmarkSummary(results: FileTranscriptionResult[]): void {
   const metrics = results.map((result) => result.metrics).filter((value): value is TranscriptionMetrics => Boolean(value));
   if (metrics.length === 0) {
@@ -473,6 +510,14 @@ function formatMs(value: number): string {
     return `${(value / 1000).toFixed(2)}s`;
   }
   return `${Math.round(value)}ms`;
+}
+
+function formatSeconds(value: number): string {
+  return `${value.toFixed(2)}s`;
+}
+
+function formatConfidence(value: number): string {
+  return value > 0 ? value.toFixed(2) : "-";
 }
 
 function pad(value: string, width: number, left = false): string {
@@ -575,13 +620,15 @@ Usage:
   vox warmup status|start [modelId]
   vox warmup schedule [delayMs] [modelId]
   vox perf dashboard [--client <clientId>] [--route <route>] [--last <n>]
-  vox transcribe file [--metrics] <path>
+  vox transcribe file [--metrics] [--timestamps] <path>
   vox transcribe bench <path> [runs]
-  vox transcribe live
+  vox transcribe live [--timestamps]
   vox tui`);
 }
 
-main(process.argv.slice(2)).catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+if (import.meta.main) {
+  main(process.argv.slice(2)).catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}

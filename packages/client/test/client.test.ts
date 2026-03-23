@@ -22,6 +22,9 @@ describe("VoxClient", () => {
           modelId: "parakeet:v3",
           text: "ok",
           elapsedMs: 12,
+          words: [
+            { word: "ok", start: 0.01, end: 0.2, confidence: 0.99 },
+          ],
         };
       },
     };
@@ -29,6 +32,9 @@ describe("VoxClient", () => {
     const result = await client.transcribeFile("/tmp/sample.wav");
 
     expect(result.text).toBe("ok");
+    expect(result.words).toEqual([
+      { word: "ok", start: 0.01, end: 0.2, confidence: 0.99 },
+    ]);
     expect(calls).toEqual([
       {
         method: "transcribe.file",

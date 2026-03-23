@@ -239,7 +239,8 @@ public final class VoxRuntimeService: @unchecked Sendable {
                         "sessionId": session.sessionId,
                         "text": output.text,
                         "elapsedMs": output.elapsedMs,
-                        "metrics": output.metrics.dictionaryValue()
+                        "metrics": output.metrics.dictionaryValue(),
+                        "words": output.words.map { $0.dictionaryValue() }
                     ])
                     session.progress("session.state", [
                         "sessionId": session.sessionId,
@@ -250,7 +251,8 @@ public final class VoxRuntimeService: @unchecked Sendable {
                         "sessionId": session.sessionId,
                         "text": output.text,
                         "elapsedMs": output.elapsedMs,
-                        "metrics": output.metrics.dictionaryValue()
+                        "metrics": output.metrics.dictionaryValue(),
+                        "words": output.words.map { $0.dictionaryValue() }
                     ], nil)
 
                     reply(["stopped": true, "sessionId": session.sessionId], nil)

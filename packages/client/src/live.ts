@@ -2,6 +2,7 @@ import { Emitter } from "./events.ts";
 import { parseTranscriptionMetrics } from "./metrics.ts";
 import type { VoxClient } from "./client.ts";
 import type { LiveSessionEvents, SessionFinalEvent, SessionStateEvent } from "./types.ts";
+import { parseWordTimings } from "./words.ts";
 
 export class VoxLiveSession extends Emitter<LiveSessionEvents> {
   private sessionId: string | null = null;
@@ -29,6 +30,7 @@ export class VoxLiveSession extends Emitter<LiveSessionEvents> {
         text: String(result.text ?? ""),
         elapsedMs: Number(result.elapsedMs ?? 0),
         metrics: parseTranscriptionMetrics(result.metrics, Number(result.elapsedMs ?? 0)),
+        words: parseWordTimings(result.words),
       };
       return finalEvent;
     } catch (error) {
@@ -72,6 +74,7 @@ export class VoxLiveSession extends Emitter<LiveSessionEvents> {
           text: String(data.text ?? ""),
           elapsedMs: Number(data.elapsedMs ?? 0),
           metrics: parseTranscriptionMetrics(data.metrics, Number(data.elapsedMs ?? 0)),
+          words: parseWordTimings(data.words),
         };
         this.finalEvent = payload;
         this.sessionId = payload.sessionId || this.sessionId;

@@ -68,10 +68,10 @@ vox models list
 vox models install
 vox warmup start
 vox warmup schedule 500
-vox transcribe file /path/to/audio.wav
+vox transcribe file --timestamps /path/to/audio.wav
 vox transcribe bench /path/to/audio.wav 5
 vox perf dashboard
-vox transcribe live
+vox transcribe live --timestamps
 ```
 
 ## Runtime

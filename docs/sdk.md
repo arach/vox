@@ -10,7 +10,7 @@ The TypeScript SDK lives in `packages/client/`.
 - start and schedule warm-up
 - transcribe files
 - create live sessions
-- receive stage metrics on transcription results
+- receive stage metrics and word-level timings on transcription results
 
 ## Example
 
@@ -26,6 +26,7 @@ const result = await client.transcribeFile("/tmp/sample.wav");
 
 console.log(result.text);
 console.log(result.metrics?.inferenceMs);
+console.log(result.words);
 
 client.disconnect();
 ```
@@ -66,6 +67,7 @@ interface FileTranscriptionResult {
   text: string;
   elapsedMs: number;
   metrics?: TranscriptionMetrics;
+  words: WordTiming[];
 }
 ```
 

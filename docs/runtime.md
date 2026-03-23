@@ -5,7 +5,7 @@
 1. A client connects to `voxd` over local WebSocket JSON-RPC.
 2. The runtime resolves health, model state, and optional warm-up state.
 3. The client triggers file transcription or a live session.
-4. `VoxEngine` runs Parakeet locally and returns transcript text plus stage metrics.
+4. `VoxEngine` runs Parakeet locally and returns transcript text, word timings, and stage metrics.
 5. The runtime records a tagged performance sample to `~/.vox/performance.jsonl`.
 
 ## Warm-Up Semantics
@@ -37,6 +37,7 @@ Typical usage pattern:
 The runtime returns:
 
 - transcript text
+- word-level timestamps with confidence
 - `modelId`
 - elapsed runtime
 - stage-level metrics when requested or available
@@ -64,7 +65,7 @@ Key properties:
 - one active session at a time today
 - session ownership is associated with both `connectionID` and `clientId`
 - stop/cancel semantics are explicit
-- final transcript events include metrics
+- final transcript events include metrics and word-level timestamps
 
 ## Important Swift entry points
 

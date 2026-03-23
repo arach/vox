@@ -3,6 +3,7 @@ import { STREAM_TIMEOUT_MS } from "./constants.ts";
 import { parseTranscriptionMetrics } from "./metrics.ts";
 import { WebSocketTransport } from "./transport.ts";
 import { VoxLiveSession } from "./live.ts";
+import { parseWordTimings } from "./words.ts";
 import type {
   DoctorReport,
   FileTranscriptionResult,
@@ -10,7 +11,6 @@ import type {
   ModelProgress,
   WarmupStatus,
   VoxClientOptions,
-  WordTiming,
 } from "./types.ts";
 
 export class VoxClient {
@@ -125,18 +125,12 @@ export class VoxClient {
       { clientId: this.clientId, path, modelId },
       STREAM_TIMEOUT_MS,
     );
-    const rawWords = Array.isArray(result.words) ? result.words : [];
     return {
       modelId: String(result.modelId ?? modelId),
       text: String(result.text ?? ""),
       elapsedMs: Number(result.elapsedMs ?? 0),
       metrics: parseTranscriptionMetrics(result.metrics, Number(result.elapsedMs ?? 0)),
-      words: rawWords.map((w: Record<string, unknown>) => ({
-        word: String(w.word ?? ""),
-        start: Number(w.start ?? 0),
-        end: Number(w.end ?? 0),
-        confidence: Number(w.confidence ?? 0),
-      } satisfies WordTiming)),
+      words: parseWordTimings(result.words),
     };
   }
 

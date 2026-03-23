@@ -20,10 +20,10 @@ vox doctor
 
 ```bash
 vox warmup start
-vox transcribe file /path/to/audio.wav --metrics
+vox transcribe file /path/to/audio.wav --metrics --timestamps
 ```
 
-The first command warms the model so you skip cold-start cost. The second transcribes a file and prints stage timings alongside the text.
+The first command warms the model so you skip cold-start cost. The second transcribes a file and prints stage timings plus word-level timestamps alongside the text.
 
 ## Measure and inspect
 

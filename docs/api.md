@@ -76,6 +76,7 @@ interface PerformanceSample {
 - `text`
 - `elapsedMs`
 - `metrics`
+- `words`
 
 ### `TranscriptionMetrics`
 
@@ -115,6 +116,7 @@ interface FileTranscriptionResult {
   text: string;
   elapsedMs: number;
   metrics?: TranscriptionMetrics;
+  words: WordTiming[];
 }
 ```
 

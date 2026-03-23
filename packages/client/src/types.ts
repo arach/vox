@@ -116,6 +116,7 @@ export interface SessionFinalEvent {
   text: string;
   elapsedMs: number;
   metrics?: TranscriptionMetrics;
+  words: WordTiming[];
 }
 
 export interface LiveSessionEvents {

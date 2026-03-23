@@ -9,6 +9,7 @@ import type {
   ModelInfo,
   TranscriptionMetrics,
   RuntimeInfo,
+  WordTiming,
 } from "@vox/client";
 import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } from "fs";
 import { execSync } from "child_process";
@@ -44,6 +45,7 @@ interface VoiceRecord {
   text: string;
   elapsedMs: number;
   metrics?: TranscriptionMetrics;
+  words: WordTiming[];
   timestamp: string;
 }
 
@@ -120,7 +122,18 @@ function readVoiceLog(): VoiceRecord[] {
       .split("\n")
       .map((l) => l.trim())
       .filter(Boolean)
-      .map((l, i) => ({ ...JSON.parse(l), id: i + 1 }) as VoiceRecord);
+      .map((l, i) => {
+        const parsed = JSON.parse(l) as Partial<VoiceRecord>;
+        return {
+          id: i + 1,
+          sessionId: String(parsed.sessionId ?? ""),
+          text: String(parsed.text ?? ""),
+          elapsedMs: Number(parsed.elapsedMs ?? 0),
+          metrics: parsed.metrics,
+          words: Array.isArray(parsed.words) ? parsed.words : [],
+          timestamp: String(parsed.timestamp ?? ""),
+        } satisfies VoiceRecord;
+      });
   } catch {
     return [];
   }
@@ -582,6 +595,7 @@ function VoicePanel({
                 r.metrics ? `infer ${fmtMs(r.metrics.inferenceMs)}` : null,
                 r.metrics && sp > 0 ? `${sp.toFixed(1)}x` : null,
                 r.metrics ? `audio ${fmtMs(r.metrics.audioDurationMs)}` : null,
+                r.words.length > 0 ? `words ${r.words.length}` : null,
               ].filter(Boolean).join("  ");
               return (
                 <React.Fragment key={`v-${r.id}`}>
@@ -737,6 +751,7 @@ function App() {
           text: final.text,
           elapsedMs: final.elapsedMs,
           metrics: final.metrics,
+          words: final.words,
           timestamp: ts(),
         };
         appendVoiceLog(record);
