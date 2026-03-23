@@ -2,9 +2,6 @@ import SwiftUI
 import VoxCore
 
 struct SettingsView: View {
-    @EnvironmentObject var monitor: DaemonMonitor
-    @EnvironmentObject var bridgeState: BridgeState
-
     var body: some View {
         TabView {
             GeneralTab()
@@ -52,10 +49,9 @@ struct GeneralTab: View {
                     }
                 }
 
-                if let uptime = monitor.uptime {
+                if let startedAt = monitor.startedAt {
                     LabeledContent("Uptime") {
-                        Text(formatUptime(uptime))
-                            .monospacedDigit()
+                        UptimeText(startedAt: startedAt)
                     }
                 }
             } header: {
@@ -78,7 +74,8 @@ struct GeneralTab: View {
                 HStack {
                     Button("Restart Daemon") {
                         LaunchAgentManager.restart()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .seconds(2))
                             monitor.checkNow()
                         }
                     }
@@ -86,7 +83,8 @@ struct GeneralTab: View {
                     if !LaunchAgentManager.isInstalled() {
                         Button("Install LaunchAgent") {
                             LaunchAgentManager.install()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .seconds(2))
                                 monitor.checkNow()
                             }
                         }
@@ -102,22 +100,12 @@ struct GeneralTab: View {
         }
         .formStyle(.grouped)
     }
-
-    private func formatUptime(_ seconds: TimeInterval) -> String {
-        let hours = Int(seconds) / 3600
-        let minutes = (Int(seconds) % 3600) / 60
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        return "\(minutes)m"
-    }
 }
 
 // MARK: - Bridge Tab
 
 struct BridgeTab: View {
     @EnvironmentObject var bridgeState: BridgeState
-    @State private var newOrigin = ""
 
     var body: some View {
         Form {
@@ -162,6 +150,26 @@ struct BridgeTab: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+private struct UptimeText: View {
+    let startedAt: Date
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            Text(formatUptime(context.date.timeIntervalSince(startedAt)))
+                .monospacedDigit()
+        }
+    }
+
+    private func formatUptime(_ seconds: TimeInterval) -> String {
+        let hours = Int(seconds) / 3600
+        let minutes = (Int(seconds) % 3600) / 60
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        }
+        return "\(minutes)m"
     }
 }
 

@@ -4,13 +4,36 @@ import VoxCore
 /// Monitors whether voxd is running by polling runtime.json and checking the PID.
 @MainActor
 final class DaemonMonitor: ObservableObject {
-    @Published var isRunning = false
-    @Published var port: UInt16?
-    @Published var pid: Int32?
-    @Published var uptime: TimeInterval?
-    @Published var modelName: String?
-    @Published var modelInstalled: Bool?
-    @Published var modelPreloaded: Bool?
+    struct State: Equatable {
+        var isRunning = false
+        var port: UInt16?
+        var pid: Int32?
+        var startedAt: Date?
+        var modelName: String?
+        var modelInstalled: Bool?
+        var modelPreloaded: Bool?
+
+        static let stopped = State()
+
+        static func running(runtime: RuntimeInfo) -> State {
+            State(
+                isRunning: true,
+                port: runtime.port,
+                pid: runtime.pid,
+                startedAt: runtime.startedAt
+            )
+        }
+    }
+
+    @Published private(set) var state = State.stopped
+
+    var isRunning: Bool { state.isRunning }
+    var port: UInt16? { state.port }
+    var pid: Int32? { state.pid }
+    var startedAt: Date? { state.startedAt }
+    var modelName: String? { state.modelName }
+    var modelInstalled: Bool? { state.modelInstalled }
+    var modelPreloaded: Bool? { state.modelPreloaded }
 
     private var timer: Timer?
 
@@ -29,34 +52,29 @@ final class DaemonMonitor: ObservableObject {
     }
 
     func checkNow() {
-        let result: (runtime: RuntimeInfo, alive: Bool)?
         do {
             guard let runtime = try RuntimeRegistry.read() else {
                 markStopped()
                 return
             }
-            let alive = kill(runtime.pid, 0) == 0
-            result = (runtime, alive)
+
+            guard kill(runtime.pid, 0) == 0 else {
+                markStopped()
+                return
+            }
+
+            updateState(.running(runtime: runtime))
         } catch {
             markStopped()
-            return
         }
-
-        guard let result, result.alive else {
-            markStopped()
-            return
-        }
-
-        isRunning = true
-        port = result.runtime.port
-        pid = result.runtime.pid
-        uptime = Date().timeIntervalSince(result.runtime.startedAt)
     }
 
     private func markStopped() {
-        isRunning = false
-        port = nil
-        pid = nil
-        uptime = nil
+        updateState(.stopped)
+    }
+
+    private func updateState(_ newState: State) {
+        guard state != newState else { return }
+        state = newState
     }
 }
