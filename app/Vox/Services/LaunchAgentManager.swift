@@ -21,7 +21,7 @@ enum LaunchAgentManager {
             "Label": label,
             "ProgramArguments": [voxdPath, "--port", "42137"],
             "RunAtLoad": true,
-            "KeepAlive": true,
+            "KeepAlive": ["SuccessfulExit": false],
             "StandardOutPath": logPath("stdout"),
             "StandardErrorPath": logPath("stderr"),
         ]
