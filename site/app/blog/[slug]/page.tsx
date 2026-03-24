@@ -154,7 +154,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <header className="sticky top-0 z-50 border-b border-line bg-canvas/92 backdrop-blur-xl px-6 sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-6xl items-center justify-between py-3">
           <div className="flex items-center gap-3 font-mono text-[12px] uppercase tracking-[0.14em]">
-            <Link href="/" className="text-ink">
+            <Link href="/" className="flex items-center gap-2 text-ink">
+              <img src="/logo.svg" alt="Vox" className="h-5 w-5" />
               Vox
             </Link>
             <span className="text-muted">/</span>
@@ -204,7 +205,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <footer className="px-6 pb-28 pt-14 sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-[680px] flex-col gap-6 border-t border-line pt-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Vox</div>
+            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
+              <img src="/logo.svg" alt="Vox" className="h-6 w-6" />
+              Vox
+            </div>
             <p className="mt-2 max-w-sm text-sm leading-7 text-secondary">
               Open-source on-device transcription for macOS.
             </p>

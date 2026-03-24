@@ -24,6 +24,9 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
+  icons: {
+    icon: "/logo.svg",
+  },
   title: "Vox",
   description: "One engine to power all your voice apps. Talk anywhere, instantly.",
   metadataBase: new URL(siteUrl),
