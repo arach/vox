@@ -28,7 +28,7 @@ public final class HTTPBridgeServer: @unchecked Sendable {
         do {
             listener = try NWListener(using: parameters, on: .init(rawValue: port)!)
         } catch {
-            log.error("Failed to create HTTP bridge listener: \(error.localizedDescription, privacy: .public)")
+            log.error("Failed to create HTTP bridge listener: \(error.localizedDescription)")
             return
         }
 
@@ -38,7 +38,7 @@ public final class HTTPBridgeServer: @unchecked Sendable {
             case .ready:
                 self.log.info("HTTP bridge listening on http://127.0.0.1:\(self.port)")
             case .failed(let error):
-                self.log.error("HTTP bridge failed: \(error.localizedDescription, privacy: .public)")
+                self.log.error("HTTP bridge failed: \(error.localizedDescription)")
                 self.listener?.cancel()
             default:
                 break

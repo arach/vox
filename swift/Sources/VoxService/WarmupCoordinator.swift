@@ -89,7 +89,7 @@ actor WarmupCoordinator {
             self.beginWarmup(modelId: modelId, requestedBy: requestedBy)
         }
 
-        log.info("Scheduled warmup for \(modelId, privacy: .public) in \(delayMs)ms")
+        log.info("Scheduled warmup for \(modelId) in \(delayMs)ms")
         return snapshot(modelId: modelId, fallbackRequestedBy: requestedBy)
     }
 
@@ -123,7 +123,7 @@ actor WarmupCoordinator {
         record.lastError = nil
         records[modelId] = record
 
-        log.info("Starting warmup for \(modelId, privacy: .public)")
+        log.info("Starting warmup for \(modelId)")
         activeTasks[modelId] = Task {
             do {
                 _ = try await self.engine.preload(modelId: modelId) { _ in }
@@ -142,11 +142,11 @@ actor WarmupCoordinator {
         if let error {
             record.state = .failed
             record.lastError = error
-            log.error("Warmup failed for \(modelId, privacy: .public): \(error, privacy: .public)")
+            log.error("Warmup failed for \(modelId): \(error)")
         } else {
             record.state = .ready
             record.lastError = nil
-            log.info("Warmup ready for \(modelId, privacy: .public)")
+            log.info("Warmup ready for \(modelId)")
         }
         records[modelId] = record
     }

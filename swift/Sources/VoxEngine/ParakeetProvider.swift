@@ -98,7 +98,7 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
             )
         }.filter { !$0.word.isEmpty }
 
-        log.info("Trace complete \(trace.summary, privacy: .public)")
+        log.info("Trace complete \(trace.summary)")
         return TranscriptionOutput(modelId: self.modelID, text: result.text, elapsedMs: metrics.totalMs, metrics: metrics, words: words)
 #else
         throw NSError(domain: "VoxEngine", code: 5, userInfo: [

@@ -24,7 +24,7 @@ public actor PerformanceRecorder {
                 try data.write(to: url, options: .atomic)
             }
         } catch {
-            VoxLog.core.error("Failed to write performance sample: \(error.localizedDescription, privacy: .public)")
+            VoxLog.core.error("Failed to write performance sample: \(error.localizedDescription)")
         }
     }
 }
