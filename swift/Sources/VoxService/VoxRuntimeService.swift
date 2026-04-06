@@ -46,6 +46,22 @@ public final class VoxRuntimeService: @unchecked Sendable {
             }
         }
 
+        sessions.onRecordingTimeout = { [weak self] session in
+            guard let self else { return }
+            Task {
+                await self.recorder.cancel()
+                session.state = .cancelled
+                self.log.warning("Auto-cancelled live session \(session.sessionId) for client \(session.clientId) — exceeded \(Int(LiveSessionCoordinator.maxRecordingSeconds))s recording limit")
+                session.progress("session.state", [
+                    "sessionId": session.sessionId,
+                    "state": SessionState.cancelled.rawValue,
+                    "previous": SessionState.recording.rawValue,
+                    "reason": "recording_timeout"
+                ])
+                session.reply(nil, "session_cancelled:recording_timeout")
+            }
+        }
+
         bridge.handle("health") { [weak self] _, reply in
             guard let self else { return }
             reply([
@@ -201,6 +217,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
                     ])
                     _ = try await self.recorder.start()
                     session.state = .recording
+                    self.sessions.startRecordingTimer()
                     session.progress("session.state", [
                         "sessionId": session.sessionId,
                         "state": SessionState.recording.rawValue,

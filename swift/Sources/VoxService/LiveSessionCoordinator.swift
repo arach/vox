@@ -67,8 +67,12 @@ final class LiveSessionCoordinator: @unchecked Sendable {
         }
     }
 
+    /// Max recording duration before auto-cancel. Prevents mic from being left on indefinitely.
+    static let maxRecordingSeconds: TimeInterval = 120
+
     private let lock = NSLock()
     private var activeSession: Session?
+    private var recordingTimer: DispatchSourceTimer?
 
     func begin(
         connectionID: String,
@@ -132,6 +136,7 @@ final class LiveSessionCoordinator: @unchecked Sendable {
         }
 
         self.activeSession = nil
+        cancelRecordingTimer()
         return activeSession
     }
 
@@ -144,6 +149,36 @@ final class LiveSessionCoordinator: @unchecked Sendable {
         }
 
         self.activeSession = nil
+        cancelRecordingTimer()
         return activeSession
+    }
+
+    // MARK: - Recording timeout
+
+    /// Called after session transitions to .recording. Fires onTimeout if recording exceeds max duration.
+    var onRecordingTimeout: ((Session) -> Void)?
+
+    func startRecordingTimer() {
+        cancelRecordingTimer()
+        let timer = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+        timer.schedule(deadline: .now() + Self.maxRecordingSeconds)
+        timer.setEventHandler { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            let session = self.activeSession
+            self.activeSession = nil
+            self.lock.unlock()
+            self.cancelRecordingTimer()
+            if let session {
+                self.onRecordingTimeout?(session)
+            }
+        }
+        timer.resume()
+        recordingTimer = timer
+    }
+
+    private func cancelRecordingTimer() {
+        recordingTimer?.cancel()
+        recordingTimer = nil
     }
 }
