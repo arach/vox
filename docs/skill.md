@@ -1,4 +1,9 @@
-# Vox Skill Notes
+---
+title: Operations Guide
+audience: agent
+---
+
+# Vox Operations Guide
 
 When building with Vox, the highest-value workflows are:
 

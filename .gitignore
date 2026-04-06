@@ -14,3 +14,5 @@ app/.swiftpm
 .swift-cache
 (A Document Being Saved By swift-test*
 THREAD_HANDOFF.md
+# OpenScout local state
+.openscout/project.json

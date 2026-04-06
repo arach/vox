@@ -1,4 +1,6 @@
-# SDK
+# SDK (Daemon Client)
+
+> **Two clients, two use cases.** This is `@vox/client` — the TypeScript SDK for native apps and Node/Bun processes that connect directly to the Vox daemon over a local socket. If you're building a web app or browser extension, use [`@voxd/client`](./web-integration.md) instead, which talks to the Vox Companion over HTTP.
 
 The TypeScript SDK lives in `packages/client/`.
 
@@ -68,6 +70,33 @@ interface FileTranscriptionResult {
   elapsedMs: number;
   metrics?: TranscriptionMetrics;
   words: WordTiming[];
+}
+```
+
+## Error handling
+
+All client methods throw when the daemon is unreachable, the model isn't installed, or a transcription fails. Errors are plain `Error` instances — check `message` for a human-readable description.
+
+```ts
+try {
+  const result = await client.transcribeFile("/tmp/audio.wav");
+} catch (err) {
+  // Common causes:
+  // - Daemon not running: start with `vox daemon start`
+  // - Model not installed: run `vox models install` first
+  // - Transcription failed: daemon logs have details (`vox logs daemon`)
+  console.error(err.message);
+}
+```
+
+For live sessions, call `session.cancel()` in a `finally` block to ensure the microphone is always released:
+
+```ts
+const session = await client.createLiveSession();
+try {
+  // ...use session
+} finally {
+  await session.cancel();
 }
 ```
 

@@ -9,7 +9,7 @@
 ## Install and verify
 
 ```bash
-npx @vox/cli install
+bun add -g @vox/cli
 vox daemon start
 vox doctor
 ```

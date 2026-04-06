@@ -1,4 +1,6 @@
-# Web Integration
+# Web Integration (Companion Client)
+
+> **Two clients, two use cases.** This is `@voxd/client` — the companion client for web apps and browser extensions. It communicates with the Vox Companion over a local HTTP bridge. If you're building a native macOS app or Bun/Node process that connects directly to the daemon, use [`@vox/client`](./sdk.md) instead.
 
 Use `@voxd/client` to add local transcription to any web app. The client talks to the Vox Companion running on the user's Mac — no server needed.
 
@@ -186,7 +188,7 @@ The companion listens on `http://127.0.0.1:43115`. These endpoints are what `@vo
 | `GET` | `/jobs/:id` | Origin | Poll job status |
 | `POST` | `/transcribe` | Origin | Upload audio for transcription |
 
-**Origin gating:** All endpoints except `/health` require the request `Origin` header to be in the companion's allowlist. Default: `https://uselinea.com`. Users can add origins in the Vox settings app.
+**Origin gating:** All endpoints except `/health` require the request `Origin` header to be in the companion's allowlist. No origins are allowed by default — users add their app's origin in Vox settings.
 
 ## Configuration
 

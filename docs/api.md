@@ -37,6 +37,7 @@ These values should remain available anywhere the runtime records or returns per
 type VoxRoute =
   | "transcribe.file"
   | "transcribe.startSession"
+  | "transcribe.sessionStatus"
   | "transcribe.stopSession"
   | "transcribe.cancelSession"
   | "warmup.status"
