@@ -64,13 +64,57 @@ struct OriginAllowlistTests {
 
         let allowlist = sandbox.makeAllowlist()
 
-        #expect(await allowlist.add("https://portal.hudson.ai/") == "https://portal.hudson.ai")
+        let added = try await allowlist.add("https://portal.hudson.ai/")
+        #expect(added == "https://portal.hudson.ai")
         #expect(await allowlist.check("https://portal.hudson.ai"))
         #expect(await allowlist.check("https://workspace.hudson.ai"))
 
         #expect(await allowlist.remove("https://portal.hudson.ai"))
         #expect(await allowlist.check("https://portal.hudson.ai") == false)
         #expect(await allowlist.check("https://workspace.hudson.ai"))
+    }
+
+    @Test("Exact origins are normalized and matched exactly")
+    func exactOriginsMatchOnlyTheConfiguredOrigin() async throws {
+        let sandbox = try makeSandbox()
+        defer { try? FileManager.default.removeItem(at: sandbox.rootURL) }
+
+        let allowlist = sandbox.makeAllowlist(builtinOrigins: [])
+        _ = try await allowlist.add("http://localhost:3500/")
+
+        let allowed = await allowlist.check("http://localhost:3500")
+        let blocked = await allowlist.check("http://localhost:3501")
+
+        #expect(allowed)
+        #expect(!blocked)
+    }
+
+    @Test("Localhost wildcard ports match any loopback port on the same host")
+    func localhostWildcardPortsMatch() async throws {
+        let sandbox = try makeSandbox()
+        defer { try? FileManager.default.removeItem(at: sandbox.rootURL) }
+
+        let allowlist = sandbox.makeAllowlist(builtinOrigins: [])
+        _ = try await allowlist.add("http://localhost:*")
+
+        #expect(await allowlist.check("http://localhost:3000"))
+        #expect(await allowlist.check("http://localhost:3500"))
+        #expect(!(await allowlist.check("http://127.0.0.1:3500")))
+    }
+
+    @Test("Wildcard ports are rejected for non-loopback hosts")
+    func wildcardPortsAreRestrictedToLoopbackHosts() async throws {
+        let sandbox = try makeSandbox()
+        defer { try? FileManager.default.removeItem(at: sandbox.rootURL) }
+
+        let allowlist = sandbox.makeAllowlist(builtinOrigins: [])
+
+        do {
+            _ = try await allowlist.add("https://example.com:*")
+            Issue.record("Expected wildcard host validation to fail")
+        } catch let error as OriginAllowlistError {
+            #expect(error == .wildcardHostNotAllowed)
+        }
     }
 }
 
@@ -94,10 +138,11 @@ private struct OriginSandbox {
     let userFileURL: URL
     let integrationsDirectoryURL: URL
 
-    func makeAllowlist() -> OriginAllowlist {
+    func makeAllowlist(builtinOrigins: [String] = OriginAllowlist.defaultOrigins) -> OriginAllowlist {
         OriginAllowlist(
             userFileURL: userFileURL,
-            integrationsDirectoryURL: integrationsDirectoryURL
+            integrationsDirectoryURL: integrationsDirectoryURL,
+            builtinOrigins: builtinOrigins
         )
     }
 

@@ -1,6 +1,23 @@
 import Foundation
 import VoxCore
 
+public enum OriginAllowlistError: LocalizedError, Equatable {
+    case empty
+    case invalidOrigin
+    case wildcardHostNotAllowed
+
+    public var errorDescription: String? {
+        switch self {
+        case .empty:
+            "Enter an origin."
+        case .invalidOrigin:
+            "Enter a full origin like https://app.example.com or http://localhost:3500."
+        case .wildcardHostNotAllowed:
+            "Wildcard ports are only supported for localhost, 127.0.0.1, and ::1."
+        }
+    }
+}
+
 public struct OriginAllowlistSnapshot: Sendable, Equatable {
     public let builtinOrigins: [String]
     public let userOrigins: [String]
@@ -46,7 +63,7 @@ public actor OriginAllowlist {
 
         self.userFileURL = userFileURL
         self.integrationsDirectoryURL = integrationsDirectoryURL
-        self.builtinOrigins = Set(builtinOrigins.compactMap(Self.normalize))
+        self.builtinOrigins = Set(builtinOrigins.compactMap { try? Self.normalize($0) })
         self.userOrigins = Self.loadOrigins(from: userFileURL)
         self.integrationOrigins = Self.loadOrigins(fromDirectory: integrationsDirectoryURL)
         self.sourceSnapshot = initialSnapshot
@@ -54,14 +71,17 @@ public actor OriginAllowlist {
 
     public func check(_ origin: String) -> Bool {
         refreshFromDisk()
-        guard let normalized = Self.normalize(origin) else { return false }
-        return effectiveOrigins.contains(normalized)
+        guard let candidate = Self.parseOrigin(origin) else { return false }
+        return effectiveOrigins.contains { entry in
+            guard let rule = Self.parseRule(entry) else { return false }
+            return rule.matches(candidate)
+        }
     }
 
     @discardableResult
-    public func add(_ origin: String) -> String? {
+    public func add(_ origin: String) throws -> String {
         refreshFromDisk()
-        guard let normalized = Self.normalize(origin) else { return nil }
+        let normalized = try Self.normalize(origin)
 
         let inserted = userOrigins.insert(normalized).inserted
         if inserted {
@@ -74,7 +94,7 @@ public actor OriginAllowlist {
     @discardableResult
     public func remove(_ origin: String) -> Bool {
         refreshFromDisk()
-        guard let normalized = Self.normalize(origin) else { return false }
+        guard let normalized = try? Self.normalize(origin) else { return false }
 
         let removed = userOrigins.remove(normalized) != nil
         if removed {
@@ -95,30 +115,6 @@ public actor OriginAllowlist {
             userOrigins: Array(userOrigins).sorted(),
             integrationOrigins: Array(integrationOrigins).sorted()
         )
-    }
-
-    public static func normalize(_ origin: String) -> String? {
-        let trimmed = origin.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-
-        guard var components = URLComponents(string: trimmed) else { return nil }
-        guard let scheme = components.scheme?.lowercased(),
-              scheme == "http" || scheme == "https",
-              let host = components.host?.lowercased(),
-              !host.isEmpty
-        else {
-            return nil
-        }
-
-        guard components.user == nil, components.password == nil else { return nil }
-
-        components.scheme = scheme
-        components.host = host
-        components.path = ""
-        components.query = nil
-        components.fragment = nil
-
-        return components.string
     }
 
     private var effectiveOrigins: Set<String> {
@@ -159,7 +155,7 @@ public actor OriginAllowlist {
         do {
             let data = try Data(contentsOf: fileURL)
             let decoded = decodeOrigins(from: data)
-            return Set(decoded.compactMap(normalize))
+            return Set(decoded.compactMap { try? normalize($0) })
         } catch {
             return []
         }
@@ -257,5 +253,82 @@ private struct FileFingerprint: Equatable {
         self.path = url.path
         self.modifiedAt = modifiedAt
         self.size = size
+    }
+}
+
+// MARK: - Origin parsing and wildcard matching
+
+private struct ParsedOrigin: Equatable {
+    let scheme: String
+    let host: String
+    let port: Int?
+}
+
+private struct OriginRule {
+    let scheme: String
+    let host: String
+    let port: Int?
+    let wildcardPort: Bool
+
+    func matches(_ origin: ParsedOrigin) -> Bool {
+        guard scheme == origin.scheme, host == origin.host else { return false }
+        return wildcardPort || port == origin.port
+    }
+}
+
+extension OriginAllowlist {
+    public static func normalize(_ raw: String) throws -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw OriginAllowlistError.empty }
+
+        if trimmed.hasSuffix(":*") {
+            let base = String(trimmed.dropLast(2))
+            guard let parsed = parseOrigin(base) else {
+                throw OriginAllowlistError.invalidOrigin
+            }
+            guard isLoopbackHost(parsed.host) else {
+                throw OriginAllowlistError.wildcardHostNotAllowed
+            }
+            return "\(parsed.scheme)://\(formatHost(parsed.host)):*"
+        }
+
+        guard let parsed = parseOrigin(trimmed) else {
+            throw OriginAllowlistError.invalidOrigin
+        }
+
+        let host = formatHost(parsed.host)
+        if let port = parsed.port {
+            return "\(parsed.scheme)://\(host):\(port)"
+        }
+        return "\(parsed.scheme)://\(host)"
+    }
+
+    static func parseRule(_ raw: String) -> OriginRule? {
+        if raw.hasSuffix(":*") {
+            let base = String(raw.dropLast(2))
+            guard let parsed = parseOrigin(base), isLoopbackHost(parsed.host) else { return nil }
+            return OriginRule(scheme: parsed.scheme, host: parsed.host, port: nil, wildcardPort: true)
+        }
+
+        guard let parsed = parseOrigin(raw) else { return nil }
+        return OriginRule(scheme: parsed.scheme, host: parsed.host, port: parsed.port, wildcardPort: false)
+    }
+
+    static func parseOrigin(_ raw: String) -> ParsedOrigin? {
+        guard let components = URLComponents(string: raw) else { return nil }
+        guard let scheme = components.scheme?.lowercased(), let host = components.host?.lowercased() else { return nil }
+        guard components.user == nil, components.password == nil else { return nil }
+        guard components.query == nil, components.fragment == nil else { return nil }
+        guard components.path.isEmpty || components.path == "/" else { return nil }
+        guard ["http", "https"].contains(scheme) else { return nil }
+        return ParsedOrigin(scheme: scheme, host: host, port: components.port)
+    }
+
+    static func isLoopbackHost(_ host: String) -> Bool {
+        host == "localhost" || host == "127.0.0.1" || host == "::1"
+    }
+
+    static func formatHost(_ host: String) -> String {
+        host.contains(":") ? "[\(host)]" : host
     }
 }

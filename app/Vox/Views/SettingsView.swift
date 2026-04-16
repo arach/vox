@@ -106,7 +106,6 @@ struct GeneralTab: View {
 
 struct BridgeTab: View {
     @EnvironmentObject var bridgeState: BridgeState
-    @State private var pendingOrigin = ""
 
     var body: some View {
         Form {
@@ -139,25 +138,40 @@ struct BridgeTab: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
-                HStack(alignment: .center, spacing: 8) {
-                    TextField("https://example.com", text: $pendingOrigin)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(.body, design: .monospaced))
+                HStack(spacing: 8) {
+                    TextField(
+                        "https://app.example.com or http://localhost:*",
+                        text: Binding(
+                            get: { bridgeState.draftOrigin },
+                            set: { newValue in
+                                bridgeState.draftOrigin = newValue
+                                bridgeState.clearOriginError()
+                            }
+                        )
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
 
                     Button("Add") {
-                        bridgeState.addOrigin(pendingOrigin)
-                        pendingOrigin = ""
+                        bridgeState.addDraftOrigin()
                     }
-                    .disabled(pendingOrigin.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(!bridgeState.canAddOrigin)
                 }
 
-                if let message = bridgeState.originsErrorMessage {
+                if let message = bridgeState.originsErrorMessage, !message.isEmpty {
                     Text(message)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                        .foregroundStyle(.red)
                 }
             } header: {
                 Text("Allowed Origins")
+            } footer: {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Origins must be full browser origins. Paths are not allowed.")
+                    Text("Wildcard ports are only supported for localhost, 127.0.0.1, and ::1. Example: http://localhost:*")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
 
             if !bridgeState.userOrigins.isEmpty {
