@@ -48,6 +48,10 @@ let package = Package(
         .testTarget(
             name: "VoxEngineTests",
             dependencies: ["VoxEngine"]
+        ),
+        .testTarget(
+            name: "VoxBridgeTests",
+            dependencies: ["VoxBridge"]
         )
     ]
 )

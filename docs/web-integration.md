@@ -188,7 +188,7 @@ The companion listens on `http://127.0.0.1:43115`. These endpoints are what `@vo
 | `GET` | `/jobs/:id` | Origin | Poll job status |
 | `POST` | `/transcribe` | Origin | Upload audio for transcription |
 
-**Origin gating:** All endpoints except `/health` require the request `Origin` header to be in the companion's allowlist. No origins are allowed by default — users add their app's origin in Vox settings.
+**Origin gating:** All endpoints except `/health` require the request `Origin` header to be in the companion's allowlist. Vox ships with the Linea origins preloaded, and users can add more in Vox settings. For local development, wildcard ports are supported only on loopback hosts such as `http://localhost:*`.
 
 ## Configuration
 

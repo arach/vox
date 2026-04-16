@@ -6,6 +6,7 @@ import VoxCore
 /// Listens on port 43115 and proxies requests to voxd via DaemonProxy.
 public final class HTTPBridgeServer: @unchecked Sendable {
     public static let defaultPort: UInt16 = 43115
+    private static let headerDelimiter = Data("\r\n\r\n".utf8)
 
     private let port: UInt16
     private let queue = DispatchQueue(label: "dev.vox.bridge.http")
@@ -14,6 +15,7 @@ public final class HTTPBridgeServer: @unchecked Sendable {
     private let allowlist: OriginAllowlist
     private let jobs = JobStore()
     private let log = VoxLog.service
+    private let maxRequestBytes = 25 * 1024 * 1024
 
     public init(port: UInt16 = HTTPBridgeServer.defaultPort, proxy: DaemonProxy, allowlist: OriginAllowlist) {
         self.port = port
@@ -64,28 +66,52 @@ public final class HTTPBridgeServer: @unchecked Sendable {
             if case .failed = state { connection.cancel() }
         }
         connection.start(queue: queue)
-        receiveHTTP(on: connection)
+        receiveHTTP(on: connection, buffer: Data())
     }
 
-    private func receiveHTTP(on connection: NWConnection) {
+    private func receiveHTTP(on connection: NWConnection, buffer: Data) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, _, error in
-            guard let self, let data, error == nil else {
+            guard let self, error == nil else {
                 connection.cancel()
                 return
             }
-            self.handleHTTPRequest(data, on: connection)
+
+            var requestBuffer = buffer
+            if let data {
+                requestBuffer.append(data)
+            }
+
+            guard requestBuffer.count <= self.maxRequestBytes else {
+                self.sendResponse(status: 413, body: ["error": "Request too large"], on: connection)
+                return
+            }
+
+            switch self.requestReadiness(for: requestBuffer) {
+            case .ready:
+                self.handleHTTPRequest(requestBuffer, on: connection)
+            case .needMoreData:
+                self.receiveHTTP(on: connection, buffer: requestBuffer)
+            case .invalid(let message, let origin):
+                self.sendResponse(status: 400, body: ["error": message], origin: origin, on: connection)
+            }
         }
     }
 
     // MARK: - HTTP parsing and routing
 
     private func handleHTTPRequest(_ data: Data, on connection: NWConnection) {
-        guard let raw = String(data: data, encoding: .utf8) else {
+        guard let headerRange = data.range(of: Self.headerDelimiter) else {
             sendResponse(status: 400, body: ["error": "Invalid request"], on: connection)
             return
         }
 
-        let lines = raw.components(separatedBy: "\r\n")
+        let headerData = data.subdata(in: data.startIndex..<headerRange.lowerBound)
+        guard let rawHeaders = String(data: headerData, encoding: .utf8) else {
+            sendResponse(status: 400, body: ["error": "Invalid request headers"], on: connection)
+            return
+        }
+
+        let lines = rawHeaders.components(separatedBy: "\r\n")
         guard let requestLine = lines.first else {
             sendResponse(status: 400, body: ["error": "Empty request"], on: connection)
             return
@@ -100,14 +126,18 @@ public final class HTTPBridgeServer: @unchecked Sendable {
         let method = String(parts[0])
         let path = String(parts[1])
         let origin = extractHeader("Origin", from: lines)
+        let contentType = extractHeader("Content-Type", from: lines)
+        let contentLength = parsedContentLength(from: lines) ?? 0
+        let bodyEnd = min(data.count, headerRange.upperBound + contentLength)
+        let bodyData = data.subdata(in: headerRange.upperBound..<bodyEnd)
 
         // Parse body for POST requests
         var jsonBody: [String: Any]?
-        if method == "POST", let bodyStart = raw.range(of: "\r\n\r\n") {
-            let bodyString = String(raw[bodyStart.upperBound...])
-            if let bodyData = bodyString.data(using: .utf8) {
-                jsonBody = try? JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
-            }
+        if method == "POST",
+           let contentType,
+           contentType.lowercased().contains("application/json"),
+           !bodyData.isEmpty {
+            jsonBody = try? JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
         }
 
         // CORS preflight
@@ -118,11 +148,27 @@ public final class HTTPBridgeServer: @unchecked Sendable {
 
         // Route
         Task {
-            await route(method: method, path: path, origin: origin, body: jsonBody, on: connection)
+            await route(
+                method: method,
+                path: path,
+                origin: origin,
+                contentType: contentType,
+                body: jsonBody,
+                bodyData: bodyData,
+                on: connection
+            )
         }
     }
 
-    private func route(method: String, path: String, origin: String?, body: [String: Any]?, on connection: NWConnection) async {
+    private func route(
+        method: String,
+        path: String,
+        origin: String?,
+        contentType: String?,
+        body: [String: Any]?,
+        bodyData: Data,
+        on connection: NWConnection
+    ) async {
         // /health is open — no origin check
         if method == "GET" && path == "/health" {
             let daemonRunning = await proxy.isConnected
@@ -139,7 +185,7 @@ public final class HTTPBridgeServer: @unchecked Sendable {
         if let origin {
             let allowed = await allowlist.check(origin)
             if !allowed {
-                sendResponse(status: 403, body: ["error": "Origin not allowed"], on: connection)
+                sendResponse(status: 403, body: ["error": "Origin not allowed"], origin: origin, on: connection)
                 return
             }
         }
@@ -147,6 +193,9 @@ public final class HTTPBridgeServer: @unchecked Sendable {
         switch (method, path) {
         case ("GET", "/capabilities"):
             await handleCapabilities(origin: origin, on: connection)
+
+        case ("POST", "/transcribe"):
+            await handleTranscribe(bodyData: bodyData, contentType: contentType, origin: origin, on: connection)
 
         case ("POST", "/jobs"):
             await handleCreateJob(body: body, origin: origin, on: connection)
@@ -191,6 +240,67 @@ public final class HTTPBridgeServer: @unchecked Sendable {
                 "features": [:] as [String: Any],
                 "backends": [:] as [String: Any]
             ], origin: origin, on: connection)
+        }
+    }
+
+    private func handleTranscribe(bodyData: Data, contentType: String?, origin: String?, on connection: NWConnection) async {
+        guard let contentType else {
+            sendResponse(status: 400, body: ["error": "Missing Content-Type"], origin: origin, on: connection)
+            return
+        }
+
+        do {
+            let formData = try HTTPBridgeCodec.parseMultipartFormData(bodyData, contentType: contentType)
+            guard let audio = formData.files["audio"] else {
+                throw BridgeError.invalidRequest("Missing audio upload")
+            }
+
+            let formatHint = formData.fields["format"]?.lowercased()
+            let metadata = parseMetadata(formData.fields["metadata"])
+            let clientId = (metadata?["surface"] as? String)
+                ?? (metadata?["clientId"] as? String)
+                ?? "vox-web"
+            let preparedFiles = try prepareUploadedAudioFiles(audio: audio, formatHint: formatHint)
+            defer {
+                for fileURL in preparedFiles.cleanupURLs {
+                    try? FileManager.default.removeItem(at: fileURL)
+                }
+            }
+
+            if !(await proxy.isConnected) {
+                try await proxy.connect()
+            }
+
+            let result = try await proxy.call("transcribe.file", params: [
+                "path": preparedFiles.transcriptionURL.path,
+                "modelId": "parakeet:v3",
+                "clientId": clientId
+            ])
+
+            let metrics = result["metrics"] as? [String: Any]
+            let totalMs = (metrics?["totalMs"] as? Int) ?? (result["elapsedMs"] as? Int) ?? 0
+            let durationMs = (metrics?["audioDurationMs"] as? Int) ?? totalMs
+            let inferenceMs = (metrics?["inferenceMs"] as? Int) ?? totalMs
+            let realtimeFactor = durationMs > 0 ? Double(totalMs) / Double(durationMs) : 0
+
+            sendResponse(status: 200, body: [
+                "text": result["text"] ?? "",
+                "durationMs": durationMs,
+                "words": result["words"] ?? [],
+                "metrics": [
+                    "inferenceMs": inferenceMs,
+                    "totalMs": totalMs,
+                    "realtimeFactor": realtimeFactor
+                ]
+            ], origin: origin, on: connection)
+        } catch let error as BridgeError {
+            let status = switch error {
+            case .invalidRequest: 400
+            default: 500
+            }
+            sendResponse(status: status, body: ["error": error.localizedDescription], origin: origin, on: connection)
+        } catch {
+            sendResponse(status: 500, body: ["error": error.localizedDescription], origin: origin, on: connection)
         }
     }
 
@@ -293,47 +403,15 @@ public final class HTTPBridgeServer: @unchecked Sendable {
     // MARK: - HTTP response helpers
 
     private func sendResponse(status: Int, body: [String: Any], origin: String? = nil, on connection: NWConnection) {
-        let statusText: String = switch status {
-        case 200: "OK"
-        case 400: "Bad Request"
-        case 403: "Forbidden"
-        case 404: "Not Found"
-        default: "Error"
-        }
-
-        let jsonData = (try? JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])) ?? Data()
-
-        var headers = "HTTP/1.1 \(status) \(statusText)\r\n"
-        headers += "Content-Type: application/json\r\n"
-        headers += "Content-Length: \(jsonData.count)\r\n"
-        headers += "Connection: close\r\n"
-        if let origin {
-            headers += "Access-Control-Allow-Origin: \(origin)\r\n"
-            headers += "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
-            headers += "Access-Control-Allow-Headers: Content-Type\r\n"
-        }
-        headers += "\r\n"
-
-        var responseData = headers.data(using: .utf8)!
-        responseData.append(jsonData)
-
+        let responseData = HTTPBridgeCodec.responseData(status: status, body: body, origin: origin)
         connection.send(content: responseData, completion: .contentProcessed { _ in
             connection.cancel()
         })
     }
 
     private func sendCORSPreflight(origin: String?, on connection: NWConnection) {
-        var headers = "HTTP/1.1 204 No Content\r\n"
-        headers += "Connection: close\r\n"
-        if let origin {
-            headers += "Access-Control-Allow-Origin: \(origin)\r\n"
-            headers += "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
-            headers += "Access-Control-Allow-Headers: Content-Type\r\n"
-            headers += "Access-Control-Max-Age: 86400\r\n"
-        }
-        headers += "\r\n"
-
-        connection.send(content: headers.data(using: .utf8), completion: .contentProcessed { _ in
+        let responseData = HTTPBridgeCodec.corsPreflightData(origin: origin)
+        connection.send(content: responseData, completion: .contentProcessed { _ in
             connection.cancel()
         })
     }
@@ -347,6 +425,170 @@ public final class HTTPBridgeServer: @unchecked Sendable {
         }
         return nil
     }
+
+    private func parsedContentLength(from lines: [String]) -> Int? {
+        guard let raw = extractHeader("Content-Length", from: lines) else { return 0 }
+        return Int(raw.trimmingCharacters(in: .whitespaces))
+    }
+
+    private func requestReadiness(for data: Data) -> RequestReadiness {
+        guard let headerRange = data.range(of: Self.headerDelimiter) else {
+            return .needMoreData
+        }
+
+        let headerData = data.subdata(in: data.startIndex..<headerRange.lowerBound)
+        guard let headerText = String(data: headerData, encoding: .utf8) else {
+            return .invalid("Invalid request headers", nil)
+        }
+
+        let lines = headerText.components(separatedBy: "\r\n")
+        let origin = extractHeader("Origin", from: lines)
+        guard let contentLength = parsedContentLength(from: lines) else {
+            return .invalid("Invalid Content-Length", origin)
+        }
+
+        let expectedLength = headerRange.upperBound + contentLength
+        return data.count >= expectedLength ? .ready : .needMoreData
+    }
+
+    private func parseMetadata(_ raw: String?) -> [String: Any]? {
+        guard let raw,
+              let data = raw.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            return nil
+        }
+        return object
+    }
+
+    private func preferredAudioExtension(formatHint: String?, filename: String?, mimeType: String?) -> String {
+        if let mimeType {
+            let normalizedMimeType = mimeType.lowercased()
+            if normalizedMimeType.contains("webm") { return "webm" }
+            if normalizedMimeType.contains("ogg") { return "ogg" }
+            if normalizedMimeType.contains("wav") { return "wav" }
+            if normalizedMimeType.contains("aac") || normalizedMimeType.contains("mp4") { return "m4a" }
+            if normalizedMimeType.contains("mpeg") || normalizedMimeType.contains("mp3") { return "mp3" }
+            if normalizedMimeType.contains("opus") { return "opus" }
+        }
+        if let formatHint, !formatHint.isEmpty {
+            return normalizedAudioExtension(formatHint)
+        }
+        if let filename {
+            let pathExtension = URL(fileURLWithPath: filename).pathExtension
+            if !pathExtension.isEmpty {
+                return normalizedAudioExtension(pathExtension)
+            }
+        }
+        return "wav"
+    }
+
+    private func normalizedAudioExtension(_ raw: String) -> String {
+        switch raw.lowercased() {
+        case "aac", "m4a", "mp4":
+            return "m4a"
+        case "ogg", "opus":
+            return "opus"
+        case "mpeg", "mp3":
+            return "mp3"
+        case "wav":
+            return "wav"
+        case "webm":
+            return "webm"
+        default:
+            return raw.lowercased()
+        }
+    }
+
+    private func prepareUploadedAudioFiles(audio: MultipartFile, formatHint: String?) throws -> PreparedAudioFiles {
+        let fileExtension = preferredAudioExtension(
+            formatHint: formatHint,
+            filename: audio.filename,
+            mimeType: audio.contentType
+        )
+
+        let uploadedURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("vox-upload-\(UUID().uuidString)")
+            .appendingPathExtension(fileExtension)
+        try audio.data.write(to: uploadedURL, options: .atomic)
+
+        guard fileExtension == "webm" else {
+            return PreparedAudioFiles(transcriptionURL: uploadedURL, cleanupURLs: [uploadedURL])
+        }
+
+        let normalizedURL = try normalizeWebMUpload(at: uploadedURL)
+        return PreparedAudioFiles(transcriptionURL: normalizedURL, cleanupURLs: [uploadedURL, normalizedURL])
+    }
+
+    private func normalizeWebMUpload(at inputURL: URL) throws -> URL {
+        guard let ffmpegURL = ffmpegExecutableURL() else {
+            throw BridgeError.invalidRequest(
+                "WebM uploads require ffmpeg. Install ffmpeg or send Ogg, WAV, M4A, or MP3 audio."
+            )
+        }
+
+        let outputURL = inputURL.deletingPathExtension().appendingPathExtension("wav")
+        let process = Process()
+        process.executableURL = ffmpegURL
+        process.arguments = [
+            "-y",
+            "-i", inputURL.path,
+            "-ar", "16000",
+            "-ac", "1",
+            outputURL.path
+        ]
+
+        let errorPipe = Pipe()
+        process.standardOutput = Pipe()
+        process.standardError = errorPipe
+        try process.run()
+        process.waitUntilExit()
+
+        guard process.terminationStatus == 0 else {
+            let details = String(data: errorPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let suffix = details?.isEmpty == false ? " \(details!)" : ""
+            throw BridgeError.invalidRequest("Failed to normalize WebM upload.\(suffix)")
+        }
+
+        return outputURL
+    }
+
+    private func ffmpegExecutableURL() -> URL? {
+        let candidates = [
+            "/opt/homebrew/bin/ffmpeg",
+            "/usr/local/bin/ffmpeg",
+            "/opt/local/bin/ffmpeg"
+        ]
+
+        for path in candidates where FileManager.default.isExecutableFile(atPath: path) {
+            return URL(fileURLWithPath: path)
+        }
+
+        return nil
+    }
+}
+
+private enum RequestReadiness {
+    case needMoreData
+    case ready
+    case invalid(String, String?)
+}
+
+struct MultipartFormData {
+    let fields: [String: String]
+    let files: [String: MultipartFile]
+}
+
+struct MultipartFile {
+    let filename: String?
+    let contentType: String?
+    let data: Data
+}
+
+private struct PreparedAudioFiles {
+    let transcriptionURL: URL
+    let cleanupURLs: [URL]
 }
 
 // MARK: - Job types

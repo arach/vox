@@ -138,15 +138,61 @@ struct BridgeTab: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("https://uselinea.com")
-                        .font(.system(.body, design: .monospaced))
-                    Text("https://www.uselinea.com")
-                        .font(.system(.body, design: .monospaced))
+                HStack(spacing: 8) {
+                    TextField(
+                        "https://app.example.com or http://localhost:*",
+                        text: Binding(
+                            get: { bridgeState.draftOrigin },
+                            set: { newValue in
+                                bridgeState.draftOrigin = newValue
+                                bridgeState.clearOriginError()
+                            }
+                        )
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+
+                    Button("Add") {
+                        bridgeState.addDraftOrigin()
+                    }
+                    .disabled(!bridgeState.canAddOrigin)
                 }
-                .padding(.vertical, 2)
+
+                if let originError = bridgeState.originError, !originError.isEmpty {
+                    Text(originError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+
+                if bridgeState.allowedOrigins.isEmpty {
+                    Text("No allowed origins configured.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(bridgeState.allowedOrigins, id: \.self) { origin in
+                        HStack(spacing: 10) {
+                            Text(origin)
+                                .font(.system(.body, design: .monospaced))
+                                .textSelection(.enabled)
+                            Spacer()
+                            Button(role: .destructive) {
+                                bridgeState.removeOrigin(origin)
+                            } label: {
+                                Image(systemName: "minus.circle")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
             } header: {
                 Text("Allowed Origins")
+            } footer: {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Origins must be full browser origins. Paths are not allowed.")
+                    Text("Wildcard ports are only supported for localhost, 127.0.0.1, and ::1. Example: http://localhost:*")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
