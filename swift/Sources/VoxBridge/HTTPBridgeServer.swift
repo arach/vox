@@ -194,6 +194,18 @@ public final class HTTPBridgeServer: @unchecked Sendable {
         case ("GET", "/capabilities"):
             await handleCapabilities(origin: origin, on: connection)
 
+        case ("GET", "/live"):
+            await handleLiveStatus(origin: origin, on: connection)
+
+        case ("POST", "/live"):
+            await handleStartLiveSession(body: body, origin: origin, on: connection)
+
+        case ("POST", "/live/stop"):
+            await handleStopLiveSession(body: body, origin: origin, on: connection)
+
+        case ("POST", "/live/cancel"):
+            await handleCancelLiveSession(body: body, origin: origin, on: connection)
+
         case ("POST", "/transcribe"):
             await handleTranscribe(bodyData: bodyData, contentType: contentType, origin: origin, on: connection)
 
@@ -225,6 +237,7 @@ public final class HTTPBridgeServer: @unchecked Sendable {
                 "features": [
                     "alignment": true,
                     "local_asr": true,
+                    "realtime": true,
                     "streaming_progress": true
                 ],
                 "backends": [
@@ -237,9 +250,118 @@ public final class HTTPBridgeServer: @unchecked Sendable {
             sendResponse(status: 200, body: [
                 "running": false,
                 "version": VoxVersion.current,
-                "features": [:] as [String: Any],
+                "features": [
+                    "alignment": false,
+                    "local_asr": false,
+                    "realtime": false,
+                    "streaming_progress": false
+                ],
                 "backends": [:] as [String: Any]
             ], origin: origin, on: connection)
+        }
+    }
+
+    private func handleLiveStatus(origin: String?, on connection: NWConnection) async {
+        do {
+            if !(await proxy.isConnected) {
+                try await proxy.connect()
+            }
+
+            let result = try await proxy.call("transcribe.sessionStatus")
+            sendResponse(status: 200, body: [
+                "session": result["session"] ?? NSNull()
+            ], origin: origin, on: connection)
+        } catch {
+            sendResponse(
+                status: statusCode(for: error),
+                body: ["error": error.localizedDescription],
+                origin: origin,
+                on: connection
+            )
+        }
+    }
+
+    private func handleStartLiveSession(body: [String: Any]?, origin: String?, on connection: NWConnection) async {
+        let clientId = (body?["clientId"] as? String) ?? "vox-web"
+        let modelId = (body?["modelId"] as? String) ?? "parakeet:v3"
+        var didStartStream = false
+
+        do {
+            if !(await proxy.isConnected) {
+                try await proxy.connect()
+            }
+
+            try await sendStreamingResponseHead(origin: origin, on: connection)
+            didStartStream = true
+
+            let result = try await proxy.callStreaming(
+                "transcribe.startSession",
+                params: [
+                    "clientId": clientId,
+                    "modelId": modelId
+                ]
+            ) { [self] event, data in
+                await sendStreamingPayload([
+                    "event": event,
+                    "data": data
+                ], on: connection)
+            }
+
+            await sendStreamingPayload(["result": result], on: connection)
+            await finishStreamingResponse(on: connection)
+        } catch {
+            if didStartStream {
+                await sendStreamingPayload(["error": error.localizedDescription], on: connection)
+                await finishStreamingResponse(on: connection)
+                return
+            }
+
+            sendResponse(
+                status: statusCode(for: error),
+                body: ["error": error.localizedDescription],
+                origin: origin,
+                on: connection
+            )
+        }
+    }
+
+    private func handleStopLiveSession(body: [String: Any]?, origin: String?, on connection: NWConnection) async {
+        do {
+            if !(await proxy.isConnected) {
+                try await proxy.connect()
+            }
+
+            let sessionId = body?["sessionId"] as? String
+            let params = sessionId.map { ["sessionId": $0] }
+            let result = try await proxy.call("transcribe.stopSession", params: params)
+            sendResponse(status: 200, body: result, origin: origin, on: connection)
+        } catch {
+            sendResponse(
+                status: statusCode(for: error),
+                body: ["error": error.localizedDescription],
+                origin: origin,
+                on: connection
+            )
+        }
+    }
+
+    private func handleCancelLiveSession(body: [String: Any]?, origin: String?, on connection: NWConnection) async {
+        do {
+            if !(await proxy.isConnected) {
+                try await proxy.connect()
+            }
+
+            let sessionId = body?["sessionId"] as? String
+            let params = sessionId.map { ["sessionId": $0] }
+            let result = try await proxy.call("transcribe.cancelSession", params: params)
+            sendResponse(status: 200, body: result, origin: origin, on: connection)
+        } catch {
+            sendResponse(
+                status: statusCode(for: error),
+                body: ["error": error.localizedDescription],
+                origin: origin,
+                on: connection
+            )
         }
     }
 
@@ -359,9 +481,13 @@ public final class HTTPBridgeServer: @unchecked Sendable {
             }
 
             // Transcribe via daemon
+            let clientId = (job.metadata?["surface"] as? String)
+                ?? (job.metadata?["clientId"] as? String)
+                ?? "vox-web"
             let result = try await proxy.call("transcribe.file", params: [
                 "path": tempFile.path,
-                "modelId": "parakeet:v3"
+                "modelId": "parakeet:v3",
+                "clientId": clientId
             ])
 
             // Clean up temp file
@@ -414,6 +540,39 @@ public final class HTTPBridgeServer: @unchecked Sendable {
         connection.send(content: responseData, completion: .contentProcessed { _ in
             connection.cancel()
         })
+    }
+
+    private func sendStreamingResponseHead(origin: String?, on connection: NWConnection) async throws {
+        try await send(HTTPBridgeCodec.streamingResponseHead(origin: origin), on: connection)
+    }
+
+    private func sendStreamingPayload(_ body: [String: Any], on connection: NWConnection) async {
+        do {
+            try await send(HTTPBridgeCodec.streamingChunkData(body: body), on: connection)
+        } catch {
+            log.warning("Failed to send streaming bridge payload: \(error.localizedDescription)")
+        }
+    }
+
+    private func finishStreamingResponse(on connection: NWConnection) async {
+        do {
+            try await send(HTTPBridgeCodec.streamingEndData(), on: connection)
+        } catch {
+            log.warning("Failed to finish streaming bridge response: \(error.localizedDescription)")
+        }
+        connection.cancel()
+    }
+
+    private func send(_ data: Data, on connection: NWConnection) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            connection.send(content: data, completion: .contentProcessed { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
+                }
+            })
+        }
     }
 
     private func extractHeader(_ name: String, from lines: [String]) -> String? {
@@ -567,6 +726,22 @@ public final class HTTPBridgeServer: @unchecked Sendable {
 
         return nil
     }
+
+    private func statusCode(for error: Error) -> Int {
+        guard let bridgeError = error as? BridgeError else {
+            return 500
+        }
+
+        switch bridgeError {
+        case .invalidRequest:
+            return 400
+        case .daemonNotRunning, .disconnected:
+            return 503
+        case .daemonError, .originNotAllowed:
+            return 500
+        }
+    }
+
 }
 
 private enum RequestReadiness {

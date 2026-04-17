@@ -6,10 +6,12 @@ enum HTTPBridgeCodec {
     static func responseData(status: Int, body: [String: Any], origin: String? = nil) -> Data {
         let statusText = switch status {
         case 200: "OK"
+        case 204: "No Content"
         case 400: "Bad Request"
         case 403: "Forbidden"
         case 404: "Not Found"
         case 413: "Payload Too Large"
+        case 503: "Service Unavailable"
         case 500: "Internal Server Error"
         default: "Error"
         }
@@ -30,6 +32,53 @@ enum HTTPBridgeCodec {
         var responseData = headers.data(using: .utf8) ?? Data()
         responseData.append(jsonData)
         return responseData
+    }
+
+    static func streamingResponseHead(
+        status: Int = 200,
+        contentType: String = "application/x-ndjson",
+        origin: String? = nil
+    ) -> Data {
+        let statusText = switch status {
+        case 200: "OK"
+        case 400: "Bad Request"
+        case 403: "Forbidden"
+        case 404: "Not Found"
+        case 413: "Payload Too Large"
+        case 503: "Service Unavailable"
+        case 500: "Internal Server Error"
+        default: "Error"
+        }
+
+        var headers = "HTTP/1.1 \(status) \(statusText)\r\n"
+        headers += "Content-Type: \(contentType)\r\n"
+        headers += "Transfer-Encoding: chunked\r\n"
+        headers += "Cache-Control: no-cache\r\n"
+        headers += "Connection: keep-alive\r\n"
+        if let origin {
+            headers += "Access-Control-Allow-Origin: \(origin)\r\n"
+            headers += "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+            headers += "Access-Control-Allow-Headers: Content-Type\r\n"
+        }
+        headers += "\r\n"
+        return headers.data(using: .utf8) ?? Data()
+    }
+
+    static func streamingChunkData(body: [String: Any]) -> Data {
+        let jsonData = (try? JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])) ?? Data()
+        var payload = Data()
+        payload.append(jsonData)
+        payload.append(Data("\n".utf8))
+
+        var chunk = Data(String(payload.count, radix: 16, uppercase: true).utf8)
+        chunk.append(Data("\r\n".utf8))
+        chunk.append(payload)
+        chunk.append(Data("\r\n".utf8))
+        return chunk
+    }
+
+    static func streamingEndData() -> Data {
+        Data("0\r\n\r\n".utf8)
     }
 
     static func corsPreflightData(origin: String?) -> Data {

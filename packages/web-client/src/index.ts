@@ -14,6 +14,13 @@ export type {
   VoxDClientOptions,
   TranscribeOptions,
   TranscriptionResult,
+  LiveSession,
+  LiveSessionOptions,
+  LiveSessionPartialEvent,
+  LiveSessionStatus,
+  SessionFinalEvent,
+  SessionState,
+  SessionStateEvent,
   RealtimeOptions,
   RealtimeSession,
 } from "./types.js";

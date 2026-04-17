@@ -100,6 +100,8 @@ export type CompanionState =
 
 /** Options for the VoxD client. */
 export interface VoxDClientOptions {
+  /** Stable client identity for telemetry. Default: "vox-web" */
+  clientId?: string;
   /** Base URL for the companion bridge. Default: http://127.0.0.1:43115 */
   baseUrl?: string;
   /** Companion bridge port. Ignored if baseUrl is set. Default: 43115 */
@@ -137,27 +139,65 @@ export interface TranscriptionResult {
 }
 
 /** Options for starting a realtime transcription stream. */
-export interface RealtimeOptions {
-  /** Audio format. Default: "pcm16" */
-  format?: "pcm16" | "wav";
-  /** Sample rate in Hz. Default: 16000 */
-  sampleRate?: number;
-  /** Language code. Default: "en" */
-  language?: string;
+export interface LiveSessionOptions {
+  /** Model to use for the live session. Default: "parakeet:v3" */
+  modelId?: string;
 }
 
-/** Events emitted by a realtime transcription session. */
-export interface RealtimeSession {
-  /** Send an audio chunk to the runtime. */
-  send(chunk: ArrayBuffer): void;
-  /** Signal end of audio input. */
-  stop(): void;
+export type SessionState =
+  | "starting"
+  | "recording"
+  | "processing"
+  | "done"
+  | "cancelled"
+  | "error";
+
+export interface SessionStateEvent {
+  sessionId: string;
+  state: SessionState;
+  previous?: SessionState | null;
+  reason?: string;
+}
+
+export interface LiveSessionStatus {
+  sessionId: string;
+  connectionId: string;
+  clientId: string;
+  modelId: string;
+  startedAt: string;
+  state: SessionState;
+}
+
+export interface LiveSessionPartialEvent {
+  sessionId: string;
+  text: string;
+}
+
+export interface SessionFinalEvent extends TranscriptionResult {
+  sessionId: string;
+}
+
+/** Events emitted by a live transcription session. */
+export interface LiveSession {
+  /** Current session id once the bridge reports it. */
+  readonly id: string | null;
+  /** Start the session and wait for the final transcript. */
+  start(options?: LiveSessionOptions): Promise<SessionFinalEvent>;
+  /** Stop the active recording and finalize transcription. */
+  stop(): Promise<void>;
+  /** Cancel the active recording without a transcript result. */
+  cancel(): Promise<void>;
+  /** Register a callback for session state changes. */
+  onState(cb: (event: SessionStateEvent) => void): () => void;
   /** Register a callback for partial transcriptions. */
-  onPartial(cb: (text: string) => void): void;
+  onPartial(cb: (event: LiveSessionPartialEvent) => void): () => void;
   /** Register a callback for the final transcription. */
-  onFinal(cb: (result: TranscriptionResult) => void): void;
+  onFinal(cb: (event: SessionFinalEvent) => void): () => void;
   /** Register a callback for errors. */
-  onError(cb: (error: Error) => void): void;
-  /** Close the session. */
+  onError(cb: (error: Error) => void): () => void;
+  /** Cancel the session without awaiting the result. */
   close(): void;
 }
+
+export type RealtimeOptions = LiveSessionOptions;
+export type RealtimeSession = LiveSession;

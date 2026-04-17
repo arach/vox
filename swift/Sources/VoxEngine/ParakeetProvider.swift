@@ -176,7 +176,7 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
         progress(ModelProgress(modelId: modelID, progress: 0.8, status: "downloaded"))
 
         let manager = AsrManager(config: .init())
-        try await manager.initialize(models: loadedModels)
+        try await manager.loadModels(loadedModels)
         self.loadedModels = loadedModels
         self.manager = manager
         progress(ModelProgress(modelId: modelID, progress: 1.0, status: "ready"))

@@ -11,10 +11,11 @@ let package = Package(
         .library(name: "VoxEngine", targets: ["VoxEngine"]),
         .library(name: "VoxService", targets: ["VoxService"]),
         .library(name: "VoxBridge", targets: ["VoxBridge"]),
+        .executable(name: "voxbridge", targets: ["VoxBridgeRunner"]),
         .executable(name: "voxd", targets: ["voxd"])
     ],
     dependencies: [
-        .package(url: "https://github.com/FluidInference/FluidAudio", revision: "b80d364")
+        .package(url: "https://github.com/FluidInference/FluidAudio", exact: "0.13.6")
     ],
     targets: [
         .target(name: "VoxCore"),
@@ -32,6 +33,10 @@ let package = Package(
         .target(
             name: "VoxBridge",
             dependencies: ["VoxCore"]
+        ),
+        .executableTarget(
+            name: "VoxBridgeRunner",
+            dependencies: ["VoxBridge"]
         ),
         .executableTarget(
             name: "voxd",
