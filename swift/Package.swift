@@ -14,7 +14,7 @@ let package = Package(
         .executable(name: "voxd", targets: ["voxd"])
     ],
     dependencies: [
-        .package(url: "https://github.com/FluidInference/FluidAudio", revision: "b80d364")
+        .package(url: "https://github.com/FluidInference/FluidAudio", branch: "main")
     ],
     targets: [
         .target(name: "VoxCore"),

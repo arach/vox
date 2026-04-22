@@ -71,7 +71,8 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
         defer { prepared.cleanup() }
 
         trace.begin("inference")
-        let result = try await manager.transcribe(prepared.url)
+        var decoderState = TdtDecoderState.make()
+        let result = try await manager.transcribe(prepared.url, decoderState: &decoderState)
         let inferenceMs = trace.end("\(result.text.count) chars")
 
         let metrics = TranscriptionMetrics(
@@ -89,14 +90,16 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
         )
 
         // Surface word-level timestamps from Parakeet's token timings
-        let words: [WordTiming] = (result.tokenTimings ?? []).map { timing in
-            WordTiming(
-                word: timing.token.trimmingCharacters(in: .whitespaces),
+        let words: [VoxCore.WordTiming] = (result.tokenTimings ?? []).compactMap { timing in
+            let word = timing.token.trimmingCharacters(in: CharacterSet.whitespaces)
+            guard !word.isEmpty else { return nil }
+            return VoxCore.WordTiming(
+                word: word,
                 start: timing.startTime,
                 end: timing.endTime,
                 confidence: timing.confidence
             )
-        }.filter { !$0.word.isEmpty }
+        }
 
         log.info("Trace complete \(trace.summary)")
         return TranscriptionOutput(modelId: self.modelID, text: result.text, elapsedMs: metrics.totalMs, metrics: metrics, words: words)
@@ -176,7 +179,7 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
         progress(ModelProgress(modelId: modelID, progress: 0.8, status: "downloaded"))
 
         let manager = AsrManager(config: .init())
-        try await manager.initialize(models: loadedModels)
+        try await manager.loadModels(loadedModels)
         self.loadedModels = loadedModels
         self.manager = manager
         progress(ModelProgress(modelId: modelID, progress: 1.0, status: "ready"))

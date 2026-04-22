@@ -303,7 +303,7 @@ extension OriginAllowlist {
         return "\(parsed.scheme)://\(host)"
     }
 
-    static func parseRule(_ raw: String) -> OriginRule? {
+    fileprivate static func parseRule(_ raw: String) -> OriginRule? {
         if raw.hasSuffix(":*") {
             let base = String(raw.dropLast(2))
             guard let parsed = parseOrigin(base), isLoopbackHost(parsed.host) else { return nil }
@@ -314,12 +314,10 @@ extension OriginAllowlist {
         return OriginRule(scheme: parsed.scheme, host: parsed.host, port: parsed.port, wildcardPort: false)
     }
 
-    static func parseOrigin(_ raw: String) -> ParsedOrigin? {
+    fileprivate static func parseOrigin(_ raw: String) -> ParsedOrigin? {
         guard let components = URLComponents(string: raw) else { return nil }
         guard let scheme = components.scheme?.lowercased(), let host = components.host?.lowercased() else { return nil }
         guard components.user == nil, components.password == nil else { return nil }
-        guard components.query == nil, components.fragment == nil else { return nil }
-        guard components.path.isEmpty || components.path == "/" else { return nil }
         guard ["http", "https"].contains(scheme) else { return nil }
         return ParsedOrigin(scheme: scheme, host: host, port: components.port)
     }
