@@ -9,7 +9,7 @@
   "packageManager": "bun@1.2.15",
   "scripts": {
     "dev": "bun run site:dev",
-    "build": "bun run --cwd packages/client build && bun run --cwd packages/cli build && swift build --package-path swift",
+    "build": "bun run --cwd packages/client build && bun run --cwd packages/cli build && bun run --cwd packages/web-client build && swift build --package-path swift",
     "build:all": "bun run build && bun run site:build",
     "site:dev": "bun run --cwd site dev",
     "site:build": "bun run --cwd site build && bun run docs:build && cp -r docs-site/dist/. site/out/",
@@ -22,8 +22,8 @@
     "docs:agent": "dewey agent",
     "tui": "bun run --cwd packages/tui index.tsx",
     "example:tui": "INIT_CWD=\"$PWD\" bun run --cwd examples/transcribe-tui index.tsx",
-    "test": "bun test packages/client/test packages/cli/test && swift test --package-path swift",
-    "test:e2e": "swift build --package-path swift --product voxd && VOX_E2E=1 bun test packages/client/test/transcribe-file.e2e.test.ts"
+    "test": "bun test packages/client/test packages/cli/test packages/web-client/test && swift test --package-path swift",
+    "test:e2e": "swift build --package-path swift --product voxd --product voxbridge && VOX_E2E=1 bun test packages/client/test/transcribe-file.e2e.test.ts packages/web-client/test/live-session.e2e.test.ts"
   },
   "devDependencies": {
     "@arach/dewey": "^0.3.4"

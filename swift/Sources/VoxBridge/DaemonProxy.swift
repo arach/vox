@@ -3,9 +3,14 @@ import VoxCore
 
 /// Connects to the voxd WebSocket JSON-RPC daemon and proxies requests.
 public actor DaemonProxy {
+    private struct PendingRequest {
+        let continuation: CheckedContinuation<[String: Any], Error>
+        let onProgress: (@Sendable (_ event: String, _ data: [String: Any]) async -> Void)?
+    }
+
     private var webSocket: URLSessionWebSocketTask?
     private let session = URLSession(configuration: .default)
-    private var pendingRequests: [String: CheckedContinuation<[String: Any], Error>] = [:]
+    private var pendingRequests: [String: PendingRequest] = [:]
     private var requestCounter = 0
     private var connected = false
 
@@ -30,8 +35,8 @@ public actor DaemonProxy {
         connected = false
         let pending = pendingRequests
         pendingRequests.removeAll()
-        for (_, continuation) in pending {
-            continuation.resume(throwing: BridgeError.disconnected)
+        for (_, request) in pending {
+            request.continuation.resume(throwing: BridgeError.disconnected)
         }
     }
 
@@ -40,6 +45,22 @@ public actor DaemonProxy {
     }
 
     public func call(_ method: String, params: [String: Any]? = nil) async throws -> sending [String: Any] {
+        try await sendRequest(method, params: params, onProgress: nil)
+    }
+
+    public func callStreaming(
+        _ method: String,
+        params: [String: Any]? = nil,
+        onProgress: @escaping @Sendable (_ event: String, _ data: [String: Any]) async -> Void
+    ) async throws -> sending [String: Any] {
+        try await sendRequest(method, params: params, onProgress: onProgress)
+    }
+
+    private func sendRequest(
+        _ method: String,
+        params: [String: Any]? = nil,
+        onProgress: (@Sendable (_ event: String, _ data: [String: Any]) async -> Void)?
+    ) async throws -> sending [String: Any] {
         guard let ws = webSocket else {
             throw BridgeError.daemonNotRunning
         }
@@ -56,7 +77,7 @@ public actor DaemonProxy {
         try await ws.send(.string(text))
 
         return try await withCheckedThrowingContinuation { continuation in
-            pendingRequests[id] = continuation
+            pendingRequests[id] = PendingRequest(continuation: continuation, onProgress: onProgress)
         }
     }
 
@@ -75,7 +96,7 @@ public actor DaemonProxy {
         }
     }
 
-    private func handleMessage(_ message: URLSessionWebSocketTask.Message) {
+    private func handleMessage(_ message: URLSessionWebSocketTask.Message) async {
         let text: String
         switch message {
         case .string(let s): text = s
@@ -84,18 +105,27 @@ public actor DaemonProxy {
         }
 
         guard let data = text.data(using: .utf8),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let id = object["id"] as? String
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { return }
 
-        let continuation = pendingRequests.removeValue(forKey: id)
+        if let id = object["id"] as? String,
+           let event = object["event"] as? String {
+            let payload = object["data"] as? [String: Any] ?? [:]
+            if let onProgress = pendingRequests[id]?.onProgress {
+                await onProgress(event, payload)
+            }
+            return
+        }
+
+        guard let id = object["id"] as? String else { return }
+        let request = pendingRequests.removeValue(forKey: id)
 
         if let error = object["error"] as? String {
-            continuation?.resume(throwing: BridgeError.daemonError(error))
+            request?.continuation.resume(throwing: BridgeError.daemonError(error))
         } else if let result = object["result"] as? [String: Any] {
-            continuation?.resume(returning: result)
+            request?.continuation.resume(returning: result)
         } else {
-            continuation?.resume(returning: [:])
+            request?.continuation.resume(returning: [:])
         }
     }
 }

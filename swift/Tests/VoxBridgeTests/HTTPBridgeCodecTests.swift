@@ -65,4 +65,33 @@ struct HTTPBridgeCodecTests {
         #expect(response.contains("Access-Control-Allow-Headers: Content-Type"))
         #expect(response.contains("Access-Control-Max-Age: 86400"))
     }
+
+    @Test("Streaming responses advertise chunked NDJSON with CORS headers")
+    func streamingResponsesIncludeExpectedHeaders() throws {
+        let data = HTTPBridgeCodec.streamingResponseHead(origin: "http://localhost:3500")
+        let response = try #require(String(data: data, encoding: .utf8))
+
+        #expect(response.contains("HTTP/1.1 200 OK"))
+        #expect(response.contains("Content-Type: application/x-ndjson"))
+        #expect(response.contains("Transfer-Encoding: chunked"))
+        #expect(response.contains("Cache-Control: no-cache"))
+        #expect(response.contains("Access-Control-Allow-Origin: http://localhost:3500"))
+    }
+
+    @Test("Streaming chunks encode a newline-delimited JSON payload")
+    func streamingChunksEncodeNDJSONPayload() throws {
+        let data = HTTPBridgeCodec.streamingChunkData(body: [
+            "event": "session.state",
+            "data": [
+                "sessionId": "session-1",
+                "state": "recording"
+            ]
+        ])
+        let chunk = try #require(String(data: data, encoding: .utf8))
+
+        #expect(chunk.contains("\r\n{\"data\":"))
+        #expect(chunk.contains("\"event\":\"session.state\""))
+        #expect(chunk.contains("\"sessionId\":\"session-1\""))
+        #expect(chunk.hasSuffix("\n\r\n"))
+    }
 }
