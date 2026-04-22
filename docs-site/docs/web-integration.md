@@ -1,17 +1,17 @@
 # Web Integration
 
-Use `@voxd/web` to add local transcription to any web app. The client talks to the Vox Companion running on the user's Mac — no server needed.
+Use `@voxd/client` to add local transcription to any web app. The client talks to the Vox Companion running on the user's Mac — no server needed.
 
 ## Install
 
 ```bash
-npm install @voxd/web
+npm install @voxd/client
 ```
 
 ## Quick start
 
 ```ts
-import { createVoxdClient } from "@voxd/web";
+import { createVoxdClient } from "@voxd/client";
 
 const client = createVoxdClient();
 
@@ -157,7 +157,7 @@ client.launch(); // triggers vox://launch
 All methods throw `VoxDError` with a `code` property:
 
 ```ts
-import { VoxDError } from "@voxd/web";
+import { VoxDError } from "@voxd/client";
 
 try {
   const result = await client.transcribe({ audio: blob });
@@ -176,7 +176,7 @@ try {
 
 ## HTTP bridge reference
 
-The companion listens on `http://127.0.0.1:43115`. These endpoints are what `@voxd/web` calls under the hood.
+The companion listens on `http://127.0.0.1:43115`. These endpoints are what `@voxd/client` calls under the hood.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|

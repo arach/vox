@@ -8,7 +8,7 @@ BUILD_DIR="$ROOT/dist"
 APP_NAME="Vox.app"
 DMG_NAME="Vox.dmg"
 BUNDLE="$BUILD_DIR/$APP_NAME"
-VERSION="0.1.1"
+VERSION="0.2.0"
 
 # Signing
 SIGN_IDENTITY="Developer ID Application: Arach Tchoupani (2U83JFPW66)"
