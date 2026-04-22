@@ -113,6 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             proxy = p
             allowlist = a
             bridge = b
+            bridgeState.bind(allowlist: a)
 
             try? await p.connect()
             bridgeState.isRunning = true

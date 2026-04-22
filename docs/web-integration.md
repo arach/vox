@@ -188,7 +188,7 @@ The companion listens on `http://127.0.0.1:43115`. These endpoints are what `@vo
 | `GET` | `/jobs/:id` | Origin | Poll job status |
 | `POST` | `/transcribe` | Origin | Upload audio for transcription |
 
-**Origin gating:** All endpoints except `/health` require the request `Origin` header to be in the companion's allowlist. No origins are allowed by default — users add their app's origin in Vox settings.
+**Origin gating:** All endpoints except `/health` require the request `Origin` header to be in the companion's allowlist. Vox ships with `https://uselinea.com` and `https://www.uselinea.com` enabled by default. Users can add origins in Vox settings, and integrations can register their own origins by writing JSON drop-ins like `{"origins":["https://app.example.com"]}` into `~/.vox/origins.d/`. Vox merges built-in, user-managed, and integration-managed origins instead of replacing one list with another.
 
 ## Configuration
 

@@ -106,6 +106,7 @@ struct GeneralTab: View {
 
 struct BridgeTab: View {
     @EnvironmentObject var bridgeState: BridgeState
+    @State private var pendingOrigin = ""
 
     var body: some View {
         Form {
@@ -138,18 +139,88 @@ struct BridgeTab: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("https://uselinea.com")
+                HStack(alignment: .center, spacing: 8) {
+                    TextField("https://example.com", text: $pendingOrigin)
+                        .textFieldStyle(.roundedBorder)
                         .font(.system(.body, design: .monospaced))
-                    Text("https://www.uselinea.com")
-                        .font(.system(.body, design: .monospaced))
+
+                    Button("Add") {
+                        bridgeState.addOrigin(pendingOrigin)
+                        pendingOrigin = ""
+                    }
+                    .disabled(pendingOrigin.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .padding(.vertical, 2)
+
+                if let message = bridgeState.originsErrorMessage {
+                    Text(message)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
             } header: {
                 Text("Allowed Origins")
             }
+
+            if !bridgeState.userOrigins.isEmpty {
+                Section {
+                    ForEach(bridgeState.userOrigins, id: \.self) { origin in
+                        HStack {
+                            Text(origin)
+                                .font(.system(.body, design: .monospaced))
+                            Spacer()
+                            Button("Remove") {
+                                bridgeState.removeOrigin(origin)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Added In Vox")
+                }
+            }
+
+            if !bridgeState.integrationOrigins.isEmpty {
+                Section {
+                    ForEach(bridgeState.integrationOrigins, id: \.self) { origin in
+                        Text(origin)
+                            .font(.system(.body, design: .monospaced))
+                    }
+                } header: {
+                    Text("Integration Registrations")
+                }
+            }
+
+            Section {
+                ForEach(bridgeState.builtinOrigins, id: \.self) { origin in
+                    Text(origin)
+                        .font(.system(.body, design: .monospaced))
+                }
+            } header: {
+                Text("Built-In Origins")
+            }
+
+            Section {
+                LabeledContent("User File") {
+                    Text("~/.vox/origins.json")
+                        .font(.system(.body, design: .monospaced))
+                        .textSelection(.enabled)
+                }
+
+                LabeledContent("Integration Drop-Ins") {
+                    Text("~/.vox/origins.d/")
+                        .font(.system(.body, design: .monospaced))
+                        .textSelection(.enabled)
+                }
+
+                Text("Integrations can register origins by writing a JSON file such as {\"origins\":[\"https://app.example.com\"]} into ~/.vox/origins.d/. Vox merges those entries with the built-in and user-managed lists.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Configuration")
+            }
         }
         .formStyle(.grouped)
+        .task {
+            await bridgeState.refreshOrigins()
+        }
     }
 }
 

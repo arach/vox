@@ -112,7 +112,14 @@ public final class HTTPBridgeServer: @unchecked Sendable {
 
         // CORS preflight
         if method == "OPTIONS" {
-            sendCORSPreflight(origin: origin, on: connection)
+            Task {
+                let allowed = if let origin {
+                    await allowlist.check(origin)
+                } else {
+                    false
+                }
+                sendCORSPreflight(origin: allowed ? origin : nil, allowed: allowed, on: connection)
+            }
             return
         }
 
@@ -322,7 +329,21 @@ public final class HTTPBridgeServer: @unchecked Sendable {
         })
     }
 
-    private func sendCORSPreflight(origin: String?, on connection: NWConnection) {
+    private func sendCORSPreflight(origin: String?, allowed: Bool, on connection: NWConnection) {
+        guard allowed else {
+            let headers = """
+            HTTP/1.1 403 Forbidden\r
+            Content-Length: 0\r
+            Connection: close\r
+            \r
+            """
+
+            connection.send(content: headers.data(using: .utf8), completion: .contentProcessed { _ in
+                connection.cancel()
+            })
+            return
+        }
+
         var headers = "HTTP/1.1 204 No Content\r\n"
         headers += "Connection: close\r\n"
         if let origin {

@@ -42,6 +42,14 @@ public enum RuntimePaths {
         voxHomeURL().appendingPathComponent("providers.json")
     }
 
+    public static func bridgeOriginsFileURL() -> URL {
+        voxHomeURL().appendingPathComponent("origins.json")
+    }
+
+    public static func bridgeOriginsDirectoryURL() -> URL {
+        voxHomeURL().appendingPathComponent("origins.d", isDirectory: true)
+    }
+
     public static func ensureDirectories() throws {
         try FileManager.default.createDirectory(
             at: voxHomeURL(),
@@ -49,6 +57,10 @@ public enum RuntimePaths {
         )
         try FileManager.default.createDirectory(
             at: logsDirectoryURL(),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: bridgeOriginsDirectoryURL(),
             withIntermediateDirectories: true
         )
     }
