@@ -1,19 +1,19 @@
 # Web Integration (Companion Client)
 
-> **Two clients, two use cases.** This is `@voxd/client` — the companion client for web apps and browser extensions. It communicates with the Vox Companion over a local HTTP bridge. If you're building a native macOS app or Bun/Node process that connects directly to the daemon, use [`@vox/client`](./sdk.md) instead.
+> **Two clients, two use cases.** This is `@voxd/web` — the companion client for web apps and browser extensions. It communicates with the Vox Companion over a local HTTP bridge. If you're building a native macOS app or Bun/Node process that connects directly to the daemon, use [`@voxd/sdk`](./sdk.md) instead.
 
-Use `@voxd/client` to add local transcription to any web app. The client talks to the Vox Companion running on the user's Mac — no server needed.
+Use `@voxd/web` to add local transcription to any web app. The client talks to the Vox Companion running on the user's Mac — no server needed.
 
 ## Install
 
 ```bash
-npm install @voxd/client
+npm install @voxd/web
 ```
 
 ## Quick start
 
 ```ts
-import { createVoxdClient } from "@voxd/client";
+import { createVoxdClient } from "@voxd/web";
 
 const client = createVoxdClient();
 
@@ -159,7 +159,7 @@ client.launch(); // triggers vox://launch
 All methods throw `VoxDError` with a `code` property:
 
 ```ts
-import { VoxDError } from "@voxd/client";
+import { VoxDError } from "@voxd/web";
 
 try {
   const result = await client.transcribe({ audio: blob });
@@ -178,7 +178,7 @@ try {
 
 ## HTTP bridge reference
 
-The companion listens on `http://127.0.0.1:43115`. These endpoints are what `@voxd/client` calls under the hood.
+The companion listens on `http://127.0.0.1:43115`. These endpoints are what `@voxd/web` calls under the hood.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|

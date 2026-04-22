@@ -15,7 +15,7 @@ import {
   type TranscriptionMetrics,
   type WarmupStatus,
   type WordTiming,
-} from "@vox/client";
+} from "@voxd/sdk";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
 const SWIFT_ROOT = join(REPO_ROOT, "swift");

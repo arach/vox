@@ -25,7 +25,7 @@ Vox already has the pieces for browser live sessions:
 
 - the daemon exposes `transcribe.startSession`, `transcribe.sessionStatus`, `transcribe.stopSession`, and `transcribe.cancelSession`
 - the local HTTP bridge now proxies those routes as `/live`, `/live/stop`, and `/live/cancel`
-- `@voxd/client` now exposes a browser live-session API backed by an NDJSON stream
+- `@voxd/web` now exposes a browser live-session API backed by an NDJSON stream
 - capabilities now report `features.realtime`
 
 That baseline is enough to ship an end-to-end path, but it does not yet freeze the public contract strongly enough for Hudson or other multi-surface browser integrations.

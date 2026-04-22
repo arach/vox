@@ -449,7 +449,7 @@ function renderLandingTemplate(title: string, eyebrow: string, detail: string) {
       <div class="right">
         <div class="panel">
           <div class="panel-label">Bridge</div>
-          <div class="panel-body">npm install @voxd/client<br />probe() + transcribe()<br />Local companion on macOS</div>
+          <div class="panel-body">npm install @voxd/web<br />probe() + transcribe()<br />Local companion on macOS</div>
           <div class="panel-accent"></div>
         </div>
       </div>

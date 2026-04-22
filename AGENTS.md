@@ -42,7 +42,7 @@ Vox is a local-first transcription runtime for macOS.
 It is built as a Bun + SwiftPM monorepo with three public surfaces:
 
 - `voxd` — the standalone Swift daemon that owns runtime state, warm-up, microphone capture, transcription, and telemetry.
-- `@vox/client` — the TypeScript SDK for talking to the daemon over local WebSocket JSON-RPC.
+- `@voxd/sdk` — the TypeScript SDK for talking to the daemon over local WebSocket JSON-RPC.
 - `vox` — the Bun CLI for operator workflows like health checks, benchmarks, warm-up scheduling, and local transcription.
 
 ## Why Vox Exists
@@ -73,7 +73,7 @@ Most transcription integrations hide the runtime behind a black box. Vox takes t
 
 Vox is intentionally split into operator and integration surfaces:
 
-- app teams can embed `@vox/client` and preserve `clientId`
+- app teams can embed `@voxd/sdk` and preserve `clientId`
 - operators can use `vox` to inspect health, warm-up, and performance
 - the daemon can stay warm across multiple consumers instead of each app loading its own model
 
@@ -289,7 +289,7 @@ The TypeScript SDK lives in `packages/client/`.
 ## Example
 
 ```ts
-import { VoxClient } from "@vox/client";
+import { VoxClient } from "@voxd/sdk";
 
 const client = new VoxClient({ clientId: "menu-bar" });
 
@@ -468,7 +468,7 @@ Daemon-side orchestration:
 
 ### TypeScript SDK
 
-`@vox/client` mirrors the runtime capabilities for integrations:
+`@voxd/sdk` mirrors the runtime capabilities for integrations:
 
 - health
 - models
@@ -490,7 +490,7 @@ Daemon-side orchestration:
 ## Public Surfaces
 
 - `voxd`
-- `@vox/client`
+- `@voxd/sdk`
 - `vox`
 - `site/`
 

@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createCliRenderer } from "@opentui/core";
 import { createRoot, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
-import { VoxClient } from "@vox/client";
-import type { FileTranscriptionResult } from "@vox/client";
+import { VoxClient } from "@voxd/sdk";
+import type { FileTranscriptionResult } from "@voxd/sdk";
 import { existsSync } from "fs";
 import { basename, resolve } from "path";
 import { execSync } from "child_process";

@@ -16,7 +16,7 @@ Most transcription products expose one narrow SDK surface and hide the runtime b
 Vox makes the runtime explicit instead:
 
 - `voxd` owns local model state, transcription, warm-up, and telemetry
-- `@vox/client` gives apps a typed JSON-RPC integration surface
+- `@voxd/sdk` gives apps a typed JSON-RPC integration surface
 - `vox` gives operators a local tool for health checks, benchmarks, and dashboards
 
 That split makes it easier to build multi-client products where a menu bar app, browser extension, or editor plugin can all talk to the same warm runtime.
@@ -95,4 +95,4 @@ Daemon logs are appended to `~/.vox/logs/voxd.log`, even when `voxd` is auto-sta
 ## Release Automation
 
 - GitHub Pages deploys from [`.github/workflows/deploy-pages.yml`](/Users/arach/dev/vox/.github/workflows/deploy-pages.yml) to `https://voxd.cc`
-- npm publishing runs from [`.github/workflows/publish-packages.yml`](/Users/arach/dev/vox/.github/workflows/publish-packages.yml) and publishes `@vox/client` before `@vox/cli`
+- npm publishing runs from [`.github/workflows/publish-packages.yml`](/Users/arach/dev/vox/.github/workflows/publish-packages.yml) and publishes `@voxd/sdk` before `@voxd/cli`

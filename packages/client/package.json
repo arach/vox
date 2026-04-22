@@ -1,5 +1,5 @@
 {
-  "name": "@vox/client",
+  "name": "@voxd/sdk",
   "version": "0.1.1",
   "type": "module",
   "description": "TypeScript client for the Vox local transcription runtime.",

@@ -33,7 +33,7 @@ Daemon-side orchestration:
 
 ### TypeScript SDK
 
-`@vox/client` mirrors the runtime capabilities for integrations:
+`@voxd/sdk` mirrors the runtime capabilities for integrations:
 
 - health
 - models
@@ -55,7 +55,7 @@ Daemon-side orchestration:
 ## Public Surfaces
 
 - `voxd`
-- `@vox/client`
+- `@voxd/sdk`
 - `vox`
 - `site/`
 

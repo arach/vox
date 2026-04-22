@@ -9,7 +9,7 @@
     "dev": "bun run --watch index.tsx"
   },
   "dependencies": {
-    "@vox/client": "file:../../packages/client",
+    "@voxd/sdk": "file:../../packages/client",
     "@opentui/core": "latest",
     "@opentui/react": "latest",
     "react": "^19.0.0"

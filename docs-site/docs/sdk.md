@@ -15,7 +15,7 @@ The TypeScript SDK lives in `packages/client/`.
 ## Example
 
 ```ts
-import { VoxClient } from "@vox/client";
+import { VoxClient } from "@voxd/sdk";
 
 const client = new VoxClient({ clientId: "menu-bar" });
 

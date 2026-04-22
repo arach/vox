@@ -3,14 +3,14 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createCliRenderer } from "@opentui/core";
 import { createRoot, useKeyboard, useTerminalDimensions } from "@opentui/react";
-import { VoxClient, RuntimeDiscovery, getVoxHome } from "@vox/client";
+import { VoxClient, RuntimeDiscovery, getVoxHome } from "@voxd/sdk";
 import type {
   DoctorReport,
   ModelInfo,
   TranscriptionMetrics,
   RuntimeInfo,
   WordTiming,
-} from "@vox/client";
+} from "@voxd/sdk";
 import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } from "fs";
 import { execSync } from "child_process";
 import { join } from "path";

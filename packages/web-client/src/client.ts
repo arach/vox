@@ -26,7 +26,7 @@ const DEFAULT_POLL_INTERVAL = 500;
  *
  * @example
  * ```ts
- * import { createVoxdClient } from "@voxd/client";
+ * import { createVoxdClient } from "@voxd/web";
  *
  * const client = createVoxdClient();
  *

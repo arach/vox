@@ -1,6 +1,6 @@
 # SDK (Daemon Client)
 
-> **Two clients, two use cases.** This is `@vox/client` — the TypeScript SDK for native apps and Node/Bun processes that connect directly to the Vox daemon over a local socket. If you're building a web app or browser extension, use [`@voxd/client`](./web-integration.md) instead, which talks to the Vox Companion over HTTP.
+> **Two clients, two use cases.** This is `@voxd/sdk` — the TypeScript SDK for native apps and Node/Bun processes that connect directly to the Vox daemon over a local socket. If you're building a web app or browser extension, use [`@voxd/web`](./web-integration.md) instead, which talks to the Vox Companion over HTTP.
 
 The TypeScript SDK lives in `packages/client/`.
 
@@ -17,7 +17,7 @@ The TypeScript SDK lives in `packages/client/`.
 ## Example
 
 ```ts
-import { VoxClient } from "@vox/client";
+import { VoxClient } from "@voxd/sdk";
 
 const client = new VoxClient({ clientId: "menu-bar" });
 
