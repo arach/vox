@@ -33,7 +33,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build packages
-        run: bun run build
+        run: bun run --cwd packages/client build && bun run --cwd packages/cli build
 
       - name: Publish @voxd/sdk if needed
         working-directory: packages/client
