@@ -15,6 +15,7 @@ import {
   type TranscriptionMetrics,
   type WarmupStatus,
   type WordTiming,
+  DEFAULT_PORT,
 } from "@voxd/sdk";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
@@ -328,7 +329,7 @@ function buildDaemon(): void {
 
 async function stopDaemon(): Promise<void> {
   const runtime = readRuntimeInfo();
-  const port = runtime?.port ?? 42137;
+  const port = runtime?.port ?? DEFAULT_PORT;
   const pids = new Set<number>();
 
   if (runtime && processIsRunning(runtime.pid)) {
@@ -365,7 +366,7 @@ async function stopDaemon(): Promise<void> {
 
 function printDaemonStatus(): void {
   const runtime = readRuntimeInfo();
-  const port = runtime?.port ?? 42137;
+  const port = runtime?.port ?? DEFAULT_PORT;
   const listenerPid = findListeningPid(port);
   if (!runtime && !listenerPid) {
     console.log("Vox daemon is not running.");

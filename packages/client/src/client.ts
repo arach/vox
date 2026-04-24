@@ -1,5 +1,5 @@
 import { RuntimeDiscovery } from "./discovery.ts";
-import { STREAM_TIMEOUT_MS } from "./constants.ts";
+import { DEFAULT_HOST, STREAM_TIMEOUT_MS } from "./constants.ts";
 import { parseTranscriptionMetrics } from "./metrics.ts";
 import { WebSocketTransport } from "./transport.ts";
 import { VoxLiveSession } from "./live.ts";
@@ -30,7 +30,8 @@ export class VoxClient {
 
   async connect(): Promise<void> {
     this.resolvedPort = this.discovery.resolvePort(this.options.port);
-    await this.transport.connect(this.resolvedPort);
+    const host = this.options.host ?? DEFAULT_HOST;
+    await this.transport.connect(this.resolvedPort, host);
   }
 
   disconnect(): void {

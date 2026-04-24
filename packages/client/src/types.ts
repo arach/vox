@@ -29,6 +29,7 @@ export type WireMessage = RpcResponse | RpcEvent;
 export interface VoxClientOptions {
   clientId?: string;
   port?: number;
+  host?: string;
 }
 
 export interface DoctorCheck {
