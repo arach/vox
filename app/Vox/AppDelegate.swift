@@ -1,16 +1,18 @@
 import AppKit
+import Combine
 import SwiftUI
 import VoxBridge
 import VoxCore
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
+final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     let monitor = DaemonMonitor()
     let bridgeState = BridgeState()
     private var proxy: DaemonProxy?
     private var bridge: HTTPBridgeServer?
     private var allowlist: OriginAllowlist?
+    private var monitorObserver: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
@@ -33,6 +35,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         NSApp.setActivationPolicy(.accessory)
         return false
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        monitor.stop()
     }
 
     // MARK: - Menu bar
@@ -59,10 +65,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Vox", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
+        menu.delegate = self
         statusItem.menu = menu
-
-        Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+        monitorObserver = monitor.objectWillChange.sink { [weak self] _ in
+            Task { @MainActor [weak self] in
                 self?.updateMenuBarState()
             }
         }
@@ -96,10 +102,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
     @objc func restartDaemon() {
         LaunchAgentManager.restart()
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
-            monitor.checkNow()
-        }
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        updateMenuBarState()
     }
 
     // MARK: - HTTP Bridge

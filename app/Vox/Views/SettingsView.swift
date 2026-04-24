@@ -21,6 +21,7 @@ struct SettingsView: View {
 
 struct GeneralTab: View {
     @EnvironmentObject var monitor: DaemonMonitor
+    @State private var launchAgentInstalled = LaunchAgentManager.isInstalled()
 
     var body: some View {
         Form {
@@ -74,31 +75,27 @@ struct GeneralTab: View {
                 HStack {
                     Button("Restart Daemon") {
                         LaunchAgentManager.restart()
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .seconds(2))
-                            monitor.checkNow()
-                        }
                     }
 
-                    if !LaunchAgentManager.isInstalled() {
+                    if !launchAgentInstalled {
                         Button("Install LaunchAgent") {
                             LaunchAgentManager.install()
-                            Task { @MainActor in
-                                try? await Task.sleep(for: .seconds(2))
-                                monitor.checkNow()
-                            }
+                            launchAgentInstalled = LaunchAgentManager.isInstalled()
                         }
                         .tint(.accentColor)
                     }
                 }
 
-                Toggle("Start at login", isOn: .constant(LaunchAgentManager.isInstalled()))
+                Toggle("Start at login", isOn: .constant(launchAgentInstalled))
                     .disabled(true)
             } header: {
                 Text("Actions")
             }
         }
         .formStyle(.grouped)
+        .onAppear {
+            launchAgentInstalled = LaunchAgentManager.isInstalled()
+        }
     }
 }
 
