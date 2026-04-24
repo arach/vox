@@ -13,9 +13,9 @@ public final class VoxRuntimeService: @unchecked Sendable {
     private let sessions = LiveSessionCoordinator()
     private let startedAt = Date()
 
-    public init(port: UInt16 = 42137, engine: EngineManager = EngineManager()) {
+    public init(port: UInt16 = VoxDefaults.daemonPort, bindAddress: String = VoxDefaults.host, engine: EngineManager = EngineManager()) {
         self.port = port
-        self.bridge = ServiceBridge(port: port, serviceName: "Vox")
+        self.bridge = ServiceBridge(port: port, serviceName: "Vox", bindAddress: bindAddress)
         self.engine = engine
         self.warmup = WarmupCoordinator(engine: engine)
     }

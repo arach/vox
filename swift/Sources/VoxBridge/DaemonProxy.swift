@@ -21,7 +21,8 @@ public actor DaemonProxy {
         guard let runtime else {
             throw BridgeError.daemonNotRunning
         }
-        let url = URL(string: "ws://127.0.0.1:\(runtime.port)")!
+        let host = VoxDefaults.resolvedHost()
+        let url = URL(string: "ws://\(host):\(runtime.port)")!
         let task = session.webSocketTask(with: url)
         webSocket = task
         connected = true

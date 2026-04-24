@@ -36,7 +36,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "VoxBridgeRunner",
-            dependencies: ["VoxBridge"]
+            dependencies: ["VoxCore", "VoxBridge"]
         ),
         .executableTarget(
             name: "voxd",

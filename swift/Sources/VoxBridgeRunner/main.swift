@@ -1,6 +1,7 @@
 import Dispatch
 import Foundation
 import VoxBridge
+import VoxCore
 
 #if canImport(Darwin)
 import Darwin
@@ -9,10 +10,10 @@ import Darwin
 func parsePort() -> UInt16 {
     let arguments = CommandLine.arguments
     guard let index = arguments.firstIndex(of: "--port"), arguments.indices.contains(index + 1) else {
-        return HTTPBridgeServer.defaultPort
+        return VoxDefaults.resolvedBridgePort()
     }
 
-    return UInt16(arguments[index + 1]) ?? HTTPBridgeServer.defaultPort
+    return UInt16(arguments[index + 1]) ?? VoxDefaults.resolvedBridgePort()
 }
 
 let port = parsePort()

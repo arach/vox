@@ -13,10 +13,10 @@ let log = VoxLog.daemon
 func parsePort() -> UInt16 {
     let arguments = CommandLine.arguments
     guard let index = arguments.firstIndex(of: "--port"), arguments.indices.contains(index + 1) else {
-        return 42137
+        return VoxDefaults.resolvedDaemonPort()
     }
 
-    return UInt16(arguments[index + 1]) ?? 42137
+    return UInt16(arguments[index + 1]) ?? VoxDefaults.resolvedDaemonPort()
 }
 
 func loadEngine() -> EngineManager {
@@ -38,8 +38,9 @@ func loadEngine() -> EngineManager {
 }
 
 let port = parsePort()
+let host = VoxDefaults.resolvedHost()
 let engine = loadEngine()
-let service = VoxRuntimeService(port: port, engine: engine)
+let service = VoxRuntimeService(port: port, bindAddress: host, engine: engine)
 
 do {
     try service.start()
