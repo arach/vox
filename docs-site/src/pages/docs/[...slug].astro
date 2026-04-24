@@ -2,7 +2,7 @@
 import DocsLayout from '../../layouts/DocsLayout.astro'
 
 export async function getStaticPaths() {
-  const markdownFiles = import.meta.glob('../../../docs/**/*.md')
+  const markdownFiles = import.meta.glob('../../../../docs/**/*.md')
 
   const entries = Object.entries(markdownFiles).filter(([filePath]) => {
     if (filePath.endsWith('.agent.md')) return false
@@ -34,11 +34,11 @@ const fallbackTitle = fileName
 const title = frontmatter?.title ?? fallbackTitle
 const description = frontmatter?.description
 
-const rawMarkdownFiles = import.meta.glob('../../../docs/**/*.md', {
+const rawMarkdownFiles = import.meta.glob('../../../../docs/**/*.md', {
   query: '?raw',
   import: 'default',
 })
-const agentMarkdownFiles = import.meta.glob('../../../docs/**/*.agent.md', {
+const agentMarkdownFiles = import.meta.glob('../../../../docs/**/*.agent.md', {
   query: '?raw',
   import: 'default',
 })
@@ -46,7 +46,7 @@ const agentMarkdownFiles = import.meta.glob('../../../docs/**/*.agent.md', {
 const rawLoader = rawMarkdownFiles[filePath]
 const rawMarkdown = rawLoader ? await rawLoader() : ''
 
-const agentFilePath = filePath.replace(/\.md$/, '.agent.md')
+const agentFilePath = filePath.replace('/docs/', '/docs/agent/').replace(/\.md$/, '.agent.md')
 const agentLoader = agentMarkdownFiles[agentFilePath]
 const agentMarkdown = agentLoader ? await agentLoader() : ''
 ---

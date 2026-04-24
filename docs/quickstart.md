@@ -44,4 +44,6 @@ vox transcribe status
 
 ## Next steps
 
+If you are integrating Vox into a macOS or iOS app, read the [Apple Embed Guide](./apple-embed.md).
+
 Try the [sample app](https://github.com/arach/vox/tree/main/examples/transcribe-tui) -- a terminal transcription tool that connects to the runtime, warms the model, and shows timing bars for each file.

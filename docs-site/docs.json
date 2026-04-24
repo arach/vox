@@ -6,7 +6,8 @@
       "title": "Getting Started",
       "items": [
         { "id": "overview", "title": "Overview" },
-        { "id": "quickstart", "title": "Quickstart" }
+        { "id": "quickstart", "title": "Quickstart" },
+        { "id": "apple-embed", "title": "Apple Embed" }
       ]
     },
     {
