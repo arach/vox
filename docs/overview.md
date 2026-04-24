@@ -1,76 +1,54 @@
 # Vox Overview
 
-Vox is a local-first transcription runtime for macOS.
+Vox is a local-first transcription runtime for macOS. Three surfaces:
 
-It is built as a Bun + SwiftPM monorepo with three public surfaces:
+- `voxd` — Swift daemon. Runtime state, warm-up, mic capture, transcription, telemetry.
+- `@voxd/sdk` — TypeScript SDK for native apps and Bun/Node. WebSocket JSON-RPC to the daemon.
+- `@voxd/client` — Browser SDK. HTTP bridge to the Vox Companion for web apps.
+- `@voxd/cli` — Bun CLI. Health checks, benchmarks, warm-up, transcription.
 
-- `voxd` — the standalone Swift daemon that owns runtime state, warm-up, microphone capture, transcription, and telemetry.
-- `@voxd/sdk` — the TypeScript SDK for talking to the daemon over local WebSocket JSON-RPC.
-- `vox` — the Bun CLI for operator workflows like health checks, benchmarks, warm-up scheduling, and local transcription.
+## Why it exists
 
-## Why Vox Exists
+Most transcription tools hide the runtime. Vox exposes it:
 
-Most transcription integrations hide the runtime behind a black box. Vox takes the opposite approach:
+- Model stays local
+- Warm-up is an explicit API
+- Latency dimensions (`clientId`, `route`, `modelId`) are preserved
+- Runtime is observable from day one
 
-- keep the model local
-- expose warm-up as an explicit capability
-- preserve latency dimensions like `clientId`, `route`, and `modelId`
-- make the runtime observable from day one
+## Repository layout
 
-## Repository Structure
-
-- `swift/` — `VoxCore`, `VoxEngine`, `VoxService`, and the `voxd` daemon entrypoint
-- `packages/client/` — TypeScript SDK
-- `packages/cli/` — Bun CLI
+- `swift/` — VoxCore, VoxEngine, VoxService, voxd daemon
+- `packages/client/` — `@voxd/sdk` (TypeScript SDK)
+- `packages/web-client/` — `@voxd/client` (browser SDK)
+- `packages/cli/` — `@voxd/cli` (Bun CLI)
 - `docs/` — Dewey source content
-- `site/` — landing page, docs route, and OG generation
+- `site/` — website and docs UI
 
-## Design Principles
+## Design principles
 
 1. Root cause over workaround.
-2. Warm-up is part of the product, not an implementation accident.
+2. Warm-up is part of the product, not an implementation detail.
 3. Instrumentation is part of the API surface.
-4. Multi-client support should remain visible in the protocol and telemetry.
+4. Multi-client support stays visible in the protocol and telemetry.
 
-## What Makes Vox Different
+## How it fits together
 
-Vox is intentionally split into operator and integration surfaces:
+App teams embed `@voxd/sdk` (native) or `@voxd/client` (browser) and keep their `clientId`. Operators use `vox` CLI to check health, warm-up, and performance. The daemon stays warm across menu bar apps, browser extensions, editor plugins, and the CLI — no duplicate model loads.
 
-- app teams can embed `@voxd/sdk` and preserve `clientId`
-- operators can use `vox` to inspect health, warm-up, and performance
-- the daemon serves menu bar apps, browser extensions, editor integrations, and the CLI without each reinventing the runtime
-
-That makes Vox a better fit for developer tools and desktop workflows than a single-purpose SDK that hides the runtime lifecycle.
-
-## Primary Workflows
-
-### Build and verify the runtime
+## Workflows
 
 ```bash
-bun install
-bun run build
+# Build and verify
+bun install && bun run build
 vox doctor
-```
 
-### Warm the model before expected speech
-
-```bash
+# Warm the model before speech
 vox warmup start
 vox warmup schedule 500 parakeet:v3
-```
 
-### Measure real transcription performance
-
-```bash
+# Transcribe and measure
 vox transcribe file --metrics /tmp/sample.wav
 vox transcribe bench /tmp/sample.wav 5
 vox perf dashboard --client vox-cli
 ```
-
-## Public Repository Goals
-
-This repository should be useful to three audiences:
-
-- developers integrating local transcription into macOS apps
-- operators benchmarking warm-path performance and runtime health
-- other contributors extending the Swift runtime, CLI, or SDK without losing observability

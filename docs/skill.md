@@ -3,9 +3,9 @@ title: Operations Guide
 audience: agent
 ---
 
-# Vox Operations Guide
+# Operations Guide
 
-When building with Vox, the highest-value workflows are:
+Highest-value workflows:
 
 - add warm-up before first speech
 - preserve `clientId` in SDK initialization

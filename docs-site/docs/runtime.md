@@ -8,42 +8,23 @@
 4. `VoxEngine` runs Parakeet locally and returns transcript text plus stage metrics.
 5. The runtime records a tagged performance sample to `~/.vox/performance.jsonl`.
 
-## Warm-Up Semantics
+## Warm-Up
 
-Warm-up is public runtime behavior, not a hidden side effect.
+Warm-up is a public API, not a hidden side effect.
 
-Available RPC surfaces:
+- `warmup.status` -- check if the model is hot
+- `warmup.start` -- warm immediately
+- `warmup.schedule` -- warm after a delay
 
-- `warmup.status`
-- `warmup.start`
-- `warmup.schedule`
-
-This allows apps to:
-
-- warm immediately when a user opens a dictation affordance
-- schedule warm-up shortly before expected use
-- observe whether a model is already hot
-
-Typical usage pattern:
-
-1. The app creates a `VoxClient` with a stable `clientId`
-2. The app schedules or starts warm-up when the user opens a voice affordance
-3. The app issues `transcribe.file` or a live session request after the runtime is hot
+Typical pattern: create a `VoxClient` with a stable `clientId`, warm when the user opens a voice affordance, then transcribe once the model is ready.
 
 ## File Transcription
 
-`transcribe.file` is the cleanest path for benchmarks and end-to-end verification because it removes microphone capture from the measurement path.
+`transcribe.file` is best for benchmarks because it takes mic capture out of the measurement. Returns transcript text, `modelId`, elapsed time, and stage metrics.
 
-The runtime returns:
+## Routes
 
-- transcript text
-- `modelId`
-- elapsed runtime
-- stage-level metrics when requested or available
-
-## Route Semantics
-
-Current route names worth preserving:
+Route names double as telemetry dimensions. Current routes:
 
 - `transcribe.file`
 - `transcribe.startSession`
@@ -53,18 +34,9 @@ Current route names worth preserving:
 - `warmup.start`
 - `warmup.schedule`
 
-These route names matter because they are also telemetry dimensions.
-
 ## Live Sessions
 
-Live sessions are coordinated in `VoxService`.
-
-Key properties:
-
-- one active session at a time today
-- session ownership is associated with both `connectionID` and `clientId`
-- stop/cancel semantics are explicit
-- final transcript events include metrics
+Coordinated in `VoxService`. One active session at a time. Session ownership ties to both `connectionID` and `clientId`. Stop and cancel are distinct operations. Final transcript events include metrics.
 
 ## Important Swift entry points
 

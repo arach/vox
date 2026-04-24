@@ -1,8 +1,8 @@
 # Web Integration (Companion Client)
 
-> **Two clients, two use cases.** This is `@voxd/client` — the companion client for web apps and browser extensions. It communicates with the Vox Companion over a local HTTP bridge. If you're building a native macOS app or Bun/Node process that connects directly to the daemon, use [`voxd`](./sdk.md) instead.
+> For native macOS apps or Bun/Node processes, use [`@voxd/sdk`](./sdk.md) instead — it connects directly to the daemon.
 
-Use `@voxd/client` to add local transcription to any web app. The client talks to the Vox Companion running on the user's Mac — no server needed.
+`@voxd/client` adds local transcription to web apps and browser extensions. Talks to the Vox Companion on the user's Mac over a local HTTP bridge. No server needed.
 
 ## Install
 
@@ -33,7 +33,7 @@ if (await client.probe()) {
 
 ## Discovery
 
-Call `probe()` on page load. It hits `127.0.0.1:43115/health` with a short timeout and returns `true` or `false`. Safe to call unconditionally — it fails silently when the companion isn't installed.
+Call `probe()` on page load. It hits the companion's health endpoint with a short timeout and returns `true` or `false`. Fails silently when the companion is not installed.
 
 ```ts
 const client = createVoxdClient();
@@ -62,7 +62,7 @@ if (caps.features.local_asr) {
 
 ### From a Blob or File
 
-Use `transcribe()` when you have audio data in the browser — from a recording, a generated TTS clip, or a file upload.
+Use `transcribe()` when you have audio data in the browser (recording, TTS clip, file upload).
 
 ```ts
 const result = await client.transcribe({
@@ -78,7 +78,7 @@ result.durationMs;      // audio duration
 
 ### From a URL
 
-Use `align()` when the audio lives on a server and you want the companion to fetch it directly. This avoids moving audio through the browser twice.
+Use `align()` when the audio lives on a server. The companion fetches it directly, avoiding a round trip through the browser.
 
 ```ts
 const alignment = await client.align({
@@ -96,7 +96,7 @@ alignment.words;       // [{ word, start, end }, ...]
 alignment.durationMs;
 ```
 
-`align()` creates a job, polls for completion, and returns the result. It blocks until the job finishes (up to 5 minutes).
+`align()` creates a job, polls until done, and returns the result. Blocks up to 5 minutes.
 
 ### Lower-level job API
 
@@ -117,7 +117,7 @@ const status = await client.getJob(jobId);
 
 ## Graceful degradation
 
-The companion is optional. Your app should work without it.
+The companion is optional. Build your app to work without it.
 
 ```ts
 const client = createVoxdClient();
@@ -178,7 +178,7 @@ try {
 
 ## HTTP bridge reference
 
-The companion listens on `http://127.0.0.1:43115`. These endpoints are what `@voxd/client` calls under the hood.
+The companion listens on `http://127.0.0.1:43115` by default (configurable via `host` and `port` options). These endpoints are what `@voxd/client` calls under the hood.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
@@ -192,15 +192,25 @@ The companion listens on `http://127.0.0.1:43115`. These endpoints are what `@vo
 | `POST` | `/live/stop` | Origin | Stop a live session and get final transcript |
 | `POST` | `/live/cancel` | Origin | Cancel a live session without transcribing |
 
-**Origin gating:** All endpoints except `/health` require the request `Origin` header to be in the companion's allowlist. Vox ships with `https://uselinea.com` and `https://www.uselinea.com` enabled by default. Users can add origins in Vox settings, and integrations can register their own origins by writing JSON drop-ins like `{"origins":["https://app.example.com"]}` into `~/.vox/origins.d/`. Vox merges built-in, user-managed, and integration-managed origins instead of replacing one list with another. For local development, wildcard ports are supported only on loopback hosts such as `http://localhost:*`.
+**Origin gating:** All endpoints except `/health` require a valid `Origin` header. Vox ships with built-in origins for first-party apps. Add your own in Vox settings, or drop a JSON file into `~/.vox/origins.d/`:
+
+```json
+{"origins":["https://app.example.com"]}
+```
+
+Vox merges all origin sources. Wildcard ports work on loopback hosts (`http://localhost:*`).
 
 ## Configuration
 
 ```ts
 const client = createVoxdClient({
+  host: "127.0.0.1",   // default — override for non-loopback setups
   port: 43115,          // default
-  baseUrl: "http://127.0.0.1:43115", // or use this instead of port
+  baseUrl: "http://...",// overrides host + port when set
+  clientId: "my-app",   // stable identity for telemetry
   probeTimeout: 2000,   // ms before probe gives up
   pollInterval: 500,    // ms between job status polls
 });
 ```
+
+On the daemon side, set `VOX_PORT`, `VOX_BRIDGE_PORT`, or `VOX_HOST` environment variables to override defaults.

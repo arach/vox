@@ -1,76 +1,52 @@
 # Vox Overview
 
-Vox is a local-first transcription runtime for macOS.
+Vox is a local-first transcription runtime for macOS. It runs as a Bun + SwiftPM monorepo with three surfaces:
 
-It is built as a Bun + SwiftPM monorepo with three public surfaces:
+- `voxd` -- Swift daemon. Owns runtime state, warm-up, mic capture, transcription, and telemetry.
+- `@voxd/sdk` -- TypeScript SDK. Talks to the daemon over local WebSocket JSON-RPC.
+- `vox` -- Bun CLI. Health checks, benchmarks, warm-up scheduling, transcription.
 
-- `voxd` — the standalone Swift daemon that owns runtime state, warm-up, microphone capture, transcription, and telemetry.
-- `@voxd/sdk` — the TypeScript SDK for talking to the daemon over local WebSocket JSON-RPC.
-- `vox` — the Bun CLI for operator workflows like health checks, benchmarks, warm-up scheduling, and local transcription.
+## Why it exists
 
-## Why Vox Exists
+Most transcription tools hide the runtime. Vox exposes it:
 
-Most transcription integrations hide the runtime behind a black box. Vox takes the opposite approach:
+- Model stays local
+- Warm-up is an explicit API
+- Latency dimensions (`clientId`, `route`, `modelId`) are preserved
+- Runtime is observable from day one
 
-- keep the model local
-- expose warm-up as an explicit capability
-- preserve latency dimensions like `clientId`, `route`, and `modelId`
-- make the runtime observable from day one
+## Repository layout
 
-## Repository Structure
+- `swift/` -- VoxCore, VoxEngine, VoxService, voxd daemon
+- `packages/client/` -- TypeScript SDK
+- `packages/cli/` -- Bun CLI
+- `docs/` -- Dewey source content
+- `site/` -- website, docs route, OG generation
 
-- `swift/` — `VoxCore`, `VoxEngine`, `VoxService`, and the `voxd` daemon entrypoint
-- `packages/client/` — TypeScript SDK
-- `packages/cli/` — Bun CLI
-- `docs/` — Dewey source content
-- `site/` — landing page, docs route, and OG generation
-
-## Design Principles
+## Design principles
 
 1. Root cause over workaround.
-2. Warm-up is part of the product, not an implementation accident.
+2. Warm-up is part of the product, not an implementation detail.
 3. Instrumentation is part of the API surface.
-4. Multi-client support should remain visible in the protocol and telemetry.
+4. Multi-client support stays visible in the protocol and telemetry.
 
-## What Makes Vox Different
+## How it fits together
 
-Vox is intentionally split into operator and integration surfaces:
+The split between operator and integration surfaces is intentional. App teams embed `@voxd/sdk` and keep their `clientId`. Operators use `vox` to check health, warm-up, and performance. The daemon stays warm across menu bar apps, browser extensions, editor plugins, and the CLI -- no duplicate model loads.
 
-- app teams can embed `@voxd/sdk` and preserve `clientId`
-- operators can use `vox` to inspect health, warm-up, and performance
-- the daemon can stay warm across multiple consumers instead of each app loading its own model
-
-That makes Vox a better fit for developer tools and desktop workflows than a single-purpose SDK that hides the runtime lifecycle.
-
-## Primary Workflows
-
-### Build and verify the runtime
+## Workflows
 
 ```bash
-bun install
-bun run build
+# Build and verify
+bun install && bun run build
 bun packages/cli/src/index.ts doctor
-```
 
-### Warm the model before expected speech
-
-```bash
+# Warm the model before speech
 bun packages/cli/src/index.ts warmup start
 bun packages/cli/src/index.ts warmup schedule 500 parakeet:v3
-```
 
-### Measure real transcription performance
-
-```bash
+# Transcribe and measure
 bun packages/cli/src/index.ts transcribe file --metrics /tmp/sample.wav
 bun packages/cli/src/index.ts transcribe bench /tmp/sample.wav 5
 bun packages/cli/src/index.ts perf dashboard --client vox-cli
 ```
-
-## Public Repository Goals
-
-This repository should be useful to three audiences:
-
-- developers integrating local transcription into macOS apps
-- operators benchmarking warm-path performance and runtime health
-- other contributors extending the Swift runtime, CLI, or SDK without losing observability

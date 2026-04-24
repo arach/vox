@@ -1,18 +1,8 @@
 # SDK (Daemon Client)
 
-> **Two clients, two use cases.** This is `@voxd/sdk` — the TypeScript SDK for native apps and Node/Bun processes that connect directly to the Vox daemon over a local socket. If you're building a web app or browser extension, use [`@voxd/web`](./web-integration.md) instead, which talks to the Vox Companion over HTTP.
+> `@voxd/sdk` is for native apps and Node/Bun processes that connect directly to the daemon over a local socket. For web apps or browser extensions, use [`@voxd/client`](./web-integration.md) instead — it talks to the Vox Companion over HTTP.
 
-The TypeScript SDK lives in `packages/client/`.
-
-## Main Capabilities
-
-- connect to the local runtime
-- inspect health and doctor checks
-- list/install/preload models
-- start and schedule warm-up
-- transcribe files
-- create live sessions
-- receive stage metrics and word-level timings on transcription results
+`packages/client/` -- connects to the local runtime, manages models and warm-up, transcribes files, creates live sessions, and returns stage metrics with word-level timings.
 
 ## Example
 
@@ -35,13 +25,7 @@ client.disconnect();
 
 ## Client Identity
 
-`clientId` matters.
-
-It is used by the runtime to:
-
-- attribute latency by consumer
-- inspect route-level behavior across integrations
-- support multi-client operator workflows
+`clientId` is used to attribute latency by consumer, compare route-level behavior across integrations, and support multi-client workflows.
 
 ## Main methods
 
@@ -100,9 +84,21 @@ try {
 }
 ```
 
+## Configuration
+
+```ts
+const client = new VoxClient({
+  clientId: "menu-bar",    // stable identity for telemetry
+  port: 42137,             // override daemon port
+  host: "127.0.0.1",       // override daemon host
+});
+```
+
+On the daemon side, set `VOX_PORT` or `VOX_HOST` environment variables to override defaults.
+
 ## Integration advice
 
-- use a stable `clientId` per product surface such as `menu-bar`, `browser-extension`, or `vox-cli`
+- use a stable `clientId` per product surface — `menu-bar`, `browser-extension`, `vox-cli`
 - warm on intent, not on every keystroke
 - benchmark with representative audio clips and read `inferenceMs` separately from `totalMs`
-- preserve the raw metrics in your own telemetry if the app already exports traces
+- preserve raw metrics in your own telemetry if the app already exports traces

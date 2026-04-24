@@ -6,9 +6,9 @@ order: 35
 
 # Provider Protocol
 
-Vox separates the **runtime** (microphone capture, sessions, client routing, telemetry) from the **transcription engine**. Transcription engines are called _providers_ — external processes that speak JSON-RPC over stdin/stdout.
+Vox separates the runtime (mic capture, sessions, routing, telemetry) from the transcription engine. Engines are called _providers_ -- external processes that speak JSON-RPC over stdin/stdout.
 
-Parakeet is the built-in provider. You can register additional providers to use any transcription backend you want: Whisper, Deepgram, a custom model, or anything else that can accept audio and return text.
+Parakeet is the built-in provider. You can add others: Whisper, Deepgram, a custom model, or anything that accepts audio and returns text.
 
 ## Provider Config
 
@@ -134,7 +134,7 @@ Transcribe an audio file.
 
 ## Metrics Contract
 
-Providers **must** return stage timings in the `metrics` object of every `transcribe` response. These flow into Vox's telemetry tagged with `modelId`, so operators can compare providers side by side.
+Providers must return stage timings in the `metrics` object of every `transcribe` response. These feed into Vox telemetry tagged with `modelId`, so operators can compare providers side by side.
 
 **Required fields:**
 
@@ -153,21 +153,21 @@ Providers **must** return stage timings in the `metrics` object of every `transc
 | `fileCheckMs`    | `number` | Time validating the audio file exists and is readable. |
 | `modelCheckMs`   | `number` | Time checking the model is installed and ready.    |
 
-## What Vox Handles
+## What Vox handles
 
-Providers only need to care about models and transcription. Everything else is managed by the Vox runtime:
+Providers only deal with models and transcription. The runtime handles everything else:
 
-- **Microphone permissions and capture** — audio arrives as a WAV file path.
-- **Audio format normalization** — Vox delivers consistent sample rates and formats.
-- **Session lifecycle** — start, stop, cancel are coordinated by the daemon.
-- **Warm-up scheduling and state management** — Vox decides when to preload.
-- **Client identity routing** — each connected client has a `clientId`.
-- **Performance telemetry and dashboards** — provider metrics are collected automatically.
-- **Multi-client coordination** — Vox serializes access so providers see one request at a time.
+- Mic permissions and capture -- audio arrives as a WAV file path
+- Audio format normalization -- consistent sample rates and formats
+- Session lifecycle -- start, stop, cancel coordinated by the daemon
+- Warm-up scheduling and state
+- Client identity routing (`clientId`)
+- Performance telemetry collection
+- Multi-client serialization -- providers see one request at a time
 
-## Writing a Provider
+## Writing a provider
 
-A provider is any executable that reads newline-delimited JSON-RPC from stdin and writes responses to stdout. Here is a minimal example in TypeScript:
+A provider is any executable that reads newline-delimited JSON-RPC from stdin and writes responses to stdout. Minimal TypeScript example:
 
 ```typescript
 // minimal-provider.ts
@@ -224,11 +224,10 @@ Register it in `~/.vox/providers.json`:
 }
 ```
 
-Then select it through the CLI or SDK by specifying `my-model:v1` as the model.
+Then select it via CLI or SDK by specifying `my-model:v1` as the model.
 
-## Provider Lifecycle
+## Provider lifecycle
 
-- Vox spawns the provider process when it is first needed.
-- The process stays alive for the lifetime of the daemon.
-- If the process crashes, Vox restarts it on the next request.
-- Providers should be stateless between requests. Model state (loaded weights, caches) is managed internally by the provider process, but Vox makes no assumptions about it — a crash-and-restart must not break anything.
+Vox spawns the provider process on first use. It stays alive for the daemon's lifetime. If it crashes, Vox restarts it on the next request.
+
+Providers should be stateless between requests. The provider process can keep model weights in memory, but Vox assumes nothing about that state -- a crash and restart must not break anything.
