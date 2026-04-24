@@ -39,8 +39,17 @@ public enum RuntimePaths {
             return URL(fileURLWithPath: override, isDirectory: true)
         }
 
-        return FileManager.default.homeDirectoryForCurrentUser
+        let fileManager = FileManager.default
+
+        #if os(iOS)
+        let baseDirectory = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? fileManager.temporaryDirectory
+        return baseDirectory
+            .appendingPathComponent("Vox", isDirectory: true)
+        #else
+        return fileManager.homeDirectoryForCurrentUser
             .appendingPathComponent(".vox", isDirectory: true)
+        #endif
     }
 
     public static func runtimeFileURL() -> URL {

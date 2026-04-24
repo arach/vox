@@ -229,11 +229,12 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
     }
 
     private func candidateModelDirectories() -> [URL] {
-        let roots: [URL] = [
-            RuntimePaths.voxHomeURL().appendingPathComponent("cache", isDirectory: true),
-            FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".cache", isDirectory: true),
-            FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support", isDirectory: true)
-        ]
+        let fileManager = FileManager.default
+        let runtimeCacheRoot = RuntimePaths.voxHomeURL().appendingPathComponent("cache", isDirectory: true)
+        let cacheDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
+        let appSupportDirectory = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+
+        let roots = [runtimeCacheRoot, cacheDirectory, appSupportDirectory].compactMap { $0 }
 
         return roots.map { root in
             root

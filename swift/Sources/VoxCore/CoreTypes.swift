@@ -118,6 +118,75 @@ public struct ASRModelInfo: Codable, Sendable, Equatable {
     }
 }
 
+public struct TTSModelInfo: Codable, Sendable, Equatable {
+    public let id: String
+    public let name: String
+    public let backend: String
+    public let installed: Bool
+    public let preloaded: Bool
+    public let available: Bool
+
+    public init(id: String, name: String, backend: String, installed: Bool, preloaded: Bool, available: Bool) {
+        self.id = id
+        self.name = name
+        self.backend = backend
+        self.installed = installed
+        self.preloaded = preloaded
+        self.available = available
+    }
+
+    public func dictionaryValue() -> [String: Any] {
+        [
+            "id": id,
+            "name": name,
+            "backend": backend,
+            "installed": installed,
+            "preloaded": preloaded,
+            "available": available
+        ]
+    }
+}
+
+public struct TTSVoiceInfo: Codable, Sendable, Equatable {
+    public let id: String
+    public let name: String
+    public let language: String?
+    public let backend: String
+    public let modelId: String
+    public let available: Bool
+    public let isDefault: Bool
+
+    public init(
+        id: String,
+        name: String,
+        language: String? = nil,
+        backend: String,
+        modelId: String,
+        available: Bool,
+        isDefault: Bool = false
+    ) {
+        self.id = id
+        self.name = name
+        self.language = language
+        self.backend = backend
+        self.modelId = modelId
+        self.available = available
+        self.isDefault = isDefault
+    }
+
+    public func dictionaryValue() -> [String: Any] {
+        [
+            "id": id,
+            "name": name,
+            "language": language ?? NSNull(),
+            "backend": backend,
+            "modelId": modelId,
+            "available": available,
+            "default": isDefault
+        ]
+    }
+}
+
 public struct ModelProgress: Sendable, Equatable {
     public let modelId: String
     public let progress: Double
@@ -219,6 +288,47 @@ public struct TranscriptionOutput: Sendable, Equatable {
             "elapsedMs": elapsedMs,
             "metrics": metrics.dictionaryValue(),
             "words": words.map { $0.dictionaryValue() }
+        ]
+    }
+}
+
+public struct SynthesisOutput: Sendable, Equatable {
+    public let modelId: String
+    public let voiceId: String
+    public let format: String
+    public let contentType: String
+    public let audioData: Data
+    public let elapsedMs: Int
+    public let metrics: SynthesisMetrics
+
+    public init(
+        modelId: String,
+        voiceId: String,
+        format: String,
+        contentType: String,
+        audioData: Data,
+        elapsedMs: Int,
+        metrics: SynthesisMetrics
+    ) {
+        self.modelId = modelId
+        self.voiceId = voiceId
+        self.format = format
+        self.contentType = contentType
+        self.audioData = audioData
+        self.elapsedMs = elapsedMs
+        self.metrics = metrics
+    }
+
+    public func dictionaryValue() -> [String: Any] {
+        [
+            "modelId": modelId,
+            "voiceId": voiceId,
+            "format": format,
+            "contentType": contentType,
+            "audioBase64": audioData.base64EncodedString(),
+            "audioBytes": audioData.count,
+            "elapsedMs": elapsedMs,
+            "metrics": metrics.dictionaryValue()
         ]
     }
 }
@@ -329,6 +439,287 @@ public struct TranscriptionMetrics: Codable, Sendable, Equatable {
             "realtimeFactor": realtimeFactor
         ]
     }
+
+    public var performanceMetrics: PerformanceMetrics {
+        PerformanceMetrics(
+            traceId: traceId,
+            audioDurationMs: audioDurationMs,
+            wasPreloaded: wasPreloaded,
+            modelCheckMs: modelCheckMs,
+            modelLoadMs: modelLoadMs,
+            inferenceMs: inferenceMs,
+            totalMs: totalMs,
+            inputBytes: inputBytes,
+            fileCheckMs: fileCheckMs,
+            audioLoadMs: audioLoadMs,
+            audioPrepareMs: audioPrepareMs
+        )
+    }
+}
+
+public struct SynthesisMetrics: Codable, Sendable, Equatable {
+    public let traceId: String
+    public let characterCount: Int
+    public let audioDurationMs: Int
+    public let outputBytes: Int
+    public let wasPreloaded: Bool
+    public let modelCheckMs: Int
+    public let modelLoadMs: Int
+    public let voiceResolveMs: Int
+    public let synthesisMs: Int
+    public let totalMs: Int
+
+    public init(
+        traceId: String,
+        characterCount: Int,
+        audioDurationMs: Int,
+        outputBytes: Int,
+        wasPreloaded: Bool,
+        modelCheckMs: Int,
+        modelLoadMs: Int,
+        voiceResolveMs: Int,
+        synthesisMs: Int,
+        totalMs: Int
+    ) {
+        self.traceId = traceId
+        self.characterCount = characterCount
+        self.audioDurationMs = audioDurationMs
+        self.outputBytes = outputBytes
+        self.wasPreloaded = wasPreloaded
+        self.modelCheckMs = modelCheckMs
+        self.modelLoadMs = modelLoadMs
+        self.voiceResolveMs = voiceResolveMs
+        self.synthesisMs = synthesisMs
+        self.totalMs = totalMs
+    }
+
+    public var inferenceMs: Int {
+        synthesisMs
+    }
+
+    public var realtimeFactor: Double {
+        guard audioDurationMs > 0 else { return 0 }
+        return Double(synthesisMs) / Double(audioDurationMs)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case traceId
+        case characterCount
+        case audioDurationMs
+        case outputBytes
+        case wasPreloaded
+        case modelCheckMs
+        case modelLoadMs
+        case voiceResolveMs
+        case synthesisMs
+        case inferenceMs
+        case totalMs
+        case realtimeFactor
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        traceId = try container.decode(String.self, forKey: .traceId)
+        characterCount = try container.decode(Int.self, forKey: .characterCount)
+        audioDurationMs = try container.decode(Int.self, forKey: .audioDurationMs)
+        outputBytes = try container.decode(Int.self, forKey: .outputBytes)
+        wasPreloaded = try container.decode(Bool.self, forKey: .wasPreloaded)
+        modelCheckMs = try container.decode(Int.self, forKey: .modelCheckMs)
+        modelLoadMs = try container.decode(Int.self, forKey: .modelLoadMs)
+        voiceResolveMs = try container.decode(Int.self, forKey: .voiceResolveMs)
+        if let decodedSynthesisMs = try container.decodeIfPresent(Int.self, forKey: .synthesisMs) {
+            synthesisMs = decodedSynthesisMs
+        } else {
+            synthesisMs = try container.decode(Int.self, forKey: .inferenceMs)
+        }
+        totalMs = try container.decode(Int.self, forKey: .totalMs)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(traceId, forKey: .traceId)
+        try container.encode(characterCount, forKey: .characterCount)
+        try container.encode(audioDurationMs, forKey: .audioDurationMs)
+        try container.encode(outputBytes, forKey: .outputBytes)
+        try container.encode(wasPreloaded, forKey: .wasPreloaded)
+        try container.encode(modelCheckMs, forKey: .modelCheckMs)
+        try container.encode(modelLoadMs, forKey: .modelLoadMs)
+        try container.encode(voiceResolveMs, forKey: .voiceResolveMs)
+        try container.encode(synthesisMs, forKey: .synthesisMs)
+        try container.encode(inferenceMs, forKey: .inferenceMs)
+        try container.encode(totalMs, forKey: .totalMs)
+        try container.encode(realtimeFactor, forKey: .realtimeFactor)
+    }
+
+    public func dictionaryValue() -> [String: Any] {
+        [
+            "traceId": traceId,
+            "characterCount": characterCount,
+            "audioDurationMs": audioDurationMs,
+            "outputBytes": outputBytes,
+            "wasPreloaded": wasPreloaded,
+            "modelCheckMs": modelCheckMs,
+            "modelLoadMs": modelLoadMs,
+            "voiceResolveMs": voiceResolveMs,
+            "synthesisMs": synthesisMs,
+            "inferenceMs": inferenceMs,
+            "totalMs": totalMs,
+            "realtimeFactor": realtimeFactor
+        ]
+    }
+
+    public var performanceMetrics: PerformanceMetrics {
+        PerformanceMetrics(
+            traceId: traceId,
+            audioDurationMs: audioDurationMs,
+            wasPreloaded: wasPreloaded,
+            modelCheckMs: modelCheckMs,
+            modelLoadMs: modelLoadMs,
+            inferenceMs: inferenceMs,
+            totalMs: totalMs,
+            characterCount: characterCount,
+            outputBytes: outputBytes,
+            voiceResolveMs: voiceResolveMs,
+            synthesisMs: synthesisMs
+        )
+    }
+}
+
+public struct PerformanceMetrics: Codable, Sendable, Equatable {
+    public let traceId: String
+    public let audioDurationMs: Int
+    public let wasPreloaded: Bool
+    public let modelCheckMs: Int
+    public let modelLoadMs: Int
+    public let inferenceMs: Int
+    public let totalMs: Int
+    public let inputBytes: Int?
+    public let fileCheckMs: Int?
+    public let audioLoadMs: Int?
+    public let audioPrepareMs: Int?
+    public let characterCount: Int?
+    public let outputBytes: Int?
+    public let voiceResolveMs: Int?
+    public let synthesisMs: Int?
+
+    public init(
+        traceId: String,
+        audioDurationMs: Int,
+        wasPreloaded: Bool,
+        modelCheckMs: Int,
+        modelLoadMs: Int,
+        inferenceMs: Int,
+        totalMs: Int,
+        inputBytes: Int? = nil,
+        fileCheckMs: Int? = nil,
+        audioLoadMs: Int? = nil,
+        audioPrepareMs: Int? = nil,
+        characterCount: Int? = nil,
+        outputBytes: Int? = nil,
+        voiceResolveMs: Int? = nil,
+        synthesisMs: Int? = nil
+    ) {
+        self.traceId = traceId
+        self.audioDurationMs = audioDurationMs
+        self.wasPreloaded = wasPreloaded
+        self.modelCheckMs = modelCheckMs
+        self.modelLoadMs = modelLoadMs
+        self.inferenceMs = inferenceMs
+        self.totalMs = totalMs
+        self.inputBytes = inputBytes
+        self.fileCheckMs = fileCheckMs
+        self.audioLoadMs = audioLoadMs
+        self.audioPrepareMs = audioPrepareMs
+        self.characterCount = characterCount
+        self.outputBytes = outputBytes
+        self.voiceResolveMs = voiceResolveMs
+        self.synthesisMs = synthesisMs
+    }
+
+    public var realtimeFactor: Double {
+        guard audioDurationMs > 0 else { return 0 }
+        return Double(inferenceMs) / Double(audioDurationMs)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case traceId
+        case audioDurationMs
+        case wasPreloaded
+        case modelCheckMs
+        case modelLoadMs
+        case inferenceMs
+        case totalMs
+        case inputBytes
+        case fileCheckMs
+        case audioLoadMs
+        case audioPrepareMs
+        case characterCount
+        case outputBytes
+        case voiceResolveMs
+        case synthesisMs
+        case realtimeFactor
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        traceId = try container.decode(String.self, forKey: .traceId)
+        audioDurationMs = try container.decode(Int.self, forKey: .audioDurationMs)
+        wasPreloaded = try container.decode(Bool.self, forKey: .wasPreloaded)
+        modelCheckMs = try container.decode(Int.self, forKey: .modelCheckMs)
+        modelLoadMs = try container.decode(Int.self, forKey: .modelLoadMs)
+        inferenceMs = try container.decode(Int.self, forKey: .inferenceMs)
+        totalMs = try container.decode(Int.self, forKey: .totalMs)
+        inputBytes = try container.decodeIfPresent(Int.self, forKey: .inputBytes)
+        fileCheckMs = try container.decodeIfPresent(Int.self, forKey: .fileCheckMs)
+        audioLoadMs = try container.decodeIfPresent(Int.self, forKey: .audioLoadMs)
+        audioPrepareMs = try container.decodeIfPresent(Int.self, forKey: .audioPrepareMs)
+        characterCount = try container.decodeIfPresent(Int.self, forKey: .characterCount)
+        outputBytes = try container.decodeIfPresent(Int.self, forKey: .outputBytes)
+        voiceResolveMs = try container.decodeIfPresent(Int.self, forKey: .voiceResolveMs)
+        synthesisMs = try container.decodeIfPresent(Int.self, forKey: .synthesisMs)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(traceId, forKey: .traceId)
+        try container.encode(audioDurationMs, forKey: .audioDurationMs)
+        try container.encode(wasPreloaded, forKey: .wasPreloaded)
+        try container.encode(modelCheckMs, forKey: .modelCheckMs)
+        try container.encode(modelLoadMs, forKey: .modelLoadMs)
+        try container.encode(inferenceMs, forKey: .inferenceMs)
+        try container.encode(totalMs, forKey: .totalMs)
+        try container.encodeIfPresent(inputBytes, forKey: .inputBytes)
+        try container.encodeIfPresent(fileCheckMs, forKey: .fileCheckMs)
+        try container.encodeIfPresent(audioLoadMs, forKey: .audioLoadMs)
+        try container.encodeIfPresent(audioPrepareMs, forKey: .audioPrepareMs)
+        try container.encodeIfPresent(characterCount, forKey: .characterCount)
+        try container.encodeIfPresent(outputBytes, forKey: .outputBytes)
+        try container.encodeIfPresent(voiceResolveMs, forKey: .voiceResolveMs)
+        try container.encodeIfPresent(synthesisMs, forKey: .synthesisMs)
+        try container.encode(realtimeFactor, forKey: .realtimeFactor)
+    }
+
+    public func dictionaryValue() -> [String: Any] {
+        var dictionary: [String: Any] = [
+            "traceId": traceId,
+            "audioDurationMs": audioDurationMs,
+            "wasPreloaded": wasPreloaded,
+            "modelCheckMs": modelCheckMs,
+            "modelLoadMs": modelLoadMs,
+            "inferenceMs": inferenceMs,
+            "totalMs": totalMs,
+            "realtimeFactor": realtimeFactor
+        ]
+        dictionary["inputBytes"] = inputBytes ?? NSNull()
+        dictionary["fileCheckMs"] = fileCheckMs ?? NSNull()
+        dictionary["audioLoadMs"] = audioLoadMs ?? NSNull()
+        dictionary["audioPrepareMs"] = audioPrepareMs ?? NSNull()
+        dictionary["characterCount"] = characterCount ?? NSNull()
+        dictionary["outputBytes"] = outputBytes ?? NSNull()
+        dictionary["voiceResolveMs"] = voiceResolveMs ?? NSNull()
+        dictionary["synthesisMs"] = synthesisMs ?? NSNull()
+        return dictionary
+    }
 }
 
 public struct PerformanceSample: Codable, Sendable, Equatable {
@@ -336,25 +727,28 @@ public struct PerformanceSample: Codable, Sendable, Equatable {
     public let clientId: String
     public let route: String
     public let modelId: String
+    public let voiceId: String?
     public let outcome: String
     public let textLength: Int
     public let error: String?
-    public let metrics: TranscriptionMetrics?
+    public let metrics: PerformanceMetrics?
 
     public init(
         timestamp: Date = Date(),
         clientId: String,
         route: String,
         modelId: String,
+        voiceId: String? = nil,
         outcome: String,
         textLength: Int,
         error: String? = nil,
-        metrics: TranscriptionMetrics? = nil
+        metrics: PerformanceMetrics? = nil
     ) {
         self.timestamp = timestamp
         self.clientId = clientId
         self.route = route
         self.modelId = modelId
+        self.voiceId = voiceId
         self.outcome = outcome
         self.textLength = textLength
         self.error = error

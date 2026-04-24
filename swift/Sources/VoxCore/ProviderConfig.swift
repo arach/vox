@@ -1,5 +1,10 @@
 import Foundation
 
+public enum ProviderKind: String, Codable, Sendable {
+    case asr
+    case tts
+}
+
 public struct ProvidersConfig: Codable, Sendable {
     public let providers: [ProviderEntry]
 
@@ -15,6 +20,7 @@ public struct ProvidersConfig: Codable, Sendable {
 
 public struct ProviderEntry: Codable, Sendable {
     public let id: String
+    public let kind: ProviderKind?
     public let builtin: Bool?
     public let command: [String]?
     public let models: [String]?
@@ -22,12 +28,14 @@ public struct ProviderEntry: Codable, Sendable {
 
     public init(
         id: String,
+        kind: ProviderKind? = nil,
         builtin: Bool? = nil,
         command: [String]? = nil,
         models: [String]? = nil,
         env: [String: String]? = nil
     ) {
         self.id = id
+        self.kind = kind
         self.builtin = builtin
         self.command = command
         self.models = models
@@ -40,5 +48,9 @@ public struct ProviderEntry: Codable, Sendable {
 
     public var isExternal: Bool {
         command != nil && !command!.isEmpty
+    }
+
+    public var resolvedKind: ProviderKind {
+        kind ?? .asr
     }
 }

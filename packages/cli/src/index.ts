@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
-import { existsSync, readFileSync, rmSync } from "fs";
-import { join, resolve } from "path";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "fs";
+import { dirname, join, resolve } from "path";
 import { createInterface } from "readline";
 import {
   getVoxHome,
@@ -12,7 +12,10 @@ import {
   type FileTranscriptionResult,
   type ModelInfo,
   type RuntimeInfo,
+  type SynthesisMetrics,
+  type SynthesisResult,
   type TranscriptionMetrics,
+  type VoiceInfo,
   type WarmupStatus,
   type WordTiming,
   DEFAULT_PORT,
@@ -49,6 +52,12 @@ async function main(argv: string[]): Promise<void> {
       return;
     case "transcribe":
       await handleTranscribe(subcommand, rest);
+      return;
+    case "speak":
+      await handleSpeak(subcommand, rest);
+      return;
+    case "voices":
+      await handleVoices(subcommand, rest);
       return;
     case "tui":
       launchTui();
@@ -207,6 +216,103 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
     default:
       throw new Error(`Unknown transcribe command: ${subcommand ?? "(missing)"}`);
   }
+}
+
+async function handleSpeak(subcommand: string | undefined, rest: string[]): Promise<void> {
+  if (subcommand === "bench") {
+    const args = rest;
+    const modelId = readOption(args, "--model") ?? "avspeech:system";
+    const voiceId = readOption(args, "--voice");
+    const speedOption = readOption(args, "--speed");
+    const speed = speedOption ? Number(speedOption) : undefined;
+    const instructions = readOption(args, "--instructions");
+    const positional = readPositionalArgs(args, new Set(["--model", "--voice", "--speed", "--instructions"]));
+    const maybeRuns = positional.at(-1);
+    const runs = maybeRuns && /^\d+$/.test(maybeRuns) ? Number(maybeRuns) : 5;
+    const textParts = maybeRuns && /^\d+$/.test(maybeRuns) ? positional.slice(0, -1) : positional;
+    const text = textParts.join(" ").trim();
+
+    if (!text) {
+      throw new Error("Usage: vox speak bench [--model <id>] [--voice <id>] [--speed <n>] [--instructions <text>] <text> [runs]");
+    }
+    if (!Number.isInteger(runs) || runs < 1) {
+      throw new Error(`Expected a positive integer run count, received: ${maybeRuns ?? "(missing)"}`);
+    }
+
+    await withClient(async (client) => {
+      await client.startWarmup(modelId);
+      const results: SynthesisResult[] = [];
+
+      for (let index = 0; index < runs; index += 1) {
+        const result = await client.synthesize(text, { modelId, voiceId, speed, instructions, format: "wav" });
+        results.push(result);
+
+        const metrics = result.metrics;
+        if (!metrics) {
+          console.log(`run ${index + 1}: total=${result.elapsedMs}ms bytes=${result.audioBytes}`);
+          continue;
+        }
+
+        console.log(
+          `run ${index + 1}: total=${formatMs(metrics.totalMs)} synthesis=${formatMs(metrics.synthesisMs)} audio=${formatMs(metrics.audioDurationMs)} rtf=${formatSpeed(metrics.realtimeFactor)} bytes=${formatBytes(result.audioBytes)}`,
+        );
+      }
+
+      printSynthesisBenchmarkSummary(results);
+    });
+    return;
+  }
+
+  const args = [subcommand, ...rest].filter((value): value is string => Boolean(value));
+  const modelId = readOption(args, "--model") ?? "avspeech:system";
+  const voiceId = readOption(args, "--voice");
+  const outputPathOption = readOption(args, "--output");
+  const speedOption = readOption(args, "--speed");
+  const speed = speedOption ? Number(speedOption) : undefined;
+  const instructions = readOption(args, "--instructions");
+  const showMetrics = args.includes("--metrics");
+  const playAudio = !args.includes("--no-play");
+  const text = readPositionalArgs(
+    args,
+    new Set(["--model", "--voice", "--output", "--speed", "--instructions", "--metrics", "--no-play"]),
+  ).join(" ").trim();
+
+  if (!text) {
+    throw new Error("Usage: vox speak [--model <id>] [--voice <id>] [--output <path>] [--speed <n>] [--instructions <text>] [--metrics] [--no-play] <text>");
+  }
+
+  await withClient(async (client) => {
+    const result = await client.synthesize(text, { modelId, voiceId, speed, instructions, format: "wav" });
+    const outputPath = outputPathOption
+      ? resolve(process.cwd(), outputPathOption)
+      : makeTemporarySpeakPath(result.format);
+
+    await writeSynthesisOutput(outputPath, result);
+
+    if (outputPathOption) {
+      console.log(`wrote: ${outputPath}`);
+    } else if (playAudio && playSynthesizedAudio(outputPath)) {
+      console.log(`played: ${result.voiceId || "default"} via ${result.modelId}`);
+      rmSync(outputPath, { force: true });
+    } else {
+      console.log(`wrote: ${outputPath}`);
+    }
+
+    if (showMetrics && result.metrics) {
+      printSynthesisMetrics(result.metrics);
+    }
+  });
+}
+
+async function handleVoices(subcommand: string | undefined, rest: string[]): Promise<void> {
+  const args = subcommand === "list" || !subcommand
+    ? rest
+    : [subcommand, ...rest];
+  const modelId = readOption(args, "--model") ?? readPositionalArgs(args, new Set(["--model"]))[0];
+
+  await withClient(async (client) => {
+    printVoices(await client.listVoices(modelId));
+  });
 }
 
 async function handleWarmup(subcommand: string | undefined, rest: string[]): Promise<void> {
@@ -409,6 +515,23 @@ function printModels(models: ModelInfo[]): void {
   }
 }
 
+function printVoices(voices: VoiceInfo[]): void {
+  if (voices.length === 0) {
+    console.log("No voices available.");
+    return;
+  }
+
+  for (const voice of voices) {
+    const details = [
+      voice.modelId,
+      voice.language ? `lang=${voice.language}` : null,
+      `available=${voice.available}`,
+      voice.default ? "default=true" : null,
+    ].filter(Boolean).join(" ");
+    console.log(`${voice.id} ${voice.name} ${details}`.trim());
+  }
+}
+
 function printWarmupStatus(status: WarmupStatus): void {
   console.log(`model: ${status.modelId}`);
   console.log(`state: ${status.state}`);
@@ -448,10 +571,30 @@ interface PerformanceSample {
   clientId: string;
   route: string;
   modelId: string;
+  voiceId?: string | null;
   outcome: string;
   textLength: number;
   error?: string | null;
-  metrics?: TranscriptionMetrics;
+  metrics?: PerformanceMetrics;
+}
+
+interface PerformanceMetrics {
+  traceId: string;
+  audioDurationMs: number;
+  wasPreloaded: boolean;
+  modelCheckMs: number;
+  modelLoadMs: number;
+  inferenceMs: number;
+  totalMs: number;
+  inputBytes?: number | null;
+  fileCheckMs?: number | null;
+  audioLoadMs?: number | null;
+  audioPrepareMs?: number | null;
+  characterCount?: number | null;
+  outputBytes?: number | null;
+  voiceResolveMs?: number | null;
+  synthesisMs?: number | null;
+  realtimeFactor: number;
 }
 
 function printPerformanceDashboard(args: string[]): void {
@@ -519,8 +662,9 @@ function printPerformanceDashboard(args: string[]): void {
       continue;
     }
 
+    const voice = sample.voiceId ? ` voice=${sample.voiceId}` : "";
     console.log(
-      `  ${stamp}  ${sample.clientId}  ${sample.route}  total=${formatMs(sample.metrics.totalMs)} infer=${formatMs(sample.metrics.inferenceMs)} audio=${formatMs(sample.metrics.audioDurationMs)} speed=${formatSpeedFactor(getSpeedFactor(sample.metrics))} model=${sample.modelId}`,
+      `  ${stamp}  ${sample.clientId}  ${sample.route}  total=${formatMs(sample.metrics.totalMs)} infer=${formatMs(sample.metrics.inferenceMs)} audio=${formatMs(sample.metrics.audioDurationMs)} speed=${formatSpeedFactor(getSpeedFactor(sample.metrics))} model=${sample.modelId}${voice}`,
     );
   }
 }
@@ -530,6 +674,15 @@ function printTranscriptionMetrics(metrics: TranscriptionMetrics): void {
   console.error(`audio: ${formatMs(metrics.audioDurationMs)} (${formatBytes(metrics.inputBytes)})`);
   console.error(
     `stages: file_check=${formatMs(metrics.fileCheckMs)} model_check=${formatMs(metrics.modelCheckMs)} model_load=${formatMs(metrics.modelLoadMs)} audio_load=${formatMs(metrics.audioLoadMs)} audio_prepare=${formatMs(metrics.audioPrepareMs)} inference=${formatMs(metrics.inferenceMs)}`,
+  );
+  console.error(`total: ${formatMs(metrics.totalMs)} (${formatSpeed(metrics.realtimeFactor)})`);
+}
+
+function printSynthesisMetrics(metrics: SynthesisMetrics): void {
+  console.error(`trace: ${metrics.traceId}`);
+  console.error(`audio: ${formatMs(metrics.audioDurationMs)} (${formatBytes(metrics.outputBytes)})`);
+  console.error(
+    `stages: model_check=${formatMs(metrics.modelCheckMs)} model_load=${formatMs(metrics.modelLoadMs)} voice_resolve=${formatMs(metrics.voiceResolveMs)} synthesis=${formatMs(metrics.synthesisMs)}`,
   );
   console.error(`total: ${formatMs(metrics.totalMs)} (${formatSpeed(metrics.realtimeFactor)})`);
 }
@@ -581,6 +734,28 @@ function printBenchmarkSummary(results: FileTranscriptionResult[]): void {
   console.log(`audio duration: ${formatMs(audioDuration)}`);
   console.log(`total: ${formatStat(totalStats, formatMs)}`);
   console.log(`inference: ${formatStat(inferenceStats, formatMs)}`);
+  console.log(`speed: ${formatStat(speedStats, formatSpeedFactor)}`);
+}
+
+function printSynthesisBenchmarkSummary(results: SynthesisResult[]): void {
+  const metrics = results.map((result) => result.metrics).filter((value): value is SynthesisMetrics => Boolean(value));
+  if (metrics.length === 0) {
+    return;
+  }
+
+  const totalStats = computeStats(metrics.map((value) => value.totalMs));
+  const synthesisStats = computeStats(metrics.map((value) => value.synthesisMs));
+  const speedStats = computeStats(
+    metrics
+      .map((value) => (value.realtimeFactor > 0 ? 1 / value.realtimeFactor : 0))
+      .filter((value) => value > 0),
+  );
+  const audioDuration = metrics[0].audioDurationMs;
+
+  console.log("");
+  console.log(`audio duration: ${formatMs(audioDuration)}`);
+  console.log(`total: ${formatStat(totalStats, formatMs)}`);
+  console.log(`synthesis: ${formatStat(synthesisStats, formatMs)}`);
   console.log(`speed: ${formatStat(speedStats, formatSpeedFactor)}`);
 }
 
@@ -653,7 +828,24 @@ function readOption(args: string[], name: string): string | undefined {
   return args[index + 1];
 }
 
-function getSpeedFactor(metrics: TranscriptionMetrics): number {
+function readPositionalArgs(args: string[], optionsWithValues: Set<string>): string[] {
+  const values: string[] = [];
+
+  for (let index = 0; index < args.length; index += 1) {
+    const value = args[index];
+    if (value.startsWith("--")) {
+      if (optionsWithValues.has(value)) {
+        index += 1;
+      }
+      continue;
+    }
+    values.push(value);
+  }
+
+  return values;
+}
+
+function getSpeedFactor(metrics: { realtimeFactor: number; audioDurationMs: number; inferenceMs: number }): number {
   if (metrics.realtimeFactor && Number.isFinite(metrics.realtimeFactor) && metrics.realtimeFactor > 0) {
     return 1 / metrics.realtimeFactor;
   }
@@ -682,6 +874,25 @@ function formatSpeed(rtf: number): string {
 
 function formatSpeedFactor(value: number): string {
   return `${value.toFixed(2)}x realtime`;
+}
+
+async function writeSynthesisOutput(outputPath: string, result: SynthesisResult): Promise<void> {
+  mkdirSync(dirname(outputPath), { recursive: true });
+  await Bun.write(outputPath, result.audio);
+}
+
+function makeTemporarySpeakPath(format: string): string {
+  const directory = join(getVoxHome(), "tmp");
+  mkdirSync(directory, { recursive: true });
+  return join(directory, `speak-${Date.now()}.${format}`);
+}
+
+function playSynthesizedAudio(path: string): boolean {
+  const result = Bun.spawnSync(["afplay", path], {
+    stdout: "ignore",
+    stderr: "ignore",
+  });
+  return result.exitCode === 0;
 }
 
 function readRuntimeInfo(): RuntimeInfo | null {
@@ -759,6 +970,9 @@ Usage:
   vox transcribe status
   vox transcribe cancel [sessionId]
   vox transcribe live [--timestamps]
+  vox speak [--model <id>] [--voice <id>] [--output <path>] [--metrics] [--no-play] <text>
+  vox speak bench [--model <id>] [--voice <id>] <text> [runs]
+  vox voices [list] [--model <id>]
   vox tui`);
 }
 

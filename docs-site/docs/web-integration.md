@@ -115,7 +115,7 @@ const status = await client.getJob(jobId);
 
 ## Graceful degradation
 
-The companion is optional. Build your app to work without it.
+Vox Companion is a first-class deployment mode, but it will not be installed or running on every machine. Build your app to probe for it and degrade gracefully when it is unavailable.
 
 ```ts
 const client = createVoxdClient();

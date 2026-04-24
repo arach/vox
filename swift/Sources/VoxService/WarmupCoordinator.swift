@@ -21,13 +21,15 @@ actor WarmupCoordinator {
     }
 
     private let log = VoxLog.service
-    private let engine: EngineManager
+    private let asrEngine: EngineManager
+    private let ttsEngine: TTSEngineManager
     private var records: [String: Record] = [:]
     private var activeTasks: [String: Task<Void, Never>] = [:]
     private var scheduledTasks: [String: Task<Void, Never>] = [:]
 
-    init(engine: EngineManager) {
-        self.engine = engine
+    init(asrEngine: EngineManager, ttsEngine: TTSEngineManager) {
+        self.asrEngine = asrEngine
+        self.ttsEngine = ttsEngine
     }
 
     func start(modelId: String, requestedBy: String?) async -> WarmupStatus {
@@ -126,7 +128,11 @@ actor WarmupCoordinator {
         log.info("Starting warmup for \(modelId)")
         activeTasks[modelId] = Task {
             do {
-                _ = try await self.engine.preload(modelId: modelId) { _ in }
+                if await self.isTTSModel(modelId: modelId) {
+                    _ = try await self.ttsEngine.preload(modelId: modelId) { _ in }
+                } else {
+                    _ = try await self.asrEngine.preload(modelId: modelId) { _ in }
+                }
                 self.finishWarmup(modelId: modelId, error: nil)
             } catch {
                 self.finishWarmup(modelId: modelId, error: error.localizedDescription)
@@ -170,7 +176,17 @@ actor WarmupCoordinator {
     }
 
     private func isModelPreloaded(modelId: String) async -> Bool {
-        let models = await engine.models()
-        return models.first(where: { $0.id == modelId })?.preloaded ?? false
+        let ttsModels = await ttsEngine.models()
+        if let model = ttsModels.first(where: { $0.id == modelId }) {
+            return model.preloaded
+        }
+
+        let asrModels = await asrEngine.models()
+        return asrModels.first(where: { $0.id == modelId })?.preloaded ?? false
+    }
+
+    private func isTTSModel(modelId: String) async -> Bool {
+        let models = await ttsEngine.models()
+        return models.contains(where: { $0.id == modelId })
     }
 }

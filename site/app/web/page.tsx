@@ -5,16 +5,16 @@ import { CopyCommand, CopyCommandBlock } from "../../components/copy-command";
 
 export const metadata: Metadata = {
   title: "Web SDK · Vox",
-  description: "Add local transcription to any web app with @voxd/client and the Vox macOS companion.",
+  description: "Add local transcription to any web app with @voxd/client and Vox Companion.",
   openGraph: {
     title: "Web SDK · Vox",
-    description: "Add local transcription to any web app with @voxd/client and the Vox macOS companion.",
+    description: "Add local transcription to any web app with @voxd/client and Vox Companion.",
     images: [{ url: "/og/web.png" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Web SDK · Vox",
-    description: "Add local transcription to any web app with @voxd/client and the Vox macOS companion.",
+    description: "Add local transcription to any web app with @voxd/client and Vox Companion.",
     images: ["/og/web.png"],
   },
 };
@@ -88,7 +88,7 @@ export default function WebSdkPage() {
                 Local transcription for apps that already live in the browser.
               </h1>
               <p className="mt-8 max-w-2xl text-base leading-8 text-secondary sm:text-lg">
-                <code className="rounded bg-wave px-2 py-1 font-mono text-[0.95em] text-accent">@voxd/client</code> gives web apps a direct path to the Vox companion on the user&apos;s Mac: probe availability, transcribe blobs, align remote audio, and fall back gracefully when local runtime is unavailable.
+                <code className="rounded bg-wave px-2 py-1 font-mono text-[0.95em] text-accent">@voxd/client</code> gives web apps a direct path to Vox Companion on the user&apos;s Mac: probe availability, transcribe blobs, align remote audio, and fall back gracefully when the local bridge is unavailable.
               </p>
 
               <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center">

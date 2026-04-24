@@ -1,13 +1,13 @@
 # vox
 
-> Local-first transcription runtime for macOS apps and developer tools
+> Local-first voice stack for Apple apps, web companions, and developer tools
 
 Follow these steps to install Vox. Ask for approval before running
 installation commands.
 
 ## Goal
 
-Clone Vox, build the runtime, verify local transcription on macOS.
+Clone Vox, build the stack, and verify Vox Companion on macOS.
 
 ## Done when
 
@@ -23,7 +23,8 @@ Clone Vox, build the runtime, verify local transcription on macOS.
 
 ## Prerequisites
 
-- macOS 14+
+- macOS 26+ for the daemon and bridge
+- iOS 26+ for Apple-embedded SDK use
 - Bun
 - Swift 6.2+
 - Microphone permission if testing live transcription

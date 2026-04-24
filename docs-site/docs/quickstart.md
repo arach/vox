@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- macOS 14+
+- macOS 26+ or iOS 26+ for Apple SDK consumers
 - Bun
 - Swift 6.2+
 

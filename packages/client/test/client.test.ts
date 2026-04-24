@@ -104,4 +104,101 @@ describe("VoxClient", () => {
       },
     ]);
   });
+
+  it("uses the streaming timeout budget for synthesis and decodes audio bytes", async () => {
+    const calls: Array<{ method: string; params: Record<string, unknown>; timeoutMs: number }> = [];
+    const client = new VoxClient({ clientId: "test-client" }) as unknown as {
+      transport: {
+        call: (
+          method: string,
+          params: Record<string, unknown>,
+          timeoutMs: number,
+        ) => Promise<Record<string, unknown>>;
+      };
+      synthesize: (text: string, options?: Record<string, unknown>) => Promise<{ audioBytes: number; voiceId: string }>;
+    };
+
+    client.transport = {
+      call: async (method, params, timeoutMs) => {
+        calls.push({ method, params, timeoutMs });
+        return {
+          modelId: "avspeech:system",
+          voiceId: "com.apple.speech.synthesis.voice.Alex",
+          format: "wav",
+          contentType: "audio/wav",
+          audioBase64: Buffer.from([0x52, 0x49, 0x46, 0x46]).toString("base64"),
+          audioBytes: 4,
+          elapsedMs: 18,
+          metrics: {
+            traceId: "trace-1",
+            characterCount: 11,
+            audioDurationMs: 500,
+            outputBytes: 4,
+            wasPreloaded: true,
+            modelCheckMs: 1,
+            modelLoadMs: 0,
+            voiceResolveMs: 1,
+            synthesisMs: 12,
+            totalMs: 18,
+          },
+        };
+      },
+    };
+
+    const result = await client.synthesize("hello world");
+
+    expect(result.audioBytes).toBe(4);
+    expect(result.voiceId).toBe("com.apple.speech.synthesis.voice.Alex");
+    expect([...result.audio]).toEqual([0x52, 0x49, 0x46, 0x46]);
+    expect(calls).toEqual([
+      {
+        method: "synthesize.generate",
+        params: {
+          clientId: "test-client",
+          text: "hello world",
+          modelId: "avspeech:system",
+          voiceId: undefined,
+          format: "wav",
+          speed: undefined,
+          instructions: undefined,
+        },
+        timeoutMs: STREAM_TIMEOUT_MS,
+      },
+    ]);
+  });
+
+  it("lists synthesis voices through the daemon route", async () => {
+    const client = new VoxClient({ clientId: "test-client" }) as unknown as {
+      call: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+      listVoices: (modelId?: string) => Promise<unknown>;
+    };
+
+    client.call = async (method, params) => {
+      expect(method).toBe("synthesize.voices");
+      expect(params).toEqual({ modelId: "avspeech:system" });
+      return {
+        voices: [
+          {
+            id: "com.apple.speech.synthesis.voice.Alex",
+            name: "Alex",
+            modelId: "avspeech:system",
+            backend: "avspeech",
+            available: true,
+            default: true,
+          },
+        ],
+      };
+    };
+
+    expect(await client.listVoices("avspeech:system")).toEqual([
+      {
+        id: "com.apple.speech.synthesis.voice.Alex",
+        name: "Alex",
+        modelId: "avspeech:system",
+        backend: "avspeech",
+        available: true,
+        default: true,
+      },
+    ]);
+  });
 });

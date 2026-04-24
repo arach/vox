@@ -19,28 +19,71 @@ func parsePort() -> UInt16 {
     return UInt16(arguments[index + 1]) ?? VoxDefaults.resolvedDaemonPort()
 }
 
-func loadEngine() -> EngineManager {
+func defaultASRConfig() -> ProvidersConfig {
+    ProvidersConfig(providers: [
+        ProviderEntry(
+            id: "parakeet",
+            kind: .asr,
+            builtin: true,
+            models: ["parakeet:v3"]
+        )
+    ])
+}
+
+func defaultTTSConfig() -> ProvidersConfig {
+    ProvidersConfig(providers: [
+        ProviderEntry(
+            id: "avspeech",
+            kind: .tts,
+            builtin: true,
+            models: [AVSpeechSynthesizerProvider.modelID]
+        ),
+        ProviderEntry(
+            id: "openai-tts",
+            kind: .tts,
+            builtin: true,
+            models: OpenAITTSProvider.supportedModelIDs
+        )
+    ])
+}
+
+func loadEngines() -> (EngineManager, TTSEngineManager) {
     let configURL = RuntimePaths.providersConfigURL()
     guard FileManager.default.fileExists(atPath: configURL.path) else {
-        log.info("No providers.json found, using default ParakeetProvider")
-        return EngineManager()
+        log.info("No providers.json found, using default Vox ASR and TTS providers")
+        return (
+            EngineManager(provider: ProviderRegistry(config: defaultASRConfig())),
+            TTSEngineManager(provider: TTSProviderRegistry(config: defaultTTSConfig()))
+        )
     }
 
     do {
         let config = try ProvidersConfig.load(from: configURL)
         log.info("Loaded \(config.providers.count) provider(s) from providers.json")
-        let registry = ProviderRegistry(config: config)
-        return EngineManager(provider: registry)
+        let asrConfig = config.providers.contains(where: { $0.resolvedKind == .asr })
+            ? config
+            : defaultASRConfig()
+        let ttsConfig = config.providers.contains(where: { $0.resolvedKind == .tts })
+            ? config
+            : defaultTTSConfig()
+
+        return (
+            EngineManager(provider: ProviderRegistry(config: asrConfig)),
+            TTSEngineManager(provider: TTSProviderRegistry(config: ttsConfig))
+        )
     } catch {
         log.error("Failed to parse providers.json: \(error.localizedDescription) — falling back to default")
-        return EngineManager()
+        return (
+            EngineManager(provider: ProviderRegistry(config: defaultASRConfig())),
+            TTSEngineManager(provider: TTSProviderRegistry(config: defaultTTSConfig()))
+        )
     }
 }
 
 let port = parsePort()
 let host = VoxDefaults.resolvedHost()
-let engine = loadEngine()
-let service = VoxRuntimeService(port: port, bindAddress: host, engine: engine)
+let (engine, ttsEngine) = loadEngines()
+let service = VoxRuntimeService(port: port, bindAddress: host, engine: engine, ttsEngine: ttsEngine)
 
 do {
     try service.start()

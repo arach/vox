@@ -4,7 +4,8 @@ import PackageDescription
 let package = Package(
     name: "Vox",
     platforms: [
-        .macOS(.v14)
+        .macOS(.v26),
+        .iOS(.v26)
     ],
     products: [
         .library(name: "VoxCore", targets: ["VoxCore"]),
@@ -48,7 +49,7 @@ let package = Package(
         ),
         .testTarget(
             name: "VoxServiceTests",
-            dependencies: ["VoxCore", "VoxService"]
+            dependencies: ["VoxCore", "VoxEngine", "VoxService"]
         ),
         .testTarget(
             name: "VoxEngineTests",

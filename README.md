@@ -1,17 +1,18 @@
 # Vox
 
-Vox is a local-first transcription runtime for macOS, built as a Bun + SwiftPM monorepo.
+Vox is a local-first voice stack for Apple platforms, built as a Bun + SwiftPM monorepo with two first-class deployment modes.
 
-- `voxd` -- Swift daemon. Owns model state, transcription, warm-up, and telemetry.
-- `@voxd/sdk` -- TypeScript SDK. Typed JSON-RPC client for app integrations.
+- `VoxCore`, `VoxEngine`, `VoxService`, and `VoxBridge` -- embeddable Swift packages for macOS and iOS apps.
+- `voxd` -- Vox Companion, the Swift daemon for web-facing, shared-process, and operator integrations.
+- `@voxd/sdk` -- TypeScript SDK. Typed JSON-RPC client for Vox Companion integrations.
 - `vox` -- Bun CLI. Health checks, benchmarks, warm-up scheduling, dashboards.
 
-A menu bar app, browser extension, and editor plugin can all share one warm runtime instead of each loading their own model.
+Apple apps can embed Vox directly. Web, browser, and shared local tooling can connect to `voxd` over the same voice surface.
 
 ## Layout
 
 - `swift/` contains `VoxCore`, `VoxEngine`, `VoxService`, and the `voxd` daemon.
-- `packages/client` contains the TypeScript SDK for talking to the daemon over local WebSocket JSON-RPC.
+- `packages/client` contains the TypeScript SDK for talking to `voxd` over local WebSocket JSON-RPC.
 - `packages/cli` contains the `vox` CLI.
 - `docs/` contains Dewey source docs.
 - `site/` contains the marketing site, docs route, and OG generation.
@@ -32,7 +33,7 @@ bun run docs:generate
 
 ## Telemetry
 
-Each transcription appends a tagged sample to `~/.vox/performance.jsonl` with `clientId`, `route`, and `modelId`.
+Each transcription or synthesis request appends a tagged sample to `~/.vox/performance.jsonl` with `clientId`, `route`, `modelId`, and `voiceId` when applicable.
 
 You can answer: is the hot model fast? Which integration is regressing? Is latency in inference, audio prep, or cold runtime work?
 
@@ -54,13 +55,13 @@ vox perf dashboard
 vox transcribe live --timestamps
 ```
 
-## Runtime
+## Companion Runtime
 
 - Runtime discovery: `~/.vox/runtime.json`
 - Latency samples: `~/.vox/performance.jsonl`
 - Daemon logs: `~/.vox/logs/voxd.log` (written even when `voxd` is auto-started by the CLI)
 
-`bun run test:e2e` is an opt-in macOS integration suite. It boots `voxd`, preloads the model, synthesizes speech with `say`, and checks `transcribe file` output against keyword expectations.
+`voxd` is Vox Companion: the shared-process and web-facing transport for Vox. `bun run test:e2e` is an opt-in macOS integration suite that boots `voxd`, preloads the model, synthesizes speech with `say`, and checks `transcribe file` output against keyword expectations.
 
 ## Docs and site
 

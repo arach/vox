@@ -52,6 +52,16 @@ export interface ModelInfo {
   available: boolean;
 }
 
+export interface VoiceInfo {
+  id: string;
+  name: string;
+  language?: string | null;
+  backend: string;
+  modelId: string;
+  available: boolean;
+  default: boolean;
+}
+
 export interface ModelProgress {
   modelId: string;
   progress: number;
@@ -96,6 +106,40 @@ export interface TranscriptionMetrics {
   inferenceMs: number;
   totalMs: number;
   realtimeFactor: number;
+}
+
+export interface SynthesisOptions {
+  modelId?: string;
+  voiceId?: string;
+  format?: string;
+  speed?: number;
+  instructions?: string;
+}
+
+export interface SynthesisMetrics {
+  traceId: string;
+  characterCount: number;
+  audioDurationMs: number;
+  outputBytes: number;
+  wasPreloaded: boolean;
+  modelCheckMs: number;
+  modelLoadMs: number;
+  voiceResolveMs: number;
+  synthesisMs: number;
+  inferenceMs: number;
+  totalMs: number;
+  realtimeFactor: number;
+}
+
+export interface SynthesisResult {
+  modelId: string;
+  voiceId: string;
+  format: string;
+  contentType: string;
+  audio: Uint8Array;
+  audioBytes: number;
+  elapsedMs: number;
+  metrics?: SynthesisMetrics;
 }
 
 export type SessionState =

@@ -14,19 +14,19 @@ const featureCards = [
     icon: Radar,
     idx: "02",
     title: "INSTRUMENTATION FIRST",
-    body: "Every transcription carries stage timings and dimensions for clientId, route, and modelId so operators can inspect real latency instead of guessing.",
+    body: "Every voice request carries stage timings and dimensions for clientId, route, modelId, and voiceId when relevant so operators can inspect real latency instead of guessing.",
   },
   {
     icon: Boxes,
     idx: "03",
-    title: "MULTI-CLIENT RUNTIME",
-    body: "One daemon serves menu bar apps, browser extensions, editor integrations, and the CLI without each reinventing the runtime.",
+    title: "COMPANION MODE",
+    body: "Vox Companion serves browser integrations, local tools, and the CLI without duplicating warm models or splitting the voice stack.",
   },
   {
     icon: Waypoints,
     idx: "04",
     title: "ONE PROTOCOL SURFACE",
-    body: "Bun CLI for operator workflows, TypeScript SDK for embedded app integrations, both over local WebSocket JSON-RPC.",
+    body: "Swift packages for embed mode, plus Bun and TypeScript clients for companion mode, all aligned around the same warm-up and telemetry semantics.",
   },
 ];
 
@@ -50,8 +50,8 @@ export default function Home() {
             <Link href="/blog" className="px-3 py-1.5 transition-colors hover:text-ink">
               Blog
             </Link>
-            <Link href="#runtime" className="px-3 py-1.5 transition-colors hover:text-ink">
-              Runtime
+            <Link href="#companion" className="px-3 py-1.5 transition-colors hover:text-ink">
+              Companion
             </Link>
             <Link href="#perf" className="px-3 py-1.5 transition-colors hover:text-ink">
               Perf
@@ -93,7 +93,7 @@ export default function Home() {
               </h1>
 
               <p className="mt-8 max-w-md text-[15px] leading-8 text-secondary">
-                Got tired of rebuilding a local voice engine for every agent, so I made Vox. On-device transcription daemon for macOS — plays well with apps and agents.
+                Got tired of rebuilding local voice plumbing for every app, so I made Vox. Embed it in macOS and iOS apps, or run Vox Companion for web surfaces, local tools, and shared voice workflows.
               </p>
 
               <div className="mt-12 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
@@ -142,18 +142,18 @@ export default function Home() {
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         <div className="flex items-center gap-4 font-mono text-[9px] uppercase tracking-[0.2em] text-muted">
           <div className="h-px flex-1 bg-line" />
-          <span>LOCAL-FIRST TRANSCRIPTION RUNTIME</span>
+          <span>TWO FIRST-CLASS VOX MODES</span>
           <div className="h-px flex-1 bg-line" />
         </div>
       </div>
 
       {/* Runtime pillars — ruled list */}
-      <section id="runtime" className="px-6 py-20 sm:px-8 sm:py-28 lg:px-12">
+      <section id="companion" className="px-6 py-20 sm:px-8 sm:py-28 lg:px-12">
         <div className="mx-auto max-w-7xl">
           <div className="mb-16 sm:mb-20">
-            <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">RUNTIME</p>
+            <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">COMPANION</p>
             <h2 className="max-w-[22ch] font-display text-3xl italic leading-tight tracking-[-0.03em] sm:text-5xl lg:text-6xl">
-              Made for devs with more than one app.
+              Embed in apps. Run companion mode for the web and local tools.
             </h2>
           </div>
           <div className="grid gap-px border-t border-line">
@@ -178,7 +178,7 @@ export default function Home() {
                 Measure what operators actually care about.
               </h2>
               <p className="mt-6 max-w-md text-[15px] leading-7 text-secondary">
-                Stage timings for every transcription. Slice by client, route, and model.
+                Stage timings for every voice request. Slice by client, route, model, and voice.
               </p>
               <div className="mt-8">
                 <CopyCommand command="vox tui" />
@@ -188,9 +188,9 @@ export default function Home() {
             <div className="relative overflow-hidden border border-line-strong bg-canvas">
               <ScreenshotLightbox
                 src="/tui-dashboard.png"
-                alt="Vox runtime dashboard showing performance stats, per-client breakdown, and recent transcriptions"
+                alt="Vox dashboard showing performance stats, per-client breakdown, and recent voice activity"
                 title="vox tui"
-                caption="Runtime dashboard — performance stats, per-client breakdown, and recent transcriptions at a glance."
+                caption="Performance dashboard — per-client breakdown and recent voice activity at a glance."
                 className="relative"
               />
             </div>
@@ -204,10 +204,10 @@ export default function Home() {
           <div className="mb-16 sm:mb-20">
             <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">GET STARTED</p>
             <h2 className="max-w-[22ch] font-display text-3xl italic leading-tight tracking-[-0.03em] sm:text-5xl lg:text-6xl">
-              Install once, transcribe anywhere.
+              Install once, serve the web and local tools.
             </h2>
             <p className="mt-6 max-w-lg text-[15px] leading-7 text-secondary">
-              Vox runs as a lightweight daemon on your Mac. Install the companion app or use the CLI — either way, any web app on your machine gets local transcription for free.
+              Apple apps can embed Vox directly. For browser and shared-process workflows, install the companion app or use the CLI so local web clients and tools can connect to the same warm Vox engine.
             </p>
           </div>
 
@@ -219,7 +219,7 @@ export default function Home() {
                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">Download</span>
               </div>
               <p className="text-[14px] leading-7 text-secondary">
-                Drag Vox to Applications. The daemon starts automatically on login — nothing to manage, nothing to close.
+                Drag Vox to Applications. The companion starts automatically on login, so web and tooling integrations have a local bridge ready on the machine.
               </p>
               <div className="mt-6">
                 <Link
@@ -240,7 +240,7 @@ export default function Home() {
               </div>
               <div className="font-mono text-[12px] leading-7">
                 <div className="text-muted">$ npx @voxd/cli install</div>
-                <div className="text-secondary">daemon installed, LaunchAgent registered</div>
+                <div className="text-secondary">Vox Companion installed, LaunchAgent registered</div>
                 <div className="mt-3 text-muted">$ npx @voxd/cli doctor</div>
                 <div className="text-ink">daemon: running</div>
                 <div className="text-ink">backend: parakeet</div>
@@ -261,7 +261,7 @@ export default function Home() {
                 <span className="font-mono text-lg font-medium tracking-[-0.02em] text-ink">VOX</span>
               </div>
               <p className="mt-3 max-w-sm text-[13px] leading-7 text-secondary">
-                Open-source on-device transcription for macOS.
+                Open-source local voice stack for Apple platforms.
               </p>
               <p className="mt-1 font-mono text-[10px] tracking-wide text-muted">
                 Local-first. No cloud. No latency excuses.

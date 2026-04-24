@@ -1,14 +1,20 @@
 # Vox Overview
 
-Vox is a local-first transcription runtime for macOS. It runs as a Bun + SwiftPM monorepo with three surfaces:
+Vox is a local-first voice stack for macOS and iOS. It supports two first-class integration modes:
 
-- `voxd` -- Swift daemon. Owns runtime state, warm-up, mic capture, transcription, and telemetry.
-- `@voxd/sdk` -- TypeScript SDK. Talks to the daemon over local WebSocket JSON-RPC.
-- `vox` -- Bun CLI. Health checks, benchmarks, warm-up scheduling, transcription.
+- Embed mode -- Apple apps link Vox's Swift packages directly and keep voice in and voice out in process.
+- Companion mode -- `voxd` exposes the same capabilities over local JSON-RPC and HTTP when web or shared-process access is useful.
+
+Main surfaces:
+
+- Swift packages -- `VoxCore`, `VoxEngine`, `VoxService`, `VoxBridge` for embedded Apple app integrations.
+- `voxd` -- Vox Companion, the Swift daemon. Warm-up, telemetry, bridge transport, shared-process coordination.
+- `@voxd/sdk` -- TypeScript SDK for Bun/Node and other companion-connected integrations.
+- `vox` -- Bun CLI. Health checks, benchmarks, warm-up scheduling, transcription, synthesis.
 
 ## Why it exists
 
-Most transcription tools hide the runtime. Vox exposes it:
+Most voice stacks hide lifecycle, warm-up, and latency. Vox keeps them visible:
 
 - Model stays local
 - Warm-up is an explicit API
@@ -17,7 +23,7 @@ Most transcription tools hide the runtime. Vox exposes it:
 
 ## Repository layout
 
-- `swift/` -- VoxCore, VoxEngine, VoxService, voxd daemon
+- `swift/` -- VoxCore, VoxEngine, VoxService, VoxBridge, voxd companion
 - `packages/client/` -- TypeScript SDK
 - `packages/cli/` -- Bun CLI
 - `docs/` -- Dewey source content
@@ -32,7 +38,7 @@ Most transcription tools hide the runtime. Vox exposes it:
 
 ## How it fits together
 
-The split between operator and integration surfaces is intentional. App teams embed `@voxd/sdk` and keep their `clientId`. Operators use `vox` to check health, warm-up, and performance. The daemon stays warm across menu bar apps, browser extensions, editor plugins, and the CLI -- no duplicate model loads.
+The split between embed and companion surfaces is intentional. Apple apps embed the Swift packages directly and keep the same provider, warm-up, and telemetry semantics in process. Web apps use `@voxd/client` against Vox Companion, and operators use `vox` to check health, warm-up, and performance. Companion mode lets `voxd` stay warm across browser integrations, local tools, and other shared-process clients.
 
 ## Workflows
 

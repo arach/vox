@@ -1,14 +1,14 @@
 # vox
 
-> Local-first transcription runtime for macOS apps and developer tools
+> Local-first voice stack for Apple apps, web companions, and developer tools
 
 ## Critical Context
 
 **IMPORTANT:** Read these rules before making any changes:
 
 - Always solve root cause before looking for workarounds and quick fixes.
-- Vox is a macOS-first runtime: Swift owns the daemon and audio/transcription engine surface.
-- The Bun workspace contains the CLI and TypeScript SDK, which communicate with voxd over local WebSocket JSON-RPC.
+- Vox is an Apple-platform voice stack: Swift owns the embeddable engine surface and the companion transport surface.
+- The Bun workspace contains the CLI and TypeScript clients, which communicate with `voxd` in companion mode.
 - Performance instrumentation is first-class: preserve clientId, route, and modelId dimensions in telemetry.
 - Warm-up semantics are part of the public runtime surface and should remain usable for multi-client integrations.
 
@@ -35,15 +35,16 @@
 
 ## Overview
 
-Vox is a local-first transcription runtime for macOS, built as a Bun + SwiftPM monorepo.
+Vox is a local-first voice stack for Apple platforms, built as a Bun + SwiftPM monorepo.
 
-Three public surfaces:
+Primary surfaces:
 
-- `voxd` -- Swift daemon. Owns runtime state, warm-up, mic capture, transcription, telemetry.
-- `@voxd/sdk` -- TypeScript SDK. Talks to the daemon over local WebSocket JSON-RPC.
+- `VoxCore`, `VoxEngine`, `VoxService`, and `VoxBridge` -- embeddable Swift packages for macOS and iOS apps.
+- `voxd` -- Vox Companion, the Swift daemon. Warm-up, telemetry, bridge transport, shared-process coordination.
+- `@voxd/sdk` -- TypeScript SDK. Talks to the daemon over local WebSocket JSON-RPC in companion mode.
 - `vox` -- Bun CLI. Health checks, benchmarks, warm-up scheduling, transcription.
 
-The runtime is split so that a menu bar app, browser extension, and editor plugin can all share one warm model instead of each loading its own.
+Apple apps embed Vox directly. Browser and shared-process clients use `voxd` in companion mode.
 
 ## Common Workflows
 
@@ -63,7 +64,7 @@ bun packages/cli/src/index.ts perf dashboard --client vox-cli
 
 ## Quickstart
 
-Requirements: macOS 14+, Bun, Swift 6.2+.
+Requirements: macOS 26+, Bun, Swift 6.2+.
 
 ```bash
 git clone https://github.com/arach/vox.git && cd vox

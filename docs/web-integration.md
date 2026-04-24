@@ -1,6 +1,6 @@
 # Web Integration (Companion Client)
 
-> For native macOS apps or Bun/Node processes, use [`@voxd/sdk`](./sdk.md) instead — it connects directly to the daemon.
+> For Apple apps, embed Vox's Swift packages directly. For Bun/Node companion clients, use [`@voxd/sdk`](./sdk.md) instead — it connects to `voxd` over local WebSocket JSON-RPC.
 
 `@voxd/client` adds local transcription to web apps and browser extensions. Talks to the Vox Companion on the user's Mac over a local HTTP bridge. No server needed.
 
@@ -117,7 +117,7 @@ const status = await client.getJob(jobId);
 
 ## Graceful degradation
 
-The companion is optional. Build your app to work without it.
+Vox Companion is a first-class deployment mode, but it will not be installed or running on every machine. Build your app to probe for it and degrade gracefully when it is unavailable.
 
 ```ts
 const client = createVoxdClient();

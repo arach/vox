@@ -1,8 +1,8 @@
-# SDK (Daemon Client)
+# SDK (Companion Client)
 
-> `@voxd/sdk` is for native apps and Node/Bun processes that connect directly to the daemon over a local socket. For web apps or browser extensions, use [`@voxd/client`](./web-integration.md) instead — it talks to the Vox Companion over HTTP.
+> Apple apps on macOS and iOS can embed Vox's Swift packages directly. `@voxd/sdk` is the TypeScript client for Bun/Node tools and other companion-connected integrations that connect to `voxd` over local WebSocket JSON-RPC. For web apps or browser extensions, use [`@voxd/client`](./web-integration.md) instead — it talks to Vox Companion over HTTP.
 
-`packages/client/` -- connects to the local runtime, manages models and warm-up, transcribes files, creates live sessions, and returns stage metrics with word-level timings.
+`packages/client/` -- connects to `voxd` when you want out-of-process access to models, warm-up, transcription, synthesis, and stage metrics.
 
 ## Example
 
@@ -35,12 +35,14 @@ interface VoxClientSurface {
   disconnect(): void;
   doctor(): Promise<unknown>;
   listModels(): Promise<unknown>;
+  listVoices(modelId?: string): Promise<unknown>;
   installModel(modelId?: string): Promise<unknown>;
   preloadModel(modelId?: string): Promise<unknown>;
   getWarmupStatus(modelId?: string): Promise<unknown>;
   startWarmup(modelId?: string): Promise<unknown>;
   scheduleWarmup(modelId?: string, delayMs?: number): Promise<unknown>;
   transcribeFile(path: string): Promise<FileTranscriptionResult>;
+  synthesize(text: string, options?: SynthesisOptions): Promise<SynthesisResult>;
   createLiveSession(): Promise<unknown>;
 }
 ```
@@ -59,16 +61,16 @@ interface FileTranscriptionResult {
 
 ## Error handling
 
-All client methods throw when the daemon is unreachable, the model isn't installed, or a transcription fails. Errors are plain `Error` instances — check `message` for a human-readable description.
+All client methods throw when `voxd` is unreachable, the model isn't installed, or a transcription or synthesis request fails. Errors are plain `Error` instances, so check `message` for a human-readable description.
 
 ```ts
 try {
   const result = await client.transcribeFile("/tmp/audio.wav");
 } catch (err) {
   // Common causes:
-  // - Daemon not running: start with `vox daemon start`
+  // - Companion not running: start with `vox daemon start`
   // - Model not installed: run `vox models install` first
-  // - Transcription failed: daemon logs have details (`vox logs daemon`)
+  // - Request failed: daemon logs have details (`vox logs daemon`)
   console.error(err.message);
 }
 ```
@@ -98,6 +100,7 @@ On the daemon side, set `VOX_PORT` or `VOX_HOST` environment variables to overri
 
 ## Integration advice
 
+- embed Swift directly for macOS and iOS apps; use `@voxd/sdk` when you want Vox Companion access from JS or tooling
 - use a stable `clientId` per product surface — `menu-bar`, `browser-extension`, `vox-cli`
 - warm on intent, not on every keystroke
 - benchmark with representative audio clips and read `inferenceMs` separately from `totalMs`
