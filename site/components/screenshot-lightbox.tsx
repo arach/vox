@@ -44,7 +44,7 @@ export function ScreenshotLightbox({
         <img
           src={src}
           alt={alt}
-          className="w-full rounded-xl transition-transform duration-200 group-hover:scale-[1.01]"
+          className="w-full transition-opacity duration-200 group-hover:opacity-90"
         />
       </button>
 
@@ -61,7 +61,7 @@ export function ScreenshotLightbox({
           <button
             type="button"
             onClick={close}
-            className="absolute right-5 top-5 z-20 rounded-full bg-white/10 p-2 text-white/60 transition-colors hover:bg-white/20 hover:text-white"
+            className="absolute right-5 top-5 z-20 bg-white/10 p-2 text-white/50 transition-colors hover:bg-white/15 hover:text-white/80"
           >
             <X className="h-4 w-4" />
           </button>
@@ -72,7 +72,7 @@ export function ScreenshotLightbox({
             style={{ maxWidth: "min(90vw, calc(70vh * 1.6))" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="overflow-hidden rounded-xl border border-white/20 shadow-2xl">
+            <div className="overflow-hidden border border-white/15">
               <img
                 src={src}
                 alt={alt}

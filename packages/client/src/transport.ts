@@ -21,13 +21,13 @@ export class WebSocketTransport extends Emitter<TransportEvents> {
     return this.connected;
   }
 
-  async connect(port: number): Promise<void> {
+  async connect(port: number, host = "127.0.0.1"): Promise<void> {
     if (this.socket) {
       this.disconnect();
     }
 
     await new Promise<void>((resolve, reject) => {
-      const socket = new WebSocket(`ws://127.0.0.1:${port}`);
+      const socket = new WebSocket(`ws://${host}:${port}`);
       const timeout = setTimeout(() => {
         socket.close();
         reject(new ConnectionError(`Connection to port ${port} timed out`, port));

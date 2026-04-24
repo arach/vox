@@ -1,16 +1,6 @@
 # SDK
 
-The TypeScript SDK lives in `packages/client/`.
-
-## Main Capabilities
-
-- connect to the local runtime
-- inspect health and doctor checks
-- list/install/preload models
-- start and schedule warm-up
-- transcribe files
-- create live sessions
-- receive stage metrics on transcription results
+`packages/client/` -- connects to the local runtime, manages models and warm-up, transcribes files, creates live sessions, and returns stage metrics.
 
 ## Example
 
@@ -32,13 +22,7 @@ client.disconnect();
 
 ## Client Identity
 
-`clientId` matters.
-
-It is used by the runtime to:
-
-- attribute latency by consumer
-- inspect route-level behavior across integrations
-- support multi-client operator workflows
+`clientId` is used to attribute latency by consumer, compare route-level behavior across integrations, and support multi-client workflows.
 
 ## Main methods
 

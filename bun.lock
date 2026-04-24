@@ -10,7 +10,7 @@
     },
     "packages/cli": {
       "name": "@voxd/cli",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "bin": {
         "vox": "./dist/index.js",
       },
@@ -20,7 +20,7 @@
     },
     "packages/client": {
       "name": "@voxd/sdk",
-      "version": "0.1.1",
+      "version": "0.2.0",
     },
     "packages/tui": {
       "name": "@voxd/tui",
@@ -36,7 +36,7 @@
       },
     },
     "packages/web-client": {
-      "name": "@voxd/web",
+      "name": "@voxd/client",
       "version": "0.2.0",
       "devDependencies": {
         "typescript": "^5.9.2",
@@ -432,11 +432,11 @@
 
     "@voxd/cli": ["@voxd/cli@workspace:packages/cli"],
 
+    "@voxd/client": ["@voxd/client@workspace:packages/web-client"],
+
     "@voxd/sdk": ["@voxd/sdk@workspace:packages/client"],
 
     "@voxd/tui": ["@voxd/tui@workspace:packages/tui"],
-
-    "@voxd/web": ["@voxd/web@workspace:packages/web-client"],
 
     "@webgpu/types": ["@webgpu/types@0.1.69", "", {}, "sha512-RPmm6kgRbI8e98zSD3RVACvnuktIja5+yLgDAkTmxLr90BEwdTXRQWNLF3ETTTyH/8mKhznZuN5AveXYFEsMGQ=="],
 

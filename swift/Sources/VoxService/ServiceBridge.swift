@@ -64,7 +64,7 @@ public final class ServiceBridge: @unchecked Sendable {
     private var handlers: [String: Handler] = [:]
     private var streamingHandlers: [String: StreamingHandler] = [:]
 
-    public init(port: UInt16, serviceName: String, bindAddress: String = "127.0.0.1") {
+    public init(port: UInt16, serviceName: String, bindAddress: String = VoxDefaults.host) {
         self.port = port
         self.bindAddress = bindAddress
         self.serviceName = serviceName

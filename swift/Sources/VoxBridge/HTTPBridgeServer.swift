@@ -5,7 +5,7 @@ import VoxCore
 /// Lightweight HTTP server on localhost for browser-to-daemon communication.
 /// Listens on port 43115 and proxies requests to voxd via DaemonProxy.
 public final class HTTPBridgeServer: @unchecked Sendable {
-    public static let defaultPort: UInt16 = 43115
+    public static let defaultPort: UInt16 = VoxDefaults.bridgePort
     private static let headerDelimiter = Data("\r\n\r\n".utf8)
 
     private let port: UInt16
@@ -213,6 +213,18 @@ public final class HTTPBridgeServer: @unchecked Sendable {
         case ("POST", "/live/cancel"):
             await handleCancelLiveSession(body: body, origin: origin, on: connection)
 
+        case ("GET", "/speak"):
+            await handleSpeakStatus(origin: origin, on: connection)
+
+        case ("POST", "/speak"):
+            await handleStartSynthesis(body: body, origin: origin, on: connection)
+
+        case ("POST", "/speak/cancel"):
+            await handleCancelSynthesis(body: body, origin: origin, on: connection)
+
+        case ("GET", "/voices"):
+            await handleVoices(origin: origin, on: connection)
+
         case ("POST", "/transcribe"):
             await handleTranscribe(bodyData: bodyData, contentType: contentType, origin: origin, on: connection)
 
@@ -244,11 +256,14 @@ public final class HTTPBridgeServer: @unchecked Sendable {
                 "features": [
                     "alignment": true,
                     "local_asr": true,
+                    "local_tts": true,
                     "realtime": true,
+                    "streaming_audio": true,
                     "streaming_progress": true
                 ],
                 "backends": [
-                    "parakeet": true
+                    "parakeet": true,
+                    "avspeech": true
                 ],
                 "daemon": health,
                 "models": models["models"] ?? []
@@ -260,7 +275,9 @@ public final class HTTPBridgeServer: @unchecked Sendable {
                 "features": [
                     "alignment": false,
                     "local_asr": false,
+                    "local_tts": false,
                     "realtime": false,
+                    "streaming_audio": false,
                     "streaming_progress": false
                 ],
                 "backends": [:] as [String: Any]
@@ -275,6 +292,26 @@ public final class HTTPBridgeServer: @unchecked Sendable {
             }
 
             let result = try await proxy.call("transcribe.sessionStatus")
+            sendResponse(status: 200, body: [
+                "session": result["session"] ?? NSNull()
+            ], origin: origin, on: connection)
+        } catch {
+            sendResponse(
+                status: statusCode(for: error),
+                body: ["error": error.localizedDescription],
+                origin: origin,
+                on: connection
+            )
+        }
+    }
+
+    private func handleSpeakStatus(origin: String?, on connection: NWConnection) async {
+        do {
+            if !(await proxy.isConnected) {
+                try await proxy.connect()
+            }
+
+            let result = try await proxy.call("synthesize.sessionStatus")
             sendResponse(status: 200, body: [
                 "session": result["session"] ?? NSNull()
             ], origin: origin, on: connection)
@@ -332,6 +369,68 @@ public final class HTTPBridgeServer: @unchecked Sendable {
         }
     }
 
+    private func handleStartSynthesis(body: [String: Any]?, origin: String?, on connection: NWConnection) async {
+        let clientId = (body?["clientId"] as? String) ?? "vox-web"
+        let text = (body?["text"] as? String) ?? ""
+        let modelId = (body?["modelId"] as? String) ?? "avspeech:system"
+        let voiceId = body?["voiceId"] as? String
+        let format = (body?["format"] as? String) ?? "wav"
+        let speed = body?["speed"] as? Double
+        let instructions = body?["instructions"] as? String
+        var didStartStream = false
+
+        do {
+            if !(await proxy.isConnected) {
+                try await proxy.connect()
+            }
+
+            try await sendStreamingResponseHead(origin: origin, on: connection)
+            didStartStream = true
+
+            var params: [String: Any] = [
+                "clientId": clientId,
+                "text": text,
+                "modelId": modelId,
+                "format": format
+            ]
+            if let voiceId {
+                params["voiceId"] = voiceId
+            }
+            if let speed {
+                params["speed"] = speed
+            }
+            if let instructions {
+                params["instructions"] = instructions
+            }
+
+            let result = try await proxy.callStreaming(
+                "synthesize.startSession",
+                params: params
+            ) { [self] event, data in
+                await sendStreamingPayload([
+                    "event": event,
+                    "data": data
+                ], on: connection)
+            }
+
+            await sendStreamingPayload(["result": result], on: connection)
+            await finishStreamingResponse(on: connection)
+        } catch {
+            if didStartStream {
+                await sendStreamingPayload(["error": error.localizedDescription], on: connection)
+                await finishStreamingResponse(on: connection)
+                return
+            }
+
+            sendResponse(
+                status: statusCode(for: error),
+                body: ["error": error.localizedDescription],
+                origin: origin,
+                on: connection
+            )
+        }
+    }
+
     private func handleStopLiveSession(body: [String: Any]?, origin: String?, on connection: NWConnection) async {
         do {
             if !(await proxy.isConnected) {
@@ -362,6 +461,46 @@ public final class HTTPBridgeServer: @unchecked Sendable {
             let params = sessionId.map { ["sessionId": $0] }
             let result = try await proxy.call("transcribe.cancelSession", params: params)
             sendResponse(status: 200, body: result, origin: origin, on: connection)
+        } catch {
+            sendResponse(
+                status: statusCode(for: error),
+                body: ["error": error.localizedDescription],
+                origin: origin,
+                on: connection
+            )
+        }
+    }
+
+    private func handleCancelSynthesis(body: [String: Any]?, origin: String?, on connection: NWConnection) async {
+        do {
+            if !(await proxy.isConnected) {
+                try await proxy.connect()
+            }
+
+            let sessionId = body?["sessionId"] as? String
+            let params = sessionId.map { ["sessionId": $0] }
+            let result = try await proxy.call("synthesize.cancel", params: params)
+            sendResponse(status: 200, body: result, origin: origin, on: connection)
+        } catch {
+            sendResponse(
+                status: statusCode(for: error),
+                body: ["error": error.localizedDescription],
+                origin: origin,
+                on: connection
+            )
+        }
+    }
+
+    private func handleVoices(origin: String?, on connection: NWConnection) async {
+        do {
+            if !(await proxy.isConnected) {
+                try await proxy.connect()
+            }
+
+            let result = try await proxy.call("synthesize.voices")
+            sendResponse(status: 200, body: [
+                "voices": result["voices"] ?? []
+            ], origin: origin, on: connection)
         } catch {
             sendResponse(
                 status: statusCode(for: error),

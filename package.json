@@ -1,7 +1,7 @@
 {
   "name": "vox",
   "private": true,
-  "description": "Local-first macOS transcription runtime with Swift services, a Bun CLI, and a TypeScript SDK.",
+  "description": "Local-first Apple voice stack with embeddable Swift packages, Vox Companion, a Bun CLI, and TypeScript clients.",
   "workspaces": [
     "packages/*",
     "site"

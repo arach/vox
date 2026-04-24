@@ -104,6 +104,8 @@ export interface VoxDClientOptions {
   clientId?: string;
   /** Base URL for the companion bridge. Default: http://127.0.0.1:43115 */
   baseUrl?: string;
+  /** Companion bridge host. Ignored if baseUrl is set. Default: "127.0.0.1" */
+  host?: string;
   /** Companion bridge port. Ignored if baseUrl is set. Default: 43115 */
   port?: number;
   /** Probe timeout in ms. Default: 2000 */

@@ -15,11 +15,11 @@ export function CopyCommand({ command }: { command: string }) {
   return (
     <button
       onClick={copy}
-      className="group inline-flex h-11 max-w-full items-center gap-3 rounded-md border border-line-strong bg-panel px-5 font-mono text-[12px] text-ink transition-all hover:border-accent/50 hover:bg-wave"
+      className="group inline-flex h-10 max-w-full items-center gap-3 rounded-none border border-line-strong bg-panel px-4 font-mono text-[12px] text-ink transition-colors hover:border-ink/30"
     >
       <span className="text-muted">$</span>
       <span className="min-w-0 truncate">{command}</span>
-      <span className="shrink-0 text-muted transition-colors group-hover:text-accent">
+      <span className="shrink-0 text-muted transition-colors group-hover:text-ink">
         {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
       </span>
     </button>
@@ -36,16 +36,16 @@ export function CopyCommandBlock({ command, label }: { command: string; label: s
   };
 
   return (
-    <div className="grid gap-3 rounded-[1.5rem] border border-line bg-canvas px-4 py-4 sm:grid-cols-[minmax(0,390px)_1fr] sm:items-center">
+    <div className="grid gap-3 border border-line bg-canvas px-4 py-4 sm:grid-cols-[minmax(0,390px)_1fr] sm:items-center">
       <button
         onClick={copy}
-        className="group flex items-center justify-between rounded-md border border-line-strong bg-panel px-4 py-3 font-mono text-[12px] text-ink transition-all hover:border-accent/50 hover:bg-wave"
+        className="group flex items-center justify-between rounded-none border border-line-strong bg-panel px-4 py-3 font-mono text-[12px] text-ink transition-colors hover:border-ink/30"
       >
         <span className="min-w-0 truncate text-left">
           <span className="text-muted">$ </span>
           {command}
         </span>
-        <span className="ml-3 shrink-0 text-muted transition-colors group-hover:text-accent">
+        <span className="ml-3 shrink-0 text-muted transition-colors group-hover:text-ink">
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
         </span>
       </button>

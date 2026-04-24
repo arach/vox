@@ -33,68 +33,20 @@ Daemon-side orchestration:
 
 ### TypeScript SDK
 
-`@voxd/sdk` mirrors the runtime capabilities for integrations:
-
-- health
-- models
-- warm-up
-- file transcription
-- live sessions
-- metrics parsing
+`@voxd/sdk` -- health, models, warm-up, file transcription, live sessions, metrics parsing.
 
 ### CLI
 
-`vox` is both an operator tool and a dogfooding surface:
+`vox` -- operator tool and dogfooding surface. Doctor, daemon lifecycle, model management, benchmarks, dashboards.
 
-- doctor and daemon lifecycle
-- model management
-- warm benchmarks
-- metrics inspection
-- dashboard views
+## Ownership
 
-## Public Surfaces
-
-- `voxd`
-- `@voxd/sdk`
-- `vox`
-- `site/`
-
-## Responsibility Boundaries
-
-### Swift runtime
-
-Owns:
-
-- daemon lifecycle
-- audio loading and preparation
-- model lifecycle
-- transcription execution
-- performance sample recording
-
-### TypeScript SDK
-
-Owns:
-
-- connection lifecycle to the local daemon
-- typed request and response shapes
-- live-session client ergonomics
-- metric parsing for JS and TS consumers
-
-### CLI
-
-Owns:
-
-- operator-facing commands
-- machine-readable and human-readable terminal output
-- benchmarks, warm-up controls, and dashboard inspection
-
-### Site and docs
-
-Own:
-
-- public explanation of the architecture
-- onboarding for contributors and integrators
-- OG, landing, and `/docs` presentation
+| Surface | Owns |
+|---------|------|
+| Swift runtime | Daemon lifecycle, audio prep, model lifecycle, transcription, perf recording |
+| TypeScript SDK | Connection lifecycle, typed request/response shapes, live-session ergonomics, metric parsing |
+| CLI | Operator commands, terminal output (human and machine), benchmarks, warm-up controls, dashboards |
+| Site and docs | Architecture docs, onboarding, OG images, landing page |
 
 ## Data flow
 

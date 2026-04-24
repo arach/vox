@@ -1,6 +1,6 @@
 import { RuntimeDiscovery } from "./discovery.ts";
-import { STREAM_TIMEOUT_MS } from "./constants.ts";
-import { parseTranscriptionMetrics } from "./metrics.ts";
+import { DEFAULT_HOST, STREAM_TIMEOUT_MS } from "./constants.ts";
+import { parseSynthesisMetrics, parseTranscriptionMetrics } from "./metrics.ts";
 import { WebSocketTransport } from "./transport.ts";
 import { VoxLiveSession } from "./live.ts";
 import { parseWordTimings } from "./words.ts";
@@ -10,6 +10,9 @@ import type {
   LiveSessionStatus,
   ModelInfo,
   ModelProgress,
+  SynthesisOptions,
+  SynthesisResult,
+  VoiceInfo,
   WarmupStatus,
   VoxClientOptions,
 } from "./types.ts";
@@ -30,7 +33,8 @@ export class VoxClient {
 
   async connect(): Promise<void> {
     this.resolvedPort = this.discovery.resolvePort(this.options.port);
-    await this.transport.connect(this.resolvedPort);
+    const host = this.options.host ?? DEFAULT_HOST;
+    await this.transport.connect(this.resolvedPort, host);
   }
 
   disconnect(): void {
@@ -71,6 +75,11 @@ export class VoxClient {
   async listModels(): Promise<ModelInfo[]> {
     const result = await this.call("models.list");
     return (result.models as ModelInfo[]) ?? [];
+  }
+
+  async listVoices(modelId?: string): Promise<VoiceInfo[]> {
+    const result = await this.call("synthesize.voices", modelId ? { modelId } : undefined);
+    return (result.voices as VoiceInfo[]) ?? [];
   }
 
   async installModel(
@@ -132,6 +141,35 @@ export class VoxClient {
       elapsedMs: Number(result.elapsedMs ?? 0),
       metrics: parseTranscriptionMetrics(result.metrics, Number(result.elapsedMs ?? 0)),
       words: parseWordTimings(result.words),
+    };
+  }
+
+  async synthesize(text: string, options: SynthesisOptions = {}): Promise<SynthesisResult> {
+    const result = await this.transport.call(
+      "synthesize.generate",
+      {
+        clientId: this.clientId,
+        text,
+        modelId: options.modelId ?? "avspeech:system",
+        voiceId: options.voiceId,
+        format: options.format ?? "wav",
+        speed: options.speed,
+        instructions: options.instructions,
+      },
+      STREAM_TIMEOUT_MS,
+    );
+
+    const audioBase64 = String(result.audioBase64 ?? "");
+    const audio = Buffer.from(audioBase64, "base64");
+    return {
+      modelId: String(result.modelId ?? options.modelId ?? "avspeech:system"),
+      voiceId: String(result.voiceId ?? options.voiceId ?? ""),
+      format: String(result.format ?? options.format ?? "wav"),
+      contentType: String(result.contentType ?? "audio/wav"),
+      audio: new Uint8Array(audio),
+      audioBytes: Number(result.audioBytes ?? audio.length),
+      elapsedMs: Number(result.elapsedMs ?? 0),
+      metrics: parseSynthesisMetrics(result.metrics, Number(result.elapsedMs ?? 0)),
     };
   }
 

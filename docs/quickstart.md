@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- macOS 14+
+- macOS 26+ or iOS 26+ for Apple SDK consumers
 - Bun
 - Swift 6.2+
 
@@ -11,10 +11,8 @@
 ```bash
 bun add -g @voxd/cli
 vox daemon start
-vox doctor
+vox doctor       # expect ready: true
 ```
-
-`doctor` confirms the daemon, model, and backend are healthy. You should see `ready: true`.
 
 ## Transcribe
 
@@ -23,7 +21,7 @@ vox warmup start
 vox transcribe file /path/to/audio.wav --metrics --timestamps
 ```
 
-The first command warms the model so you skip cold-start cost. The second transcribes a file and prints stage timings plus word-level timestamps alongside the text.
+First command warms the model to skip cold-start cost. Second transcribes a file and prints stage timings plus word-level timestamps.
 
 ## Measure and inspect
 
@@ -34,7 +32,7 @@ vox logs daemon --tail 80
 vox transcribe status
 ```
 
-`bench` runs five passes so you can see warm-path variance. `perf dashboard` shows latency samples tagged by client, route, and model. `logs daemon` and `transcribe status` give you a direct troubleshooting path when a live session gets stuck or the microphone is busy.
+`bench` runs five passes so you can see warm-path variance. `perf dashboard` shows latency samples by client, route, and model. Use `logs daemon` and `transcribe status` when a live session gets stuck or the mic is busy.
 
 ## Common failure cases
 
@@ -46,4 +44,6 @@ vox transcribe status
 
 ## Next steps
 
-Try the [sample app](https://github.com/arach/vox/tree/main/examples/transcribe-tui) — a terminal transcription tool that connects to the runtime, warms the model, and shows stage-level timing bars for every file you feed it.
+If you are integrating Vox into a macOS or iOS app, read the [Apple Embed Guide](./apple-embed.md).
+
+Try the [sample app](https://github.com/arach/vox/tree/main/examples/transcribe-tui) -- a terminal transcription tool that connects to the runtime, warms the model, and shows timing bars for each file.

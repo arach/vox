@@ -94,4 +94,23 @@ struct HTTPBridgeCodecTests {
         #expect(chunk.contains("\"sessionId\":\"session-1\""))
         #expect(chunk.hasSuffix("\n\r\n"))
     }
+
+    @Test("Streaming chunks preserve synthesis audio payloads")
+    func streamingChunksEncodeSynthesisAudioPayload() throws {
+        let data = HTTPBridgeCodec.streamingChunkData(body: [
+            "event": "session.audio",
+            "data": [
+                "sessionId": "speech-1",
+                "voiceId": "alloy",
+                "format": "wav",
+                "audioBase64": "UklGRg=="
+            ]
+        ])
+        let chunk = try #require(String(data: data, encoding: .utf8))
+
+        #expect(chunk.contains("\"event\":\"session.audio\""))
+        #expect(chunk.contains("\"audioBase64\":\"UklGRg==\""))
+        #expect(chunk.contains("\"voiceId\":\"alloy\""))
+        #expect(chunk.contains("\"format\":\"wav\""))
+    }
 }

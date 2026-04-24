@@ -1,18 +1,12 @@
 # Observability
 
-Vox treats transcription telemetry as a first-class runtime feature.
-
-## Dimensions
-
-Each performance sample is tagged with:
+Telemetry is built into the runtime. Each performance sample is tagged with:
 
 - `clientId`
 - `route`
 - `modelId`
 
 ## Metrics
-
-Current metrics include:
 
 - `fileCheckMs`
 - `modelCheckMs`
@@ -23,11 +17,7 @@ Current metrics include:
 - `totalMs`
 - `audioDurationMs`
 
-Additional useful derived values:
-
-- `realtimeFactor`
-- warm vs cold path behavior from `modelLoadMs`
-- effective audio-to-text speed from `audioDurationMs / inferenceMs`
+Derived values: `realtimeFactor`, warm vs cold from `modelLoadMs`, audio-to-text speed from `audioDurationMs / inferenceMs`.
 
 ## Storage
 
@@ -37,7 +27,7 @@ The runtime appends JSON lines to:
 ~/.vox/performance.jsonl
 ```
 
-That local store powers the CLI dashboard today and can later be exported to another metrics backend if needed.
+The CLI dashboard reads from this file. You can also export it to another metrics backend.
 
 ## Operator Commands
 
@@ -48,14 +38,9 @@ vox perf dashboard
 vox perf dashboard --client vox-cli
 ```
 
-## Philosophy
+## Reading the numbers
 
-Loaded-model inference speed and end-to-end latency are different things.
-
-Vox records both:
-
-- `inferenceMs` tells you how fast the hot model is.
-- `totalMs` tells you what the user actually experienced.
+`inferenceMs` and `totalMs` measure different things. `inferenceMs` is how fast the hot model ran. `totalMs` is what the user experienced end-to-end.
 
 ## Example sample
 
@@ -70,9 +55,9 @@ Vox records both:
 }
 ```
 
-## How to read the dashboard
+## Dashboard tips
 
-- Compare clients against each other only when the audio shape is similar
-- Use `inferenceMs` to judge loaded-model speed
-- Use `totalMs` to judge end-user experience
-- Treat large `modelLoadMs` spikes as warm-up lifecycle events, not steady-state inference regressions
+- Only compare clients when the audio is similar.
+- Use `inferenceMs` for loaded-model speed.
+- Use `totalMs` for end-user latency.
+- Large `modelLoadMs` spikes are warm-up events, not inference regressions.

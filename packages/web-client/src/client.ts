@@ -18,6 +18,7 @@ import type {
 } from "./types.js";
 
 const DEFAULT_PORT = 43115;
+const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PROBE_TIMEOUT = 2000;
 const DEFAULT_POLL_INTERVAL = 500;
 
@@ -26,7 +27,7 @@ const DEFAULT_POLL_INTERVAL = 500;
  *
  * @example
  * ```ts
- * import { createVoxdClient } from "@voxd/web";
+ * import { createVoxdClient } from "@voxd/client";
  *
  * const client = createVoxdClient();
  *
@@ -70,8 +71,9 @@ export class VoxDClient {
     if (options?.baseUrl) {
       this.base = options.baseUrl.replace(/\/$/, "");
     } else {
+      const host = options?.host ?? DEFAULT_HOST;
       const port = options?.port ?? DEFAULT_PORT;
-      this.base = `http://127.0.0.1:${port}`;
+      this.base = `http://${host}:${port}`;
     }
     this.clientId = options?.clientId ?? "vox-web";
     this.probeTimeout = options?.probeTimeout ?? DEFAULT_PROBE_TIMEOUT;

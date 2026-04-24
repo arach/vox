@@ -1,6 +1,6 @@
 # API
 
-This page describes the public protocol and SDK-facing shapes that other apps should rely on.
+Public protocol and SDK-facing type shapes.
 
 ## RPC Methods
 
@@ -31,7 +31,7 @@ This page describes the public protocol and SDK-facing shapes that other apps sh
 
 ## Stable dimensions
 
-These values should remain available anywhere the runtime records or returns performance information:
+Present on every performance sample. Do not drop these:
 
 ```ts
 type VoxRoute =
@@ -122,16 +122,10 @@ interface FileTranscriptionResult {
 }
 ```
 
-## Warm-up response expectations
-
-Warm-up APIs should make these states observable:
+## Warm-up states
 
 ```ts
 type WarmupState = "idle" | "scheduled" | "warming" | "ready" | "failed";
 ```
 
-That state is useful to apps because it lets them distinguish:
-
-- a runtime that has not been asked to warm
-- a runtime that is actively warming
-- a runtime that is ready for hot-path transcription
+Apps use this to tell whether the runtime is cold, warming, or ready for hot-path transcription.

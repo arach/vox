@@ -97,7 +97,7 @@ export default function BlogIndex() {
               Vox
             </div>
             <p className="mt-2 max-w-sm text-sm leading-7 text-secondary">
-              Open-source on-device transcription for macOS.
+              Open-source local voice stack for Apple platforms.
             </p>
           </div>
           <div className="flex gap-5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted">

@@ -5,16 +5,16 @@ import { CopyCommand, CopyCommandBlock } from "../../components/copy-command";
 
 export const metadata: Metadata = {
   title: "Web SDK · Vox",
-  description: "Add local transcription to any web app with @voxd/web and the Vox macOS companion.",
+  description: "Add local transcription to any web app with @voxd/client and Vox Companion.",
   openGraph: {
     title: "Web SDK · Vox",
-    description: "Add local transcription to any web app with @voxd/web and the Vox macOS companion.",
+    description: "Add local transcription to any web app with @voxd/client and Vox Companion.",
     images: [{ url: "/og/web.png" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Web SDK · Vox",
-    description: "Add local transcription to any web app with @voxd/web and the Vox macOS companion.",
+    description: "Add local transcription to any web app with @voxd/client and Vox Companion.",
     images: ["/og/web.png"],
   },
 };
@@ -43,7 +43,7 @@ const featureCards = [
 ];
 
 const sdkSteps = [
-  ["npm install @voxd/web", "Add the browser SDK to your web app."],
+  ["npm install @voxd/client", "Add the browser SDK to your web app."],
   ["const client = createVoxdClient()", "Create the local bridge client."],
   ["await client.probe()", "Check whether the companion is available on this Mac."],
   ["await client.transcribe({ audio: blob })", "Send captured audio to the local runtime and get transcript text plus timing data."],
@@ -88,11 +88,11 @@ export default function WebSdkPage() {
                 Local transcription for apps that already live in the browser.
               </h1>
               <p className="mt-8 max-w-2xl text-base leading-8 text-secondary sm:text-lg">
-                <code className="rounded bg-wave px-2 py-1 font-mono text-[0.95em] text-accent">@voxd/web</code> gives web apps a direct path to the Vox companion on the user&apos;s Mac: probe availability, transcribe blobs, align remote audio, and fall back gracefully when local runtime is unavailable.
+                <code className="rounded bg-wave px-2 py-1 font-mono text-[0.95em] text-accent">@voxd/client</code> gives web apps a direct path to Vox Companion on the user&apos;s Mac: probe availability, transcribe blobs, align remote audio, and fall back gracefully when the local bridge is unavailable.
               </p>
 
               <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-                <CopyCommand command="npm install @voxd/web" />
+                <CopyCommand command="npm install @voxd/client" />
                 <Link
                   href="/docs/web-integration"
                   className="group inline-flex h-11 items-center gap-2 rounded-[3px_8px_8px_3px] border border-line-strong px-5 font-mono text-[12px] uppercase tracking-[0.1em] text-secondary transition-all hover:border-accent/50 hover:bg-wave hover:text-ink"
@@ -109,7 +109,7 @@ export default function WebSdkPage() {
                 <TerminalSquare className="h-4 w-4 text-accent" />
               </div>
               <div className="mt-4 rounded-lg border border-line bg-canvas p-4 font-mono text-[12px] leading-6 text-secondary">
-                <div className="text-muted">import {"{ createVoxdClient }"} from "@voxd/web"</div>
+                <div className="text-muted">import {"{ createVoxdClient }"} from "@voxd/client"</div>
                 <div className="mt-3 text-ink">const client = createVoxdClient()</div>
                 <div className="text-ink">if (await client.probe()) {"{"}</div>
                 <div className="pl-4 text-ink">await client.transcribe({"{"} audio: blob {"}"})</div>

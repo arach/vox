@@ -7,7 +7,7 @@ public actor ProviderRegistry: ASRProvider {
     private var modelRouting: [String: any ASRProvider] = [:]
 
     public init(config: ProvidersConfig) {
-        for entry in config.providers {
+        for entry in config.providers where entry.resolvedKind == .asr {
             let provider: any ASRProvider
 
             if entry.isBuiltin {

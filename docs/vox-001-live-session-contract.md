@@ -9,7 +9,7 @@ Reviewed with: Hudson (`codex` harness via Scout)
 
 VOX-001 defines the Phase 1 contract for browser live sessions over the local HTTP bridge.
 
-The immediate goal is to freeze the browser-to-bridge-to-daemon surface before Vox grows an always-on voice processor or multi-app Hudson integration. The proposal keeps the current bridge shape recognizable, but makes five areas explicit:
+Goal: freeze the browser-to-bridge-to-daemon surface before Vox adds always-on voice processing or multi-app Hudson integration. The proposal keeps the current bridge shape but makes five areas explicit:
 
 - session identity and ownership
 - busy semantics
@@ -17,7 +17,7 @@ The immediate goal is to freeze the browser-to-bridge-to-daemon surface before V
 - disconnect and reattach behavior
 - partial and error payload shapes
 
-This proposal also keeps warm-up separate from live session control and treats always-on capture as a future primitive, not an overload of the current live session API.
+Warm-up stays separate from live session control. Always-on capture is a future primitive, not an overload of this API.
 
 ## Context
 
@@ -25,10 +25,10 @@ Vox already has the pieces for browser live sessions:
 
 - the daemon exposes `transcribe.startSession`, `transcribe.sessionStatus`, `transcribe.stopSession`, and `transcribe.cancelSession`
 - the local HTTP bridge now proxies those routes as `/live`, `/live/stop`, and `/live/cancel`
-- `@voxd/web` now exposes a browser live-session API backed by an NDJSON stream
+- `@voxd/client` now exposes a browser live-session API backed by an NDJSON stream
 - capabilities now report `features.realtime`
 
-That baseline is enough to ship an end-to-end path, but it does not yet freeze the public contract strongly enough for Hudson or other multi-surface browser integrations.
+That baseline works end-to-end but does not yet freeze the public contract well enough for Hudson or other multi-surface browser integrations.
 
 ## Goals
 
@@ -145,7 +145,7 @@ Recommended HTTP status:
 
 - `409 Conflict` for `live_session_busy`
 
-This is intentionally stronger than a plain string error because browser clients need to know who currently owns the session before they decide whether to wait, render a busy UI, or ask for handoff.
+Stronger than a plain string error because browser clients need to know who owns the session before deciding whether to wait, show a busy UI, or request handoff.
 
 ### 4. Freeze lifecycle semantics
 
@@ -255,7 +255,7 @@ Capabilities must advertise this explicitly:
 }
 ```
 
-This avoids implicit semantics where a browser client assumes it can reconnect to an orphaned session later.
+This prevents browser clients from assuming they can reconnect to orphaned sessions.
 
 ### 7. Freeze the stream envelope now
 
@@ -358,29 +358,24 @@ Warm-up remains a separate public capability:
 
 Live-session start may opportunistically trigger warm-up under the hood, but the browser live-session contract must not redefine warm-up or hide it from clients.
 
-This matters for Hudson because intent-driven warm-up should stay independently observable even when a later session never actually starts recording.
+This matters for Hudson because intent-driven warm-up should stay observable even when the session never starts recording.
 
 ### 10. Always-on is a future primitive
 
-VOX-001 deliberately does not define always-on voice processing.
+VOX-001 does not define always-on voice processing.
 
-If Vox later adds an ambient or always-on processor, it should be a separate surface with its own capability bit and lifecycle, for example:
+If added later, it should be a separate surface with its own capability bit and lifecycle:
 
 - `realtime.alwaysOn = true`
 - `/v2/ambient`
 - `processor.start`
 - `processor.stop`
 
-It should not reuse the current `/live` semantics because:
-
-- ownership is different
-- mic lifetime is different
-- transcript delivery is different
-- Hudson will likely need buffering, intent routing, and background policy that do not belong in Phase 1 live sessions
+It should not reuse `/live` because ownership, mic lifetime, and transcript delivery are all different. Hudson will need buffering, intent routing, and background policy that do not belong in Phase 1.
 
 ## Implementation Review
 
-This section reviews the current implementation in the tree against the proposal.
+Current state of the tree vs. the proposal.
 
 ### Already aligned
 
@@ -405,7 +400,7 @@ This section reviews the current implementation in the tree against the proposal
 
 ## Rollout Order
 
-The implementation order after this proposal should be:
+Implementation order:
 
 1. Add versioned `/v1/live*` and `/v1/capabilities` routes while preserving current aliases.
 2. Add structured capability metadata for realtime.
