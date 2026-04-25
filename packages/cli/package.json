@@ -21,7 +21,7 @@
     "directory": "packages/cli"
   },
   "dependencies": {
-    "@voxd/sdk": "workspace:*"
+    "@voxd/sdk": "0.2.0"
   },
   "scripts": {
     "build": "bun build ./src/index.ts --outdir ./dist --target bun --format esm"
