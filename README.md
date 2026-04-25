@@ -9,6 +9,85 @@ Vox is a local-first voice stack for Apple platforms, built as a Bun + SwiftPM m
 
 Apple apps can embed Vox directly. Web, browser, and shared local tooling can connect to `voxd` over the same voice surface.
 
+## Get Going Fast
+
+Requirements:
+
+- macOS 26+
+- Bun 1.2+
+- Swift 6.2+
+- `uv` for the MLX-backed demo paths
+
+### a. dev
+
+If you are developing Vox itself:
+
+```bash
+git clone https://github.com/arach/vox.git
+cd vox
+bun install
+bun run build
+bun run test
+```
+
+Useful loops:
+
+```bash
+bun run site:dev
+bun run docs:build
+swift build --package-path swift
+```
+
+### b. client
+
+If you want to use Vox Companion locally from the CLI or SDK:
+
+```bash
+git clone https://github.com/arach/vox.git
+cd vox
+bun install
+bun run build
+```
+
+Start the daemon, verify health, then transcribe:
+
+```bash
+bun packages/cli/src/index.ts daemon start
+bun packages/cli/src/index.ts doctor
+bun packages/cli/src/index.ts models preload parakeet:v3
+bun packages/cli/src/index.ts transcribe file /path/to/audio.wav
+```
+
+If you are writing a local client, start in:
+
+- `packages/client/` for the TypeScript SDK
+- `swift/` for direct Apple embed mode
+
+### c. demo
+
+If you want to run the standalone macOS demo app:
+
+```bash
+git clone https://github.com/arach/vox.git
+cd vox
+bun install
+swift run --package-path examples/macos-minimal VoxMinimalExample
+```
+
+What the demo does:
+
+- records locally from the mic
+- transcribes with Parakeet
+- replies with Apple Intelligence when available
+- falls back to local Qwen 0.6B when Apple Intelligence is not ready
+- speaks back with Kokoro through the MLX audio provider
+
+Notes:
+
+- The first run may download Parakeet, Kokoro, or the Qwen fallback model.
+- The app will ask for microphone access.
+- Apple Intelligence is optional for the demo, not required.
+
 ## Layout
 
 - `swift/` contains `VoxCore`, `VoxEngine`, `VoxService`, and the `voxd` daemon.
