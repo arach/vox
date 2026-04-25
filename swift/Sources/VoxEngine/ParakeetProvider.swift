@@ -2,24 +2,30 @@ import AVFoundation
 import Foundation
 import VoxCore
 
-#if canImport(FluidAudio)
-import FluidAudio
-#endif
-
 public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
     private let log = VoxLog.engine
-    private let modelID = "parakeet:v3"
-    private let modelName = "Parakeet TDT v3"
+    private let manifest: ParakeetModelManifest
+    private let store: ParakeetModelStore
+    private let runtime: any ParakeetRuntime
 
-#if canImport(FluidAudio)
-    private var loadedModels: AsrModels?
-    private var manager: AsrManager?
-#endif
+    public init() {
+        self.manifest = .v3
+        self.store = ParakeetModelStore(manifest: .v3)
+        self.runtime = FluidAudioParakeetRuntime()
+    }
 
-    public init() {}
+    init(
+        manifest: ParakeetModelManifest = .v3,
+        store: ParakeetModelStore? = nil,
+        runtime: (any ParakeetRuntime)? = nil
+    ) {
+        self.manifest = manifest
+        self.store = store ?? ParakeetModelStore(manifest: manifest)
+        self.runtime = runtime ?? FluidAudioParakeetRuntime()
+    }
 
     public func models() async -> [ASRModelInfo] {
-        [modelInfo(preloaded: isPreloaded())]
+        [await modelInfo()]
     }
 
     public func install(
@@ -47,7 +53,7 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
         trace.end("\(input.inputBytes) bytes")
 
         trace.begin("model_check")
-        let wasPreloaded = isPreloaded()
+        let wasPreloaded = await runtime.isPreloaded()
         trace.end(wasPreloaded ? "already loaded" : "needs load")
 
         if !wasPreloaded {
@@ -58,21 +64,13 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
             trace.end("initialized")
         }
 
-#if canImport(FluidAudio)
-        guard let manager else {
-            throw NSError(domain: "VoxEngine", code: 4, userInfo: [
-                NSLocalizedDescriptionKey: "Parakeet manager is not initialized."
-            ])
-        }
-
         trace.begin("audio_prepare")
         let prepared = try ParakeetClipPreparer.ensureMinimumDuration(url: url)
         trace.end(prepared.cleanupURL == nil ? "unchanged" : "padded")
         defer { prepared.cleanup() }
 
         trace.begin("inference")
-        var decoderState = TdtDecoderState.make()
-        let result = try await manager.transcribe(prepared.url, decoderState: &decoderState)
+        let result = try await runtime.transcribe(url: prepared.url)
         let inferenceMs = trace.end("\(result.text.count) chars")
 
         let metrics = TranscriptionMetrics(
@@ -89,29 +87,18 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
             totalMs: trace.elapsedMs
         )
 
-        // Surface word-level timestamps from Parakeet's token timings
-        let words: [VoxCore.WordTiming] = (result.tokenTimings ?? []).compactMap { timing in
-            let word = timing.token.trimmingCharacters(in: CharacterSet.whitespaces)
-            guard !word.isEmpty else { return nil }
-            return VoxCore.WordTiming(
-                word: word,
-                start: timing.startTime,
-                end: timing.endTime,
-                confidence: timing.confidence
-            )
-        }
-
         log.info("Trace complete \(trace.summary)")
-        return TranscriptionOutput(modelId: self.modelID, text: result.text, elapsedMs: metrics.totalMs, metrics: metrics, words: words)
-#else
-        throw NSError(domain: "VoxEngine", code: 5, userInfo: [
-            NSLocalizedDescriptionKey: "FluidAudio is unavailable in this build."
-        ])
-#endif
+        return TranscriptionOutput(
+            modelId: manifest.modelId,
+            text: result.text,
+            elapsedMs: metrics.totalMs,
+            metrics: metrics,
+            words: result.words
+        )
     }
 
     private func validate(modelId: String) throws {
-        guard modelId == self.modelID else {
+        guard modelId == manifest.modelId else {
             throw NSError(domain: "VoxEngine", code: 1, userInfo: [
                 NSLocalizedDescriptionKey: "Unsupported model: \(modelId)"
             ])
@@ -157,91 +144,27 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
         )
     }
 
-    private func isPreloaded() -> Bool {
-#if canImport(FluidAudio)
-        return manager != nil
-#else
-        return false
-#endif
-    }
-
     private func ensureLoaded(
         progress: @escaping @Sendable (ModelProgress) -> Void
     ) async throws -> ASRModelInfo {
-#if canImport(FluidAudio)
-        if let _ = manager {
-            progress(ModelProgress(modelId: modelID, progress: 1.0, status: "ready"))
-            return modelInfo(preloaded: true)
-        }
-
-        progress(ModelProgress(modelId: modelID, progress: 0.05, status: "starting"))
-        let loadedModels = try await AsrModels.downloadAndLoad(version: .v3)
-        progress(ModelProgress(modelId: modelID, progress: 0.8, status: "downloaded"))
-
-        let manager = AsrManager(config: .init())
-        try await manager.loadModels(loadedModels)
-        self.loadedModels = loadedModels
-        self.manager = manager
-        progress(ModelProgress(modelId: modelID, progress: 1.0, status: "ready"))
-        log.info("Parakeet v3 loaded")
-        return modelInfo(preloaded: true)
-#else
-        throw NSError(domain: "VoxEngine", code: 2, userInfo: [
-            NSLocalizedDescriptionKey: "FluidAudio is unavailable in this build."
-        ])
-#endif
+        try await runtime.load(progress: progress)
+        log.info("\(manifest.name) loaded")
+        return await modelInfo()
     }
 
-    private func modelInfo(preloaded: Bool) -> ASRModelInfo {
+    private func modelInfo() async -> ASRModelInfo {
         ASRModelInfo(
-            id: modelID,
-            name: modelName,
-            backend: "parakeet",
-            installed: isInstalled(),
-            preloaded: preloaded,
+            id: manifest.modelId,
+            name: manifest.name,
+            backend: manifest.backend,
+            installed: store.isInstalled(),
+            preloaded: await runtime.isPreloaded(),
             available: isBackendAvailable()
         )
     }
 
     private func isBackendAvailable() -> Bool {
-#if canImport(FluidAudio)
-        true
-#else
-        false
-#endif
-    }
-
-    private func isInstalled() -> Bool {
-        let fileManager = FileManager.default
-        for directory in candidateModelDirectories() {
-            guard fileManager.fileExists(atPath: directory.path) else {
-                continue
-            }
-
-            if let enumerator = fileManager.enumerator(at: directory, includingPropertiesForKeys: nil) {
-                for case let url as URL in enumerator where url.pathExtension == "mlmodelc" {
-                    return true
-                }
-            }
-        }
-
-        return false
-    }
-
-    private func candidateModelDirectories() -> [URL] {
-        let fileManager = FileManager.default
-        let runtimeCacheRoot = RuntimePaths.voxHomeURL().appendingPathComponent("cache", isDirectory: true)
-        let cacheDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
-        let appSupportDirectory = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-
-        let roots = [runtimeCacheRoot, cacheDirectory, appSupportDirectory].compactMap { $0 }
-
-        return roots.map { root in
-            root
-                .appendingPathComponent("FluidAudio", isDirectory: true)
-                .appendingPathComponent("Models", isDirectory: true)
-                .appendingPathComponent("parakeet-tdt-0.6b-v3-coreml", isDirectory: true)
-        }
+        runtime.isAvailable
     }
 }
 
