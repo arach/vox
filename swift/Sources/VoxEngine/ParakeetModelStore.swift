@@ -5,13 +5,24 @@ struct ParakeetModelManifest: Sendable {
     let modelId: String
     let name: String
     let backend: String
+    let repositoryFolderName: String
     let cacheDirectoryName: String
+    let requiredModelFiles: Set<String>
+    let vocabularyFile: String
 
     static let v3 = ParakeetModelManifest(
         modelId: "parakeet:v3",
         name: "Parakeet TDT v3",
         backend: "parakeet",
-        cacheDirectoryName: "parakeet-tdt-0.6b-v3-coreml"
+        repositoryFolderName: "FluidInference/parakeet-tdt-0.6b-v3-coreml",
+        cacheDirectoryName: "parakeet-tdt-0.6b-v3-coreml",
+        requiredModelFiles: [
+            "Preprocessor.mlmodelc",
+            "Encoder.mlmodelc",
+            "Decoder.mlmodelc",
+            "JointDecisionv3.mlmodelc",
+        ],
+        vocabularyFile: "parakeet_vocab.json"
     )
 }
 
@@ -23,19 +34,20 @@ struct ParakeetModelStore: Sendable {
     }
 
     func isInstalled(fileManager: FileManager = .default) -> Bool {
-        for directory in candidateModelDirectories(fileManager: fileManager) {
-            guard fileManager.fileExists(atPath: directory.path) else {
-                continue
-            }
+        installedDirectory(fileManager: fileManager) != nil
+    }
 
-            if let enumerator = fileManager.enumerator(at: directory, includingPropertiesForKeys: nil) {
-                for case let url as URL in enumerator where url.pathExtension == "mlmodelc" {
-                    return true
-                }
-            }
+    func installedDirectory(fileManager: FileManager = .default) -> URL? {
+        installedDirectory(
+            fileManager: fileManager,
+            candidateDirectories: candidateModelDirectories(fileManager: fileManager)
+        )
+    }
+
+    func installedDirectory(fileManager: FileManager = .default, candidateDirectories: [URL]) -> URL? {
+        candidateDirectories.first { directory in
+            hasRequiredArtifacts(at: directory, fileManager: fileManager)
         }
-
-        return false
     }
 
     func candidateModelDirectories(fileManager: FileManager = .default) -> [URL] {
@@ -51,5 +63,31 @@ struct ParakeetModelStore: Sendable {
                 .appendingPathComponent("Models", isDirectory: true)
                 .appendingPathComponent(manifest.cacheDirectoryName, isDirectory: true)
         }
+    }
+
+    func loadVocabulary(fileManager: FileManager = .default) throws -> [Int: String] {
+        guard let directory = installedDirectory(fileManager: fileManager) else {
+            throw NSError(domain: "VoxEngine", code: 101, userInfo: [
+                NSLocalizedDescriptionKey: "Parakeet vocabulary is unavailable because the model is not installed."
+            ])
+        }
+
+        let vocabularyURL = directory.appendingPathComponent(manifest.vocabularyFile)
+        return try ParakeetVocabulary.load(from: vocabularyURL)
+    }
+
+    private func hasRequiredArtifacts(at directory: URL, fileManager: FileManager) -> Bool {
+        guard fileManager.fileExists(atPath: directory.path) else {
+            return false
+        }
+
+        let requiredModelsPresent = manifest.requiredModelFiles.allSatisfy { fileName in
+            fileManager.fileExists(atPath: directory.appendingPathComponent(fileName).path)
+        }
+        guard requiredModelsPresent else {
+            return false
+        }
+
+        return fileManager.fileExists(atPath: directory.appendingPathComponent(manifest.vocabularyFile).path)
     }
 }
