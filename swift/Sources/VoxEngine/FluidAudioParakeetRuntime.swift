@@ -27,16 +27,15 @@ final class FluidAudioParakeetRuntime: @unchecked Sendable, ParakeetRuntime {
 #endif
     }
 
-    func load(progress: @escaping @Sendable (ModelProgress) -> Void) async throws {
+    func load(from directory: URL, progress: @escaping @Sendable (ModelProgress) -> Void) async throws {
 #if canImport(FluidAudio)
         if manager != nil {
             progress(ModelProgress(modelId: ParakeetModelManifest.v3.modelId, progress: 1.0, status: "ready"))
             return
         }
 
-        progress(ModelProgress(modelId: ParakeetModelManifest.v3.modelId, progress: 0.05, status: "starting"))
-        let loadedModels = try await AsrModels.downloadAndLoad(version: .v3)
-        progress(ModelProgress(modelId: ParakeetModelManifest.v3.modelId, progress: 0.8, status: "downloaded"))
+        progress(ModelProgress(modelId: ParakeetModelManifest.v3.modelId, progress: 0.85, status: "loading"))
+        let loadedModels = try await AsrModels.load(from: directory, version: .v3)
 
         let manager = AsrManager(config: .init())
         try await manager.loadModels(loadedModels)

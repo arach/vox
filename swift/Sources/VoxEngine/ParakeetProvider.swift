@@ -147,7 +147,8 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
     private func ensureLoaded(
         progress: @escaping @Sendable (ModelProgress) -> Void
     ) async throws -> ASRModelInfo {
-        try await runtime.load(progress: progress)
+        let installedDirectory = try await store.ensureInstalled(progress: progress)
+        try await runtime.load(from: installedDirectory, progress: progress)
         log.info("\(manifest.name) loaded")
         return await modelInfo()
     }
