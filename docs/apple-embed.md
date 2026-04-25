@@ -1,17 +1,17 @@
 ---
-title: Apple Embed Guide
+title: Swift Embed Guide
 description: Agent-oriented instructions for integrating Vox directly into macOS and iOS apps such as Linea.
 ---
 
-# Apple Embed Guide
+# Swift Embed Guide
 
-Use this guide when modifying a macOS or iOS app repo that should call Vox directly in process. This is the right path for apps such as Linea and other Apple-native clients.
+Use this guide when you are integrating Vox into a macOS or iOS app and want the app to call Vox directly in process. This is the default path for Apple-native clients such as Linea.
 
-## Decision rule
+## Choose the integration mode
 
-- If the caller is app code running inside a macOS or iOS process, use embed mode.
-- If the caller is a web app, browser extension, or Bun/Node tool outside the app process, use Vox Companion (`voxd`).
-- Do not start `voxd` inside an Apple app just to get access to Vox APIs. That is the wrong mode.
+- Use embed mode when the caller is app code running inside a macOS or iOS process.
+- Use Vox Companion (`voxd`) when the caller lives outside the app process, such as a web app, browser extension, or Bun/Node tool.
+- Keep `voxd` out of the Apple app itself. If the goal is in-process app integration, embed the Swift packages directly instead.
 
 ## What embed mode is today
 
