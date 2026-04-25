@@ -14,36 +14,60 @@ vox daemon start
 vox doctor       # expect ready: true
 ```
 
-## Transcribe
+If you are running from a repo checkout instead of a global install, replace `vox` with `bun packages/cli/src/index.ts`.
+
+## Speech to text
 
 ```bash
-vox warmup start
-vox transcribe file /path/to/audio.wav --metrics --timestamps
+vox warmup start parakeet:v3
+vox transcribe file --model parakeet:v3 /path/to/audio.wav --metrics --timestamps
+vox transcribe bench --model parakeet:v3 /path/to/audio.wav 5
 ```
 
-First command warms the model to skip cold-start cost. Second transcribes a file and prints stage timings plus word-level timestamps.
+Warm-up skips cold-start cost. `transcribe file` prints transcript text, stage timings, and optional word-level timestamps. `bench` gives you warm-path variance for the same clip.
+
+## Text to speech
+
+```bash
+vox voices --model avspeech:system
+vox speak --model avspeech:system --metrics "Hello from Vox"
+vox speak bench --model avspeech:system "Hello from Vox" 5
+```
+
+`voices` shows available presets for the selected model. `speak` synthesizes audio immediately and prints synthesis metrics when `--metrics` is set. `speak bench` repeats the same request so you can compare warm-path TTS behavior.
+
+## External providers
+
+For non-Parakeet ASR or non-system TTS, add entries to `~/.vox/providers.json` and then pass the returned model ID with `--model`.
+
+The [Provider Protocol](./providers.md) includes built-in `mlx-audio` examples for both STT and TTS.
 
 ## Measure and inspect
 
 ```bash
-vox transcribe bench /path/to/audio.wav 5
 vox perf dashboard --client vox-cli
 vox logs daemon --tail 80
 vox transcribe status
 ```
 
-`bench` runs five passes so you can see warm-path variance. `perf dashboard` shows latency samples by client, route, and model. Use `logs daemon` and `transcribe status` when a live session gets stuck or the mic is busy.
+`perf dashboard` shows latency samples by client, route, and model. Use `logs daemon` and `transcribe status` when a live session gets stuck or the mic is busy.
 
 ## Common failure cases
 
-- Missing model: `vox models list` then `vox models install`
+- Missing ASR model: `vox models list` then `vox models install`
+- TTS provider or voice issue: `vox voices --model <id>` then retry `vox speak --model <id> ...`
+- External TTS model install/setup: follow the provider's own setup flow, such as the `mlx-audio` environment in `~/.vox/providers.json`
+- Wrong or missing voice: `vox voices --model <id>`
+- External provider missing dependencies: verify `~/.vox/providers.json` and any referenced interpreter or API key
 - Cold runtime: `vox warmup start` or `vox warmup schedule`
-- No performance data: run a transcription first so the runtime emits samples
+- No performance data: run a `transcribe` or `speak` command first so the runtime emits samples
 - Stuck live session: `vox transcribe status` then `vox transcribe cancel`
 - Need daemon logs: `vox logs daemon --tail 120`
 
 ## Next steps
 
-If you are integrating Vox into a macOS or iOS app, read the [Swift Embed Guide](/docs/apple-embed/).
+If you are integrating Vox into a macOS or iOS app, read the [Swift Embed Guide](./apple-embed.md).
+
+If you are wiring external STT or TTS engines into Vox Companion, read the [Provider Protocol](./providers.md).
 
 Try the [sample app](https://github.com/arach/vox/tree/main/examples/transcribe-tui) -- a terminal transcription tool that connects to the runtime, warms the model, and shows timing bars for each file.

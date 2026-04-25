@@ -2,6 +2,8 @@
 
 `@voxd/client` adds local transcription to web apps and browser extensions. It talks to the Vox Companion on the user's Mac over a local HTTP bridge. No server needed.
 
+This browser client is STT / alignment focused today. For TTS, use the companion-facing TypeScript SDK or the CLI.
+
 ## Install
 
 ```bash

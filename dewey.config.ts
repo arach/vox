@@ -2,7 +2,7 @@
 export default {
   project: {
     name: "vox",
-    tagline: "Local-first transcription runtime for macOS apps and developer tools",
+    tagline: "Local-first voice stack for Apple apps, web companions, and developer tools",
     type: "monorepo",
     version: "0.1.0",
   },
@@ -10,8 +10,8 @@ export default {
   agent: {
     criticalContext: [
       "Always solve root cause before looking for workarounds and quick fixes.",
-      "Vox is a macOS-first runtime: Swift owns the daemon and audio/transcription engine surface.",
-      "The Bun workspace contains the CLI and TypeScript SDK, which communicate with voxd over local WebSocket JSON-RPC.",
+      "Vox is an Apple-platform voice stack: Swift owns the embeddable engine surface and the companion transport surface.",
+      "The Bun workspace contains the CLI and TypeScript clients, which communicate with voxd in companion mode.",
       "Performance instrumentation is first-class: preserve clientId, route, and modelId dimensions in telemetry.",
       "Warm-up semantics are part of the public runtime surface and should remain usable for multi-client integrations.",
     ],
@@ -35,13 +35,13 @@ export default {
       { pattern: "site/*", instruction: "Maintain the clean, restrained Vox visual language. Avoid generic startup landing page patterns." },
     ],
 
-    sections: ["overview", "quickstart", "runtime", "sdk", "web-integration", "observability", "architecture", "api"],
+    sections: ["overview", "quickstart", "apple-embed", "runtime", "providers", "sdk", "web-integration", "observability", "architecture", "api"],
   },
 
   docs: {
     path: "./docs",
     output: "./",
-    required: ["overview", "quickstart", "runtime", "sdk", "observability"],
+    required: ["overview", "quickstart", "runtime", "providers", "sdk", "observability"],
   },
 
   install: {
