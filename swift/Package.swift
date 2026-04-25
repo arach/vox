@@ -25,6 +25,9 @@ let package = Package(
             dependencies: [
                 "VoxCore",
                 .product(name: "FluidAudio", package: "fluidaudio")
+            ],
+            resources: [
+                .copy("Resources/mlx_audio_provider.py")
             ]
         ),
         .target(
