@@ -4,6 +4,9 @@ import VoxCore
 struct SettingsView: View {
     var body: some View {
         TabView {
+            EmbedDemoTab()
+                .tabItem { Label("Embed Demo", systemImage: "waveform.and.mic") }
+
             GeneralTab()
                 .tabItem { Label("General", systemImage: "gearshape") }
 
@@ -13,7 +16,7 @@ struct SettingsView: View {
             AboutTab()
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
-        .frame(minWidth: 460, minHeight: 360)
+        .frame(minWidth: 700, minHeight: 560)
     }
 }
 
@@ -125,6 +128,12 @@ struct BridgeTab: View {
                     Text("http://127.0.0.1:\(bridgeState.port)")
                         .font(.system(.body, design: .monospaced))
                         .textSelection(.enabled)
+                }
+
+                if let statusDetail = bridgeState.statusDetail, !statusDetail.isEmpty {
+                    Text(statusDetail)
+                        .font(.caption)
+                        .foregroundStyle(bridgeState.isRunning ? Color.secondary : Color.red)
                 }
             } header: {
                 Text("HTTP Bridge")

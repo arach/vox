@@ -122,14 +122,16 @@ async function handleModels(subcommand: string | undefined, rest: string[]): Pro
 async function handleTranscribe(subcommand: string | undefined, rest: string[]): Promise<void> {
   switch (subcommand) {
     case "file": {
-      const showMetrics = rest.includes("--metrics");
-      const showTimestamps = rest.includes("--timestamps");
-      const filePath = rest.find((value) => !value.startsWith("--"));
+      const args = rest;
+      const showMetrics = args.includes("--metrics");
+      const showTimestamps = args.includes("--timestamps");
+      const modelId = readOption(args, "--model") ?? "parakeet:v3";
+      const filePath = readPositionalArgs(args, new Set(["--model"]))[0];
       if (!filePath) {
-        throw new Error("Usage: vox transcribe file [--metrics] [--timestamps] <path>");
+        throw new Error("Usage: vox transcribe file [--model <id>] [--metrics] [--timestamps] <path>");
       }
       await withClient(async (client) => {
-        const result = await client.transcribeFile(resolve(process.cwd(), filePath));
+        const result = await client.transcribeFile(resolve(process.cwd(), filePath), modelId);
         console.log(result.text);
         if (showMetrics && result.metrics) {
           printTranscriptionMetrics(result.metrics);
@@ -141,21 +143,24 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
       return;
     }
     case "bench": {
-      const filePath = rest[0];
-      const runs = Number(rest[1] ?? 5);
+      const args = rest;
+      const modelId = readOption(args, "--model") ?? "parakeet:v3";
+      const positional = readPositionalArgs(args, new Set(["--model"]));
+      const filePath = positional[0];
+      const runs = Number(positional[1] ?? 5);
       if (!filePath) {
-        throw new Error("Usage: vox transcribe bench <path> [runs]");
+        throw new Error("Usage: vox transcribe bench [--model <id>] <path> [runs]");
       }
       if (!Number.isInteger(runs) || runs < 1) {
-        throw new Error(`Expected a positive integer run count, received: ${rest[1] ?? "(missing)"}`);
+        throw new Error(`Expected a positive integer run count, received: ${positional[1] ?? "(missing)"}`);
       }
 
       await withClient(async (client) => {
-        await client.preloadModel();
+        await client.preloadModel(modelId);
         const results: FileTranscriptionResult[] = [];
 
         for (let index = 0; index < runs; index += 1) {
-          const result = await client.transcribeFile(resolve(process.cwd(), filePath));
+          const result = await client.transcribeFile(resolve(process.cwd(), filePath), modelId);
           results.push(result);
 
           const metrics = result.metrics;
@@ -174,7 +179,9 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
       return;
     }
     case "live": {
-      const showTimestamps = rest.includes("--timestamps");
+      const args = rest;
+      const showTimestamps = args.includes("--timestamps");
+      const modelId = readOption(args, "--model") ?? "parakeet:v3";
       await withClient(async (client) => {
         const session = client.createLiveSession();
         session.on("state", ({ state }) => {
@@ -190,7 +197,7 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
           }
         });
 
-        const transcriptPromise = session.start();
+        const transcriptPromise = session.start({ modelId });
         console.error("Recording. Press Enter to stop.");
         await waitForEnter();
         await session.stop();
@@ -965,11 +972,11 @@ Usage:
   vox warmup schedule [delayMs] [modelId]
   vox perf dashboard [--client <clientId>] [--route <route>] [--last <n>]
   vox logs [daemon|performance|voice] [--tail <n>]
-  vox transcribe file [--metrics] [--timestamps] <path>
-  vox transcribe bench <path> [runs]
+  vox transcribe file [--model <id>] [--metrics] [--timestamps] <path>
+  vox transcribe bench [--model <id>] <path> [runs]
   vox transcribe status
   vox transcribe cancel [sessionId]
-  vox transcribe live [--timestamps]
+  vox transcribe live [--model <id>] [--timestamps]
   vox speak [--model <id>] [--voice <id>] [--output <path>] [--metrics] [--no-play] <text>
   vox speak bench [--model <id>] [--voice <id>] <text> [runs]
   vox voices [list] [--model <id>]

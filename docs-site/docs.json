@@ -7,7 +7,7 @@
       "items": [
         { "id": "overview", "title": "Overview" },
         { "id": "quickstart", "title": "Quickstart" },
-        { "id": "apple-embed", "title": "Apple Embed" }
+        { "id": "apple-embed", "title": "Swift Embed" }
       ]
     },
     {

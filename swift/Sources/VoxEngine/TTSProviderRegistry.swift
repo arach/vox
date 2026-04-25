@@ -16,6 +16,15 @@ public actor TTSProviderRegistry: TTSProvider {
                     provider = AVSpeechSynthesizerProvider()
                 case "openai", "openai-tts":
                     provider = OpenAITTSProvider(env: entry.env)
+                case "mlx-audio", "mlx_audio", "mlx-audio-tts", "mlx_audio_tts":
+                    do {
+                        let env = BuiltinExternalProvider.mlxAudioEnvironment(entry.env)
+                        let command = try BuiltinExternalProvider.mlxAudioCommand(kind: .tts, env: env)
+                        provider = ExternalTTSProvider(id: entry.id, command: command, env: env)
+                    } catch {
+                        log.error("Skipping builtin TTS provider \(entry.id): \(error.localizedDescription)")
+                        continue
+                    }
                 default:
                     log.warning("Skipping unknown builtin TTS provider: \(entry.id)")
                     continue
@@ -59,7 +68,7 @@ public actor TTSProviderRegistry: TTSProvider {
 
     public func voices(modelId: String?) async throws -> [TTSVoiceInfo] {
         if let modelId {
-            let provider = try resolveProvider(for: modelId)
+            let provider = try await resolveProvider(for: modelId)
             return try await provider.voices(modelId: modelId)
         }
 
@@ -90,22 +99,32 @@ public actor TTSProviderRegistry: TTSProvider {
         voiceId: String?,
         progress: @escaping @Sendable (ModelProgress) -> Void
     ) async throws -> TTSModelInfo {
-        let provider = try resolveProvider(for: modelId)
+        let provider = try await resolveProvider(for: modelId)
         return try await provider.preload(modelId: modelId, voiceId: voiceId, progress: progress)
     }
 
     public func synthesize(_ request: SynthesisRequest) async throws -> SynthesisOutput {
-        let provider = try resolveProvider(for: request.modelId)
+        let provider = try await resolveProvider(for: request.modelId)
         return try await provider.synthesize(request)
     }
 
-    private func resolveProvider(for modelId: String) throws -> any TTSProvider {
+    private func resolveProvider(for modelId: String) async throws -> any TTSProvider {
         if let provider = modelRouting[modelId] {
             return provider
         }
 
         if providers.count == 1 {
             return providers[0].provider
+        }
+
+        for (_, provider) in providers {
+            let models = await provider.models()
+            if models.contains(where: { $0.id == modelId }) {
+                for model in models {
+                    modelRouting[model.id] = provider
+                }
+                return provider
+            }
         }
 
         throw TTSProviderRegistryError.unknownModel(modelId)

@@ -5,6 +5,7 @@ import VoxBridge
 final class BridgeState: ObservableObject {
     @Published var isRunning = false
     @Published var port: UInt16 = 0
+    @Published var statusDetail: String?
     @Published var builtinOrigins: [String] = []
     @Published var userOrigins: [String] = []
     @Published var integrationOrigins: [String] = []
