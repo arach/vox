@@ -17,12 +17,16 @@ public final class StdioTransport: @unchecked Sendable {
     private var readTask: Task<Void, Never>?
     private var _isRunning: Bool = false
     private var _stderrOutput: String = ""
+    private let callTimeoutSeconds: TimeInterval
 
-    private static let callTimeoutSeconds: TimeInterval = 30
-
-    public init(command: [String], env: [String: String]? = nil) {
+    public init(
+        command: [String],
+        env: [String: String]? = nil,
+        callTimeoutSeconds: TimeInterval = 30
+    ) {
         self.command = command
         self.env = env
+        self.callTimeoutSeconds = callTimeoutSeconds
     }
 
     public func start() throws {
@@ -132,9 +136,9 @@ public final class StdioTransport: @unchecked Sendable {
             }
 
             // Schedule timeout
-            queue.asyncAfter(deadline: .now() + StdioTransport.callTimeoutSeconds) { [weak self] in
+            queue.asyncAfter(deadline: .now() + self.callTimeoutSeconds) { [weak self] in
                 guard let self else { return }
-                let cont = self.queue.sync { self.pending.removeValue(forKey: id) }
+                let cont = self.pending.removeValue(forKey: id)
                 cont?.resume(throwing: StdioTransportError.timeout(method: method))
             }
         }

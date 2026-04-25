@@ -15,6 +15,7 @@ let package = Package(
             dependencies: [
                 .product(name: "VoxCore", package: "swift"),
                 .product(name: "VoxBridge", package: "swift"),
+                .product(name: "VoxEngine", package: "swift"),
             ],
             path: "Vox",
             resources: [

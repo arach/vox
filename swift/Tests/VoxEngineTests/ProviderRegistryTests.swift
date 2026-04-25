@@ -16,6 +16,30 @@ struct ProviderRegistryTests {
         #expect(command[3].hasSuffix("mlx_audio_provider.py"))
     }
 
+    @Test("builtin mlx-audio provider infers VIRTUAL_ENV from python override")
+    func builtinMlxAudioEnvironmentInfersVirtualEnv() {
+        let env = BuiltinExternalProvider.mlxAudioEnvironment([
+            "VOX_MLX_AUDIO_PYTHON": "/tmp/vox-mlx-audio-venv/bin/python3"
+        ])
+
+        #expect(env["VOX_MLX_AUDIO_PYTHON"] == "/tmp/vox-mlx-audio-venv/bin/python3")
+        #expect(env["VIRTUAL_ENV"] == "/tmp/vox-mlx-audio-venv")
+        #expect(env["PYTHONUNBUFFERED"] == "1")
+    }
+
+    @Test("builtin mlx-audio provider can opt into uv-managed runner")
+    func builtinMlxAudioCommandUsesUvRunnerWhenRequested() throws {
+        let command = try BuiltinExternalProvider.mlxAudioCommand(kind: .tts, env: [
+            "VOX_MLX_AUDIO_USE_UV": "1"
+        ])
+
+        #expect(command.starts(with: ["/usr/bin/env", "uv", "run"]))
+        #expect(command.contains("mlx-audio"))
+        #expect(command.contains("misaki"))
+        #expect(command.contains("python"))
+        #expect(command.last == "tts")
+    }
+
     @Test("ASR registry resolves models discovered from the provider at runtime")
     func providerRegistryDiscoversModelRoutingDynamically() async throws {
         let tempDirectory = FileManager.default.temporaryDirectory
