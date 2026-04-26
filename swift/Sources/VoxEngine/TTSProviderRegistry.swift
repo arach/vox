@@ -16,9 +16,7 @@ public actor TTSProviderRegistry: TTSProvider {
                     provider = AVSpeechSynthesizerProvider()
                 case "kokoro", "vox-kokoro", "local-kokoro":
                     do {
-                        let env = VoxKokoroTTS.environment(additionalEnv: entry.env ?? [:])
-                        let command = try BuiltinExternalProvider.mlxAudioCommand(kind: .tts, env: env)
-                        provider = ExternalTTSProvider(id: entry.id, command: command, env: env)
+                        provider = try KokoroTTSProvider(id: entry.id, additionalEnv: entry.env ?? [:])
                     } catch {
                         log.error("Skipping builtin TTS provider \(entry.id): \(error.localizedDescription)")
                         continue
