@@ -6,6 +6,7 @@ import FluidAudio
 #endif
 
 final class FluidAudioParakeetRuntime: @unchecked Sendable, ParakeetRuntime {
+    private let log = VoxLog.engine
     private let modelLoader: ParakeetModelLoader
 
     init(modelLoader: ParakeetModelLoader = ParakeetModelLoader()) {
@@ -24,6 +25,7 @@ final class FluidAudioParakeetRuntime: @unchecked Sendable, ParakeetRuntime {
     private var loadedModels: ParakeetLoadedModels?
     private var manager: AsrManager?
 #endif
+    private var singleChunkTranscriber: ParakeetSingleChunkTranscriber?
 
     func isPreloaded() async -> Bool {
 #if canImport(FluidAudio)
@@ -42,11 +44,14 @@ final class FluidAudioParakeetRuntime: @unchecked Sendable, ParakeetRuntime {
 
         progress(ModelProgress(modelId: ParakeetModelManifest.v3.modelId, progress: 0.85, status: "loading"))
         let loadedModels = try modelLoader.loadModels(from: directory)
+        self.loadedModels = loadedModels
+        self.singleChunkTranscriber = ParakeetSingleChunkTranscriber(models: loadedModels)
 
+#if canImport(FluidAudio)
         let manager = AsrManager(config: .init())
         try await manager.loadModels(loadedModels.asrModels())
-        self.loadedModels = loadedModels
         self.manager = manager
+#endif
         progress(ModelProgress(modelId: ParakeetModelManifest.v3.modelId, progress: 1.0, status: "ready"))
 #else
         throw NSError(domain: "VoxEngine", code: 2, userInfo: [
@@ -56,13 +61,25 @@ final class FluidAudioParakeetRuntime: @unchecked Sendable, ParakeetRuntime {
     }
 
     func transcribe(samples: [Float]) async throws -> ParakeetInferenceResult {
-#if canImport(FluidAudio)
-        guard let manager else {
+        guard let singleChunkTranscriber else {
             throw NSError(domain: "VoxEngine", code: 4, userInfo: [
-                NSLocalizedDescriptionKey: "Parakeet manager is not initialized."
+                NSLocalizedDescriptionKey: "Parakeet runtime is not initialized."
             ])
         }
 
+        if samples.count <= ParakeetConstants.maxModelSamples {
+            log.info("Using Vox-owned single-chunk Parakeet runtime")
+            return try await singleChunkTranscriber.transcribe(samples: samples)
+        }
+
+#if canImport(FluidAudio)
+        guard let manager else {
+            throw NSError(domain: "VoxEngine", code: 5, userInfo: [
+                NSLocalizedDescriptionKey: "Parakeet long-audio fallback is not initialized."
+            ])
+        }
+
+        log.info("Using FluidAudio long-audio Parakeet fallback")
         var decoderState = TdtDecoderState.make(decoderLayers: await manager.decoderLayerCount)
         let result = try await manager.transcribe(samples, decoderState: &decoderState)
         let words: [WordTiming] = (result.tokenTimings ?? []).compactMap { timing in
@@ -78,8 +95,8 @@ final class FluidAudioParakeetRuntime: @unchecked Sendable, ParakeetRuntime {
 
         return ParakeetInferenceResult(text: result.text, words: words)
 #else
-        throw NSError(domain: "VoxEngine", code: 5, userInfo: [
-            NSLocalizedDescriptionKey: "FluidAudio is unavailable in this build."
+        throw NSError(domain: "VoxEngine", code: 6, userInfo: [
+            NSLocalizedDescriptionKey: "Long-form Parakeet transcription is unavailable in this build."
         ])
 #endif
     }
