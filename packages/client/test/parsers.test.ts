@@ -1,4 +1,5 @@
-import { parseTranscriptionMetrics } from "../src/metrics.ts";
+import { parseAttributedWordTimings, parseSpeakerSegments } from "../src/annotation.ts";
+import { parseAnnotationMetrics, parseTranscriptionMetrics } from "../src/metrics.ts";
 import { parseWordTimings } from "../src/words.ts";
 
 describe("parseTranscriptionMetrics", () => {
@@ -59,5 +60,70 @@ describe("parseWordTimings", () => {
   it("returns an empty array for non-array values", () => {
     expect(parseWordTimings(undefined)).toEqual([]);
     expect(parseWordTimings({ word: "hello" })).toEqual([]);
+  });
+});
+
+describe("parseAnnotationMetrics", () => {
+  it("uses the elapsed fallback when totalMs is missing", () => {
+    expect(
+      parseAnnotationMetrics(
+        {
+          traceId: "trace-2",
+          audioDurationMs: 5100,
+          inputBytes: 16384,
+          wasPreloaded: false,
+          fileCheckMs: 1,
+          modelCheckMs: 2,
+          modelLoadMs: 10,
+          audioLoadMs: 4,
+          audioPrepareMs: 5,
+          diarizationMs: 120,
+        },
+        165,
+      ),
+    ).toEqual({
+      traceId: "trace-2",
+      audioDurationMs: 5100,
+      inputBytes: 16384,
+      wasPreloaded: false,
+      fileCheckMs: 1,
+      modelCheckMs: 2,
+      modelLoadMs: 10,
+      audioLoadMs: 4,
+      audioPrepareMs: 5,
+      diarizationMs: 120,
+      totalMs: 165,
+      realtimeFactor: 0,
+    });
+  });
+});
+
+describe("parseAttributedWordTimings", () => {
+  it("parses words and preserves optional speaker ids", () => {
+    expect(
+      parseAttributedWordTimings([
+        { word: "hello", start: 0.01, end: 0.2, confidence: 0.98, speakerId: "speaker-0" },
+        { word: "world", start: 0.21, end: 0.4, confidence: 0.91 },
+        { word: "" },
+      ]),
+    ).toEqual([
+      { word: "hello", start: 0.01, end: 0.2, confidence: 0.98, speakerId: "speaker-0" },
+      { word: "world", start: 0.21, end: 0.4, confidence: 0.91, speakerId: null },
+    ]);
+  });
+});
+
+describe("parseSpeakerSegments", () => {
+  it("parses speaker segments and filters blank speaker ids", () => {
+    expect(
+      parseSpeakerSegments([
+        { speakerId: "speaker-0", start: 0.0, end: 1.2, confidence: 0.87 },
+        { speakerId: "speaker-1", start: 1.2, end: 2.1 },
+        { speakerId: "" },
+      ]),
+    ).toEqual([
+      { speakerId: "speaker-0", start: 0, end: 1.2, confidence: 0.87 },
+      { speakerId: "speaker-1", start: 1.2, end: 2.1, confidence: null },
+    ]);
   });
 });

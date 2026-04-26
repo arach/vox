@@ -117,12 +117,12 @@ try {
 ```ts
 const client = new VoxClient({
   clientId: "menu-bar",    // stable identity for telemetry
-  port: 42137,             // override daemon port
+  port: 42137,             // override the `companion-ws` daemon port
   host: "127.0.0.1",       // override daemon host
 });
 ```
 
-On the daemon side, set `VOX_PORT` or `VOX_HOST` environment variables to override defaults.
+On the daemon side, set `VOX_PORT` or `VOX_HOST` environment variables to override defaults. `VOX_PORT` controls the `companion-ws` daemon port discovered from `~/.vox/runtime.json`.
 
 ## Integration advice
 

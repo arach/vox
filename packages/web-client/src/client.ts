@@ -16,11 +16,12 @@ import type {
   VoxDClientOptions,
   VoxHealth,
 } from "./types.js";
-
-const DEFAULT_PORT = 43115;
-const DEFAULT_HOST = "127.0.0.1";
-const DEFAULT_PROBE_TIMEOUT = 2000;
-const DEFAULT_POLL_INTERVAL = 500;
+import {
+  DEFAULT_HOST,
+  DEFAULT_POLL_INTERVAL,
+  DEFAULT_PORT,
+  DEFAULT_PROBE_TIMEOUT,
+} from "./constants.js";
 
 /**
  * Create a VoxD client instance.

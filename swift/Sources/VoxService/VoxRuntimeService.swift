@@ -7,6 +7,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
     private let port: UInt16
     private let bridge: ServiceBridge
     private let asrEngine: EngineManager
+    private let annotationEngine: AnnotationManager
     private let ttsEngine: TTSEngineManager
     private let warmup: WarmupCoordinator
     private let performance = PerformanceRecorder()
@@ -19,11 +20,13 @@ public final class VoxRuntimeService: @unchecked Sendable {
         port: UInt16 = VoxDefaults.daemonPort,
         bindAddress: String = VoxDefaults.host,
         engine: EngineManager = EngineManager(),
+        annotationEngine: AnnotationManager = AnnotationManager(),
         ttsEngine: TTSEngineManager = TTSEngineManager()
     ) {
         self.port = port
         self.bridge = ServiceBridge(port: port, serviceName: "Vox", bindAddress: bindAddress)
         self.asrEngine = engine
+        self.annotationEngine = annotationEngine
         self.ttsEngine = ttsEngine
         self.warmup = WarmupCoordinator(asrEngine: engine, ttsEngine: ttsEngine)
     }
@@ -152,6 +155,82 @@ public final class VoxRuntimeService: @unchecked Sendable {
             metrics: output.metrics.performanceMetrics
         )
         return ASRRouteTranscriptionResult(output: output, performanceSample: sample)
+    }
+
+    func performAnnotateFile(params: [String: Any]?) async throws -> AnnotationRouteResult {
+        guard let path = params?["path"] as? String else {
+            throw NSError(domain: "VoxService", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Missing path"
+            ])
+        }
+
+        let modelId = (params?["modelId"] as? String) ?? "speaker-diarization:v1"
+        let clientId = (params?["clientId"] as? String) ?? "unknown"
+        let text = params?["text"] as? String
+        let words = parseAnnotationWords(params?["words"] as? [[String: Any]])
+
+        return try await performAnnotateFile(
+            path: path,
+            modelId: modelId,
+            clientId: clientId,
+            text: text,
+            words: words
+        )
+    }
+
+    func performAnnotateFile(
+        path: String,
+        modelId: String,
+        clientId: String,
+        text: String?,
+        words: [WordTiming]?
+    ) async throws -> AnnotationRouteResult {
+        let transcription: AnnotationInputTranscription? = {
+            guard let text else { return nil }
+            return AnnotationInputTranscription(text: text, words: words ?? [])
+        }()
+
+        let request = AnnotationRequest(
+            url: URL(fileURLWithPath: path),
+            modelId: modelId,
+            transcription: transcription
+        )
+        let output = try await annotationEngine.annotate(request: request)
+        let sample = PerformanceSample(
+            clientId: clientId,
+            route: "annotate.file",
+            modelId: modelId,
+            outcome: "ok",
+            textLength: output.text?.count ?? 0,
+            metrics: output.metrics.performanceMetrics
+        )
+        return AnnotationRouteResult(output: output, performanceSample: sample)
+    }
+
+    private func parseAnnotationWords(_ rawWords: [[String: Any]]?) -> [WordTiming]? {
+        rawWords?.compactMap { entry in
+            guard let word = entry["word"] as? String, !word.isEmpty else {
+                return nil
+            }
+
+            let confidence: Float
+            if let floatConfidence = entry["confidence"] as? Float {
+                confidence = floatConfidence
+            } else if let doubleConfidence = entry["confidence"] as? Double {
+                confidence = Float(doubleConfidence)
+            } else if let intConfidence = entry["confidence"] as? Int {
+                confidence = Float(intConfidence)
+            } else {
+                confidence = 0
+            }
+
+            return WordTiming(
+                word: word,
+                start: entry["start"] as? Double ?? 0,
+                end: entry["end"] as? Double ?? 0,
+                confidence: confidence
+            )
+        }
     }
 
     private func performSynthesizeGenerate(request: SynthesisRequest) async throws -> SynthesisOutput {
@@ -293,6 +372,43 @@ public final class VoxRuntimeService: @unchecked Sendable {
                     await self.performance.record(PerformanceSample(
                         clientId: clientId,
                         route: "transcribe.file",
+                        modelId: modelId,
+                        outcome: "error",
+                        textLength: 0,
+                        error: error.localizedDescription
+                    ))
+                    reply(nil, error.localizedDescription)
+                }
+            }
+        }
+
+        bridge.handle("annotate.file") { [weak self] params, reply in
+            guard let self else { return }
+            let path = params?["path"] as? String
+            let modelId = (params?["modelId"] as? String) ?? "speaker-diarization:v1"
+            let clientId = (params?["clientId"] as? String) ?? "unknown"
+            let text = params?["text"] as? String
+            let words = self.parseAnnotationWords(params?["words"] as? [[String: Any]])
+            Task {
+                do {
+                    guard let path else {
+                        throw NSError(domain: "VoxService", code: 1, userInfo: [
+                            NSLocalizedDescriptionKey: "Missing path"
+                        ])
+                    }
+                    let result = try await self.performAnnotateFile(
+                        path: path,
+                        modelId: modelId,
+                        clientId: clientId,
+                        text: text,
+                        words: words
+                    )
+                    await self.performance.record(result.performanceSample)
+                    reply(result.output.dictionaryValue(), nil)
+                } catch {
+                    await self.performance.record(PerformanceSample(
+                        clientId: clientId,
+                        route: "annotate.file",
                         modelId: modelId,
                         outcome: "error",
                         textLength: 0,
@@ -777,5 +893,10 @@ public final class VoxRuntimeService: @unchecked Sendable {
 
 struct ASRRouteTranscriptionResult: Sendable {
     let output: TranscriptionOutput
+    let performanceSample: PerformanceSample
+}
+
+struct AnnotationRouteResult: Sendable {
+    let output: AnnotationOutput
     let performanceSample: PerformanceSample
 }

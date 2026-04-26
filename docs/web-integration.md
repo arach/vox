@@ -180,7 +180,7 @@ try {
 
 ## HTTP bridge reference
 
-The companion listens on `http://127.0.0.1:43115` by default (configurable via `host` and `port` options). These endpoints are what `@voxd/client` calls under the hood.
+The companion HTTP bridge listens on `http://127.0.0.1:43115` by default (the `companion-http` port, configurable via `host` and `port` options). These endpoints are what `@voxd/client` calls under the hood.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
@@ -207,7 +207,7 @@ Vox merges all origin sources. Wildcard ports work on loopback hosts (`http://lo
 ```ts
 const client = createVoxdClient({
   host: "127.0.0.1",   // default — override for non-loopback setups
-  port: 43115,          // default
+  port: 43115,          // override the `companion-http` bridge port
   baseUrl: "http://...",// overrides host + port when set
   clientId: "my-app",   // stable identity for telemetry
   probeTimeout: 2000,   // ms before probe gives up
@@ -215,4 +215,4 @@ const client = createVoxdClient({
 });
 ```
 
-On the daemon side, set `VOX_PORT`, `VOX_BRIDGE_PORT`, or `VOX_HOST` environment variables to override defaults.
+On the daemon side, set `VOX_PORT`, `VOX_BRIDGE_PORT`, or `VOX_HOST` environment variables to override defaults. `VOX_BRIDGE_PORT` controls the `companion-http` bridge, while `VOX_PORT` controls the underlying `companion-ws` daemon.

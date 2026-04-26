@@ -85,12 +85,51 @@ export interface WordTiming {
   confidence: number;
 }
 
+export interface SpeakerSegment {
+  speakerId: string;
+  start: number;
+  end: number;
+  confidence?: number | null;
+}
+
+export interface AttributedWordTiming {
+  word: string;
+  start: number;
+  end: number;
+  confidence: number;
+  speakerId?: string | null;
+}
+
 export interface FileTranscriptionResult {
   modelId: string;
   text: string;
   elapsedMs: number;
   metrics?: TranscriptionMetrics;
   words: WordTiming[];
+}
+
+export interface AnnotationMetrics {
+  traceId: string;
+  audioDurationMs: number;
+  inputBytes: number;
+  wasPreloaded: boolean;
+  fileCheckMs: number;
+  modelCheckMs: number;
+  modelLoadMs: number;
+  audioLoadMs: number;
+  audioPrepareMs: number;
+  diarizationMs: number;
+  totalMs: number;
+  realtimeFactor: number;
+}
+
+export interface FileAnnotationResult {
+  modelId: string;
+  text?: string;
+  elapsedMs: number;
+  metrics?: AnnotationMetrics;
+  words: AttributedWordTiming[];
+  speakers: SpeakerSegment[];
 }
 
 export interface TranscriptionMetrics {

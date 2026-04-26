@@ -20,6 +20,7 @@
     "docs:generate": "dewey generate",
     "docs:audit": "dewey audit",
     "docs:agent": "dewey agent",
+    "eval:annotation": "bun run scripts/annotation-eval.ts",
     "tui": "bun run --cwd packages/tui index.tsx",
     "example:tui": "INIT_CWD=\"$PWD\" bun run --cwd examples/transcribe-tui index.tsx",
     "test": "bun test packages/client/test packages/cli/test packages/web-client/test && swift test --package-path swift",

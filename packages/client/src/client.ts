@@ -1,11 +1,13 @@
 import { RuntimeDiscovery } from "./discovery.ts";
 import { DEFAULT_HOST, STREAM_TIMEOUT_MS } from "./constants.ts";
-import { parseSynthesisMetrics, parseTranscriptionMetrics } from "./metrics.ts";
+import { parseAnnotationMetrics, parseSynthesisMetrics, parseTranscriptionMetrics } from "./metrics.ts";
 import { WebSocketTransport } from "./transport.ts";
 import { VoxLiveSession } from "./live.ts";
+import { parseAttributedWordTimings, parseSpeakerSegments } from "./annotation.ts";
 import { parseWordTimings } from "./words.ts";
 import type {
   DoctorReport,
+  FileAnnotationResult,
   FileTranscriptionResult,
   LiveSessionStatus,
   ModelInfo,
@@ -141,6 +143,42 @@ export class VoxClient {
       elapsedMs: Number(result.elapsedMs ?? 0),
       metrics: parseTranscriptionMetrics(result.metrics, Number(result.elapsedMs ?? 0)),
       words: parseWordTimings(result.words),
+    };
+  }
+
+  async annotateFile(
+    path: string,
+    options: {
+      modelId?: string;
+      text?: string;
+      words?: Array<{
+        word: string;
+        start: number;
+        end: number;
+        confidence: number;
+      }>;
+    } = {},
+  ): Promise<FileAnnotationResult> {
+    const modelId = options.modelId ?? "speaker-diarization:v1";
+    const result = await this.transport.call(
+      "annotate.file",
+      {
+        clientId: this.clientId,
+        path,
+        modelId,
+        text: options.text,
+        words: options.words,
+      },
+      STREAM_TIMEOUT_MS,
+    );
+
+    return {
+      modelId: String(result.modelId ?? modelId),
+      text: typeof result.text === "string" ? result.text : undefined,
+      elapsedMs: Number(result.elapsedMs ?? 0),
+      metrics: parseAnnotationMetrics(result.metrics, Number(result.elapsedMs ?? 0)),
+      words: parseAttributedWordTimings(result.words),
+      speakers: parseSpeakerSegments(result.speakers),
     };
   }
 

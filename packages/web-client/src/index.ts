@@ -1,4 +1,5 @@
 export { VoxDClient, VoxDError, createVoxdClient } from "./client.js";
+export * from "./constants.js";
 export type {
   VoxHealth,
   VoxCapabilities,
