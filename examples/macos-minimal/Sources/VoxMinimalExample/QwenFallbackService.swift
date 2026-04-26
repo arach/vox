@@ -1,6 +1,13 @@
 import Foundation
 
 struct QwenFallbackAvailability: Sendable, Equatable {
+    enum State: String, Sendable, Equatable {
+        case unavailable
+        case cold
+        case ready
+    }
+
+    let state: State
     let isAvailable: Bool
     let message: String
 }
@@ -42,6 +49,7 @@ actor QwenFallbackService {
     func availability() async -> QwenFallbackAvailability {
         guard canUseUV() else {
             return QwenFallbackAvailability(
+                state: .unavailable,
                 isAvailable: false,
                 message: "Install uv to enable the local Qwen fallback."
             )
@@ -49,15 +57,22 @@ actor QwenFallbackService {
 
         if await isServerReady() {
             return QwenFallbackAvailability(
+                state: .ready,
                 isAvailable: true,
                 message: "\(Self.displayName) ready."
             )
         }
 
         return QwenFallbackAvailability(
+            state: .cold,
             isAvailable: true,
             message: "\(Self.displayName) is available as the local fallback."
         )
+    }
+
+    func warmupIfNeeded() async throws -> QwenFallbackAvailability {
+        try await ensureServerRunning()
+        return await availability()
     }
 
     func generateReply(for transcript: String) async throws -> QwenFallbackReply {

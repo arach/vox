@@ -27,9 +27,19 @@ final class ExampleModel: ObservableObject {
     @Published var asrStateDetail = "Checking whether Parakeet is loaded in memory."
     @Published var asrReadyInMemory = false
     @Published var isWarmingASR = false
+    @Published var ttsStateTitle = "Checking Kokoro"
+    @Published var ttsStateDetail = "Checking whether Kokoro is loaded in memory."
+    @Published var ttsReadyInMemory = false
+    @Published var isWarmingTTS = false
+    @Published var qwenStateTitle = "Checking Qwen"
+    @Published var qwenStateDetail = "Checking whether the local Qwen fallback is ready."
+    @Published var qwenReady = false
+    @Published var isWarmingQwen = false
     @Published var responseEngineName = "Checking reply engine."
     @Published var responseEngineStatus = "Checking Apple Intelligence and Qwen fallback."
+    @Published var responseEnginePreference: ResponseEnginePreference = .automatic
     @Published var statusMessage = "Press the record button to start."
+    @Published var lastErrorTitle: String?
     @Published var lastErrorMessage: String?
     @Published var speechText = ""
     @Published var replyText = ""
@@ -49,6 +59,8 @@ final class ExampleModel: ObservableObject {
     private let asr = EngineManager()
     private let recorder = AudioRecorder()
     private var player: AVAudioPlayer?
+    private var hasStartedCriticalWarmup = false
+    private var hasStartedQwenWarmup = false
 
     func loadIfNeeded() {
         guard !didLoad else { return }
@@ -56,6 +68,8 @@ final class ExampleModel: ObservableObject {
 
         Task {
             await refreshBackendState()
+            await warmCriticalDemoModelsIfNeeded()
+            await warmQwenInBackgroundIfNeeded()
         }
     }
 
@@ -96,7 +110,7 @@ final class ExampleModel: ObservableObject {
             await runTask {
                 try await self.processRecordedAudio(clip: clip, sourceLabel: "Live mic")
             } onError: { error in
-                self.lastErrorMessage = error.localizedDescription
+                self.applyError(title: "Turn failed", detail: error.localizedDescription)
                 self.statusMessage = error.localizedDescription
                 self.speechStatus = error.localizedDescription
                 self.transcriptionStatus = error.localizedDescription
@@ -114,6 +128,7 @@ final class ExampleModel: ObservableObject {
         if panel.runModal() == .OK {
             selectedAudioURL = panel.url
             hasPendingImportedClip = true
+            clearError()
             transcript = ""
             replyText = ""
             speechText = ""
@@ -137,8 +152,8 @@ final class ExampleModel: ObservableObject {
 
                 _ = try await self.speak(text: trimmed, statusPrefix: "Speaking reply")
             } onError: { error in
+                self.applyError(title: "Playback failed", detail: error.localizedDescription)
                 self.speechStatus = error.localizedDescription
-                self.lastErrorMessage = error.localizedDescription
             }
         }
     }
@@ -152,8 +167,8 @@ final class ExampleModel: ObservableObject {
 
                 _ = try await self.speak(text: turn.reply, statusPrefix: "Speaking reply")
             } onError: { error in
+                self.applyError(title: "Playback failed", detail: error.localizedDescription)
                 self.speechStatus = error.localizedDescription
-                self.lastErrorMessage = error.localizedDescription
             }
         }
     }
@@ -175,8 +190,8 @@ final class ExampleModel: ObservableObject {
                 )
                 self.hasPendingImportedClip = false
             } onError: { error in
+                self.applyError(title: "Import failed", detail: error.localizedDescription)
                 self.transcriptionStatus = error.localizedDescription
-                self.lastErrorMessage = error.localizedDescription
             }
         }
     }
@@ -186,7 +201,7 @@ final class ExampleModel: ObservableObject {
             await runTask {
                 try await self.preloadASR()
             } onError: { error in
-                self.lastErrorMessage = error.localizedDescription
+                self.applyError(title: "Parakeet warmup failed", detail: error.localizedDescription)
                 self.statusMessage = error.localizedDescription
                 self.transcriptionStatus = error.localizedDescription
                 self.asrStateDetail = error.localizedDescription
@@ -194,9 +209,30 @@ final class ExampleModel: ObservableObject {
         }
     }
 
+    func warmTTS() {
+        Task {
+            await runTask {
+                try await self.preloadTTS()
+            } onError: { error in
+                self.applyError(title: "Kokoro warmup failed", detail: error.localizedDescription)
+                self.statusMessage = error.localizedDescription
+                self.speechStatus = error.localizedDescription
+                self.ttsStateDetail = error.localizedDescription
+            }
+        }
+    }
+
+    func setResponseEnginePreference(_ preference: ResponseEnginePreference) {
+        responseEnginePreference = preference
+        Task {
+            await refreshResponseEngineAvailability()
+        }
+    }
+
     private func refreshBackendState() async {
         await refreshMicrophoneAvailability()
         await refreshASRState()
+        await refreshTTSState()
         await refreshResponseEngineAvailability()
         await refreshVoices()
     }
@@ -212,15 +248,21 @@ final class ExampleModel: ObservableObject {
         applyASRState(info)
     }
 
+    private func refreshTTSState() async {
+        let models = await tts.models()
+        let info = models.first(where: { $0.id == ExampleConfig.ttsModelId }) ?? models.first
+        ttsModel = info
+        applyTTSState(info)
+    }
+
     private func refreshResponseEngineAvailability() async {
-        let availability = await ResponseEngineService.availability()
+        let availability = await ResponseEngineService.availability(preference: responseEnginePreference)
         responseEngineName = availability.preferredEngineName
         responseEngineStatus = availability.message
+        applyQwenAvailability(availability.qwen)
     }
 
     private func refreshVoices() async {
-        ttsModel = await tts.models().first
-
         do {
             let loadedVoices = try await tts.voices(modelId: ExampleConfig.ttsModelId)
                 .sorted { lhs, rhs in
@@ -234,8 +276,8 @@ final class ExampleModel: ObservableObject {
                 selectedVoiceID = loadedVoices.first(where: \.isDefault)?.id ?? loadedVoices.first?.id
             }
         } catch {
+            applyError(title: "Voice list failed", detail: error.localizedDescription)
             speechStatus = error.localizedDescription
-            lastErrorMessage = error.localizedDescription
         }
     }
 
@@ -260,7 +302,7 @@ final class ExampleModel: ObservableObject {
             if !granted {
                 microphoneAvailable = false
                 microphoneStatus = "Microphone access denied."
-                lastErrorMessage = "Microphone access denied."
+                applyError(title: "Microphone access denied", detail: microphoneStatus)
                 statusMessage = microphoneStatus
                 speechStatus = statusMessage
                 transcriptionStatus = statusMessage
@@ -271,7 +313,7 @@ final class ExampleModel: ObservableObject {
         case .denied, .restricted:
             microphoneAvailable = false
             microphoneStatus = AudioRecorder.statusMessage(for: authorization)
-            lastErrorMessage = microphoneStatus
+            applyError(title: "Microphone unavailable", detail: microphoneStatus)
             statusMessage = microphoneStatus
             speechStatus = statusMessage
             transcriptionStatus = statusMessage
@@ -279,7 +321,7 @@ final class ExampleModel: ObservableObject {
         @unknown default:
             microphoneAvailable = false
             microphoneStatus = "Microphone unavailable."
-            lastErrorMessage = microphoneStatus
+            applyError(title: "Microphone unavailable", detail: microphoneStatus)
             statusMessage = microphoneStatus
             speechStatus = statusMessage
             transcriptionStatus = statusMessage
@@ -292,7 +334,7 @@ final class ExampleModel: ObservableObject {
             recordingDuration = 0
             selectedAudioURL = url
             hasPendingImportedClip = false
-            lastErrorMessage = nil
+            clearError()
             transcript = ""
             replyText = ""
             speechText = ""
@@ -303,7 +345,7 @@ final class ExampleModel: ObservableObject {
             speechStatus = "Recording your turn."
             transcriptionStatus = "Recording your turn."
         } catch {
-            lastErrorMessage = error.localizedDescription
+            applyError(title: "Recording failed", detail: error.localizedDescription)
             statusMessage = error.localizedDescription
             speechStatus = statusMessage
             transcriptionStatus = statusMessage
@@ -311,6 +353,8 @@ final class ExampleModel: ObservableObject {
     }
 
     private func processRecordedAudio(clip: RecordedClip, sourceLabel: String) async throws {
+        clearError()
+
         let transcription = try await transcribeAudio(at: clip.url, statusPrefix: "Transcribing recording")
         transcript = transcription.text
         transcriptionMetrics = transcription.metrics
@@ -326,6 +370,7 @@ final class ExampleModel: ObservableObject {
 
         let synthesis = try await speak(text: reply.text, statusPrefix: "Speaking reply")
         synthesisMetrics = synthesis.metrics
+        await refreshTTSState()
         conversationTurns.append(ConversationTurn(
             sourceLabel: sourceLabel,
             transcript: transcription.text.isEmpty ? "No speech detected." : transcription.text,
@@ -375,6 +420,26 @@ final class ExampleModel: ObservableObject {
         transcriptionStatus = "Parakeet is loaded in memory and ready."
     }
 
+    private func preloadTTS() async throws {
+        await refreshTTSState()
+        guard !ttsReadyInMemory else {
+            statusMessage = "Kokoro already ready."
+            speechStatus = "Kokoro is already loaded in memory."
+            return
+        }
+
+        isWarmingTTS = true
+        defer { isWarmingTTS = false }
+
+        statusMessage = "Warming Kokoro..."
+        speechStatus = "Loading Kokoro into memory..."
+        let info = try await tts.preload(modelId: ExampleConfig.ttsModelId, voiceId: selectedVoiceID, progress: { _ in })
+        ttsModel = info
+        applyTTSState(info)
+        statusMessage = "Kokoro ready."
+        speechStatus = "Kokoro is loaded in memory and ready."
+    }
+
     private func applyASRState(_ info: ASRModelInfo?) {
         guard let info else {
             asrReadyInMemory = false
@@ -407,6 +472,114 @@ final class ExampleModel: ObservableObject {
         asrStateDetail = "The first ASR turn will install and load the model."
     }
 
+    private func applyTTSState(_ info: TTSModelInfo?) {
+        guard let info else {
+            ttsReadyInMemory = false
+            ttsStateTitle = "Kokoro unknown"
+            ttsStateDetail = "Kokoro model status is unavailable."
+            return
+        }
+
+        ttsReadyInMemory = info.preloaded
+
+        if !info.available {
+            ttsStateTitle = "Kokoro unavailable"
+            ttsStateDetail = "The Kokoro backend is unavailable in this build."
+            return
+        }
+
+        if info.preloaded {
+            ttsStateTitle = "Kokoro ready"
+            ttsStateDetail = "Loaded in memory and ready to speak."
+            return
+        }
+
+        if info.installed {
+            ttsStateTitle = "Kokoro cold"
+            ttsStateDetail = "Installed on disk but not loaded in memory yet."
+            return
+        }
+
+        ttsStateTitle = "Kokoro not installed"
+        ttsStateDetail = "The first TTS turn will download and load the model."
+    }
+
+    private func applyQwenAvailability(_ availability: QwenFallbackAvailability) {
+        switch availability.state {
+        case .ready:
+            qwenReady = true
+            qwenStateTitle = "Qwen ready"
+            qwenStateDetail = availability.message
+        case .cold:
+            qwenReady = false
+            qwenStateTitle = isWarmingQwen ? "Qwen warming" : "Qwen cold"
+            qwenStateDetail = availability.message
+        case .unavailable:
+            qwenReady = false
+            qwenStateTitle = "Qwen unavailable"
+            qwenStateDetail = availability.message
+        }
+    }
+
+    private func warmQwenInBackgroundIfNeeded() async {
+        guard !hasStartedQwenWarmup else { return }
+        hasStartedQwenWarmup = true
+
+        let availability = await QwenFallbackService.shared.availability()
+        applyQwenAvailability(availability)
+
+        guard availability.isAvailable, availability.state != .ready else { return }
+
+        isWarmingQwen = true
+        qwenStateTitle = "Qwen warming"
+        qwenStateDetail = "Starting \(QwenFallbackService.displayName) in the background."
+        defer { isWarmingQwen = false }
+
+        do {
+            let warmed = try await QwenFallbackService.shared.warmupIfNeeded()
+            applyQwenAvailability(warmed)
+            await refreshResponseEngineAvailability()
+        } catch {
+            qwenReady = false
+            qwenStateTitle = "Qwen unavailable"
+            qwenStateDetail = error.localizedDescription
+        }
+    }
+
+    private func warmCriticalDemoModelsIfNeeded() async {
+        guard !hasStartedCriticalWarmup else { return }
+        hasStartedCriticalWarmup = true
+
+        guard !asrReadyInMemory || !ttsReadyInMemory else {
+            statusMessage = "Demo ready. Press record to start."
+            return
+        }
+
+        await runTask {
+            self.clearError()
+            self.statusMessage = "Getting Parakeet and Kokoro ready..."
+            self.speechStatus = "Preparing Kokoro for the first reply."
+            self.transcriptionStatus = "Preparing Parakeet for the first turn."
+
+            if !self.asrReadyInMemory {
+                try await self.preloadASR()
+            }
+
+            if !self.ttsReadyInMemory {
+                try await self.preloadTTS()
+            }
+
+            self.statusMessage = "Demo ready. Press record to start."
+            self.speechStatus = "Kokoro is ready to speak."
+            self.transcriptionStatus = "Parakeet is ready to transcribe."
+        } onError: { error in
+            self.applyError(title: "Demo warmup failed", detail: error.localizedDescription)
+            self.statusMessage = "Warmup failed. You can still try a turn."
+            self.speechStatus = error.localizedDescription
+            self.transcriptionStatus = error.localizedDescription
+        }
+    }
+
     private func generateReply(for transcript: String) async throws -> ReplyResult {
         let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -418,9 +591,10 @@ final class ExampleModel: ObservableObject {
             )
         }
 
-        let availability = await ResponseEngineService.availability()
+        let availability = await ResponseEngineService.availability(preference: responseEnginePreference)
         responseEngineName = availability.preferredEngineName
         responseEngineStatus = availability.message
+        applyQwenAvailability(availability.qwen)
 
         if availability.preferredEngineName == QwenFallbackService.displayName {
             statusMessage = "Starting \(QwenFallbackService.displayName)..."
@@ -428,7 +602,10 @@ final class ExampleModel: ObservableObject {
         }
 
         do {
-            let result = try await ResponseEngineService.generateReply(for: trimmed)
+            let result = try await ResponseEngineService.generateReply(
+                for: trimmed,
+                preference: responseEnginePreference
+            )
             return ReplyResult(
                 text: result.text,
                 elapsedMs: result.elapsedMs,
@@ -436,7 +613,7 @@ final class ExampleModel: ObservableObject {
                 statusMessage: result.statusMessage
             )
         } catch {
-            lastErrorMessage = error.localizedDescription
+            applyError(title: "Reply generation failed", detail: error.localizedDescription)
             responseEngineStatus = error.localizedDescription
             throw error
         }
@@ -466,6 +643,16 @@ final class ExampleModel: ObservableObject {
         speechStatus = "Played \(output.audioData.count) bytes with \(output.voiceId)."
         statusMessage = "Ready."
         return output
+    }
+
+    private func clearError() {
+        lastErrorTitle = nil
+        lastErrorMessage = nil
+    }
+
+    private func applyError(title: String, detail: String) {
+        lastErrorTitle = title
+        lastErrorMessage = detail
     }
 
     private func runTask(

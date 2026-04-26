@@ -1,8 +1,29 @@
 import Foundation
 
+enum ResponseEnginePreference: String, CaseIterable, Identifiable, Sendable {
+    case automatic
+    case appleIntelligence
+    case qwen
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .automatic:
+            return "Auto"
+        case .appleIntelligence:
+            return "Apple"
+        case .qwen:
+            return "Qwen"
+        }
+    }
+}
+
 struct ResponseEngineAvailability: Sendable, Equatable {
     let preferredEngineName: String
     let message: String
+    let apple: AppleIntelligenceAvailability
+    let qwen: QwenFallbackAvailability
 }
 
 struct ResponseEngineReply: Sendable, Equatable {
@@ -13,9 +34,52 @@ struct ResponseEngineReply: Sendable, Equatable {
 }
 
 enum ResponseEngineService {
-    static func availability() async -> ResponseEngineAvailability {
+    static func availability(
+        preference: ResponseEnginePreference = .automatic
+    ) async -> ResponseEngineAvailability {
         let appleAvailability = AppleIntelligenceService.availability()
         let qwenAvailability = await QwenFallbackService.shared.availability()
+
+        switch preference {
+        case .appleIntelligence:
+            if appleAvailability.isAvailable {
+                return ResponseEngineAvailability(
+                    preferredEngineName: "Apple Intelligence",
+                    message: qwenAvailability.isAvailable
+                        ? "Apple Intelligence selected. \(QwenFallbackService.displayName) is available if you switch."
+                        : "Apple Intelligence selected. \(appleAvailability.message)",
+                    apple: appleAvailability,
+                    qwen: qwenAvailability
+                )
+            }
+
+            return ResponseEngineAvailability(
+                preferredEngineName: "Apple Intelligence unavailable",
+                message: "\(appleAvailability.message) Switch to Auto or Qwen.",
+                apple: appleAvailability,
+                qwen: qwenAvailability
+            )
+
+        case .qwen:
+            if qwenAvailability.isAvailable {
+                return ResponseEngineAvailability(
+                    preferredEngineName: QwenFallbackService.displayName,
+                    message: "\(QwenFallbackService.displayName) selected. \(qwenAvailability.message)",
+                    apple: appleAvailability,
+                    qwen: qwenAvailability
+                )
+            }
+
+            return ResponseEngineAvailability(
+                preferredEngineName: "\(QwenFallbackService.displayName) unavailable",
+                message: "\(qwenAvailability.message) Switch to Auto or Apple.",
+                apple: appleAvailability,
+                qwen: qwenAvailability
+            )
+
+        case .automatic:
+            break
+        }
 
         if appleAvailability.isAvailable {
             let message = qwenAvailability.isAvailable
@@ -23,30 +87,72 @@ enum ResponseEngineService {
                 : appleAvailability.message
             return ResponseEngineAvailability(
                 preferredEngineName: "Apple Intelligence",
-                message: message
+                message: message,
+                apple: appleAvailability,
+                qwen: qwenAvailability
             )
         }
 
         if qwenAvailability.isAvailable {
             return ResponseEngineAvailability(
                 preferredEngineName: QwenFallbackService.displayName,
-                message: "\(appleAvailability.message) \(qwenAvailability.message)"
+                message: "\(appleAvailability.message) \(qwenAvailability.message)",
+                apple: appleAvailability,
+                qwen: qwenAvailability
             )
         }
 
         return ResponseEngineAvailability(
             preferredEngineName: "No reply engine",
-            message: "\(appleAvailability.message) \(qwenAvailability.message)"
+            message: "\(appleAvailability.message) \(qwenAvailability.message)",
+            apple: appleAvailability,
+            qwen: qwenAvailability
         )
     }
 
-    static func generateReply(for transcript: String) async throws -> ResponseEngineReply {
+    static func generateReply(
+        for transcript: String,
+        preference: ResponseEnginePreference = .automatic
+    ) async throws -> ResponseEngineReply {
         let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw ResponseEngineError.emptyInput
         }
 
         let appleAvailability = AppleIntelligenceService.availability()
+        let qwenAvailability = await QwenFallbackService.shared.availability()
+
+        switch preference {
+        case .appleIntelligence:
+            guard appleAvailability.isAvailable else {
+                throw ResponseEngineError.unavailable("\(appleAvailability.message) Switch to Auto or Qwen.")
+            }
+
+            let reply = try await AppleIntelligenceService.generateReply(for: trimmed)
+            return ResponseEngineReply(
+                text: reply.text,
+                elapsedMs: reply.elapsedMs,
+                engineName: "Apple Intelligence",
+                statusMessage: "Reply generated with Apple Intelligence."
+            )
+
+        case .qwen:
+            guard qwenAvailability.isAvailable else {
+                throw ResponseEngineError.unavailable("\(qwenAvailability.message) Switch to Auto or Apple.")
+            }
+
+            let reply = try await QwenFallbackService.shared.generateReply(for: trimmed)
+            return ResponseEngineReply(
+                text: reply.text,
+                elapsedMs: reply.elapsedMs,
+                engineName: QwenFallbackService.displayName,
+                statusMessage: "Reply generated with \(QwenFallbackService.displayName)."
+            )
+
+        case .automatic:
+            break
+        }
+
         if appleAvailability.isAvailable {
             do {
                 let reply = try await AppleIntelligenceService.generateReply(for: trimmed)
@@ -57,7 +163,6 @@ enum ResponseEngineService {
                     statusMessage: "Reply generated with Apple Intelligence."
                 )
             } catch {
-                let qwenAvailability = await QwenFallbackService.shared.availability()
                 guard qwenAvailability.isAvailable else {
                     throw error
                 }
@@ -72,7 +177,6 @@ enum ResponseEngineService {
             }
         }
 
-        let qwenAvailability = await QwenFallbackService.shared.availability()
         guard qwenAvailability.isAvailable else {
             throw ResponseEngineError.unavailable("\(appleAvailability.message) \(qwenAvailability.message)")
         }
