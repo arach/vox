@@ -11,7 +11,7 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
     public init() {
         self.manifest = .v3
         self.store = ParakeetModelStore(manifest: .v3)
-        self.runtime = FluidAudioParakeetRuntime()
+        self.runtime = ParakeetCoreMLRuntime()
         self.audioLoader = ParakeetAudioLoader()
     }
 
@@ -23,7 +23,7 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
     ) {
         self.manifest = manifest
         self.store = store ?? ParakeetModelStore(manifest: manifest)
-        self.runtime = runtime ?? FluidAudioParakeetRuntime()
+        self.runtime = runtime ?? ParakeetCoreMLRuntime()
         self.audioLoader = audioLoader
     }
 

@@ -1,7 +1,7 @@
 import Foundation
 import VoxCore
 
-final class FluidAudioParakeetRuntime: @unchecked Sendable, ParakeetRuntime {
+final class ParakeetCoreMLRuntime: @unchecked Sendable, ParakeetRuntime {
     private let log = VoxLog.engine
     private let modelLoader: ParakeetModelLoader
     private var loadedModels: ParakeetLoadedModels?
