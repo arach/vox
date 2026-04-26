@@ -68,6 +68,92 @@ public final class VoxRuntimeService: @unchecked Sendable {
         try await performSynthesizeVoices(modelId: params?["modelId"] as? String)
     }
 
+    func performModelsInstall(
+        params: [String: Any]?,
+        progress: @escaping @Sendable (ModelProgress) -> Void
+    ) async throws -> ASRModelInfo {
+        let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+        return try await performModelsInstall(modelId: modelId, progress: progress)
+    }
+
+    func performModelsInstall(
+        modelId: String,
+        progress: @escaping @Sendable (ModelProgress) -> Void
+    ) async throws -> ASRModelInfo {
+        try await asrEngine.install(modelId: modelId, progress: progress)
+    }
+
+    func performModelsPreload(
+        params: [String: Any]?,
+        progress: @escaping @Sendable (ModelProgress) -> Void
+    ) async throws -> ASRModelInfo {
+        let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+        return try await performModelsPreload(modelId: modelId, progress: progress)
+    }
+
+    func performModelsPreload(
+        modelId: String,
+        progress: @escaping @Sendable (ModelProgress) -> Void
+    ) async throws -> ASRModelInfo {
+        try await asrEngine.preload(modelId: modelId, progress: progress)
+    }
+
+    func performWarmupStatus(params: [String: Any]?) async -> WarmupStatus {
+        let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+        let requestedBy = params?["clientId"] as? String
+        return await performWarmupStatus(modelId: modelId, requestedBy: requestedBy)
+    }
+
+    func performWarmupStatus(modelId: String, requestedBy: String?) async -> WarmupStatus {
+        await warmup.status(modelId: modelId, requestedBy: requestedBy)
+    }
+
+    func performWarmupStart(params: [String: Any]?) async -> WarmupStatus {
+        let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+        let requestedBy = params?["clientId"] as? String
+        return await performWarmupStart(modelId: modelId, requestedBy: requestedBy)
+    }
+
+    func performWarmupStart(modelId: String, requestedBy: String?) async -> WarmupStatus {
+        await warmup.start(modelId: modelId, requestedBy: requestedBy)
+    }
+
+    func performWarmupSchedule(params: [String: Any]?) async -> WarmupStatus {
+        let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+        let requestedBy = params?["clientId"] as? String
+        let delayMs = max((params?["delayMs"] as? Int) ?? 0, 0)
+        return await performWarmupSchedule(modelId: modelId, delayMs: delayMs, requestedBy: requestedBy)
+    }
+
+    func performWarmupSchedule(modelId: String, delayMs: Int, requestedBy: String?) async -> WarmupStatus {
+        await warmup.schedule(modelId: modelId, delayMs: delayMs, requestedBy: requestedBy)
+    }
+
+    func performTranscribeFile(params: [String: Any]?) async throws -> ASRRouteTranscriptionResult {
+        guard let path = params?["path"] as? String else {
+            throw NSError(domain: "VoxService", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Missing path"
+            ])
+        }
+
+        let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+        let clientId = (params?["clientId"] as? String) ?? "unknown"
+        return try await performTranscribeFile(path: path, modelId: modelId, clientId: clientId)
+    }
+
+    func performTranscribeFile(path: String, modelId: String, clientId: String) async throws -> ASRRouteTranscriptionResult {
+        let output = try await asrEngine.transcribe(url: URL(fileURLWithPath: path), modelId: modelId)
+        let sample = PerformanceSample(
+            clientId: clientId,
+            route: "transcribe.file",
+            modelId: modelId,
+            outcome: "ok",
+            textLength: output.text.count,
+            metrics: output.metrics.performanceMetrics
+        )
+        return ASRRouteTranscriptionResult(output: output, performanceSample: sample)
+    }
+
     private func performSynthesizeGenerate(request: SynthesisRequest) async throws -> SynthesisOutput {
         try await ttsEngine.synthesize(request)
     }
@@ -132,7 +218,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
             let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
             Task {
                 do {
-                    let model = try await self.asrEngine.install(modelId: modelId) { update in
+                    let model = try await self.performModelsInstall(modelId: modelId) { update in
                         progress("models.progress", update.dictionaryValue())
                     }
                     reply(["model": model.dictionaryValue()], nil)
@@ -147,7 +233,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
             let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
             Task {
                 do {
-                    let model = try await self.asrEngine.preload(modelId: modelId) { update in
+                    let model = try await self.performModelsPreload(modelId: modelId) { update in
                         progress("models.progress", update.dictionaryValue())
                     }
                     reply(["model": model.dictionaryValue()], nil)
@@ -162,7 +248,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
             let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
             let requestedBy = params?["clientId"] as? String
             Task {
-                let status = await self.warmup.status(modelId: modelId, requestedBy: requestedBy)
+                let status = await self.performWarmupStatus(modelId: modelId, requestedBy: requestedBy)
                 reply(["warmup": status.dictionaryValue()], nil)
             }
         }
@@ -172,7 +258,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
             let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
             let requestedBy = params?["clientId"] as? String
             Task {
-                let status = await self.warmup.start(modelId: modelId, requestedBy: requestedBy)
+                let status = await self.performWarmupStart(modelId: modelId, requestedBy: requestedBy)
                 reply(["warmup": status.dictionaryValue()], nil)
             }
         }
@@ -183,7 +269,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
             let requestedBy = params?["clientId"] as? String
             let delayMs = max((params?["delayMs"] as? Int) ?? 0, 0)
             Task {
-                let status = await self.warmup.schedule(modelId: modelId, delayMs: delayMs, requestedBy: requestedBy)
+                let status = await self.performWarmupSchedule(modelId: modelId, delayMs: delayMs, requestedBy: requestedBy)
                 reply(["warmup": status.dictionaryValue()], nil)
             }
         }
@@ -196,19 +282,13 @@ public final class VoxRuntimeService: @unchecked Sendable {
             Task {
                 do {
                     guard let path else {
-                        reply(nil, "Missing path")
-                        return
+                        throw NSError(domain: "VoxService", code: 1, userInfo: [
+                            NSLocalizedDescriptionKey: "Missing path"
+                        ])
                     }
-                    let output = try await self.asrEngine.transcribe(url: URL(fileURLWithPath: path), modelId: modelId)
-                    await self.performance.record(PerformanceSample(
-                        clientId: clientId,
-                        route: "transcribe.file",
-                        modelId: modelId,
-                        outcome: "ok",
-                        textLength: output.text.count,
-                        metrics: output.metrics.performanceMetrics
-                    ))
-                    reply(output.dictionaryValue(), nil)
+                    let result = try await self.performTranscribeFile(path: path, modelId: modelId, clientId: clientId)
+                    await self.performance.record(result.performanceSample)
+                    reply(result.output.dictionaryValue(), nil)
                 } catch {
                     await self.performance.record(PerformanceSample(
                         clientId: clientId,
@@ -637,7 +717,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
         let checks = [
             DoctorCheck(name: "runtime", status: runtimeExists ? "ok" : "error", detail: runtimeExists ? "runtime.json written" : "runtime.json missing"),
             DoctorCheck(name: "microphone", status: microphoneStatusToLevel(MicrophonePermission.statusString()), detail: MicrophonePermission.statusString()),
-            DoctorCheck(name: "backend", status: (asrModel?.available ?? false) ? "ok" : "error", detail: (asrModel?.available ?? false) ? "Parakeet available" : "FluidAudio unavailable"),
+            DoctorCheck(name: "backend", status: (asrModel?.available ?? false) ? "ok" : "error", detail: (asrModel?.available ?? false) ? "Parakeet available" : "Parakeet unavailable"),
             DoctorCheck(name: "model", status: (asrModel?.installed ?? false) ? "ok" : "warning", detail: (asrModel?.installed ?? false) ? "Parakeet model installed" : "Parakeet model not installed"),
             DoctorCheck(name: "synthesis", status: (ttsModel?.available ?? false) ? "ok" : "warning", detail: (ttsModel?.available ?? false) ? "\(ttsModel?.name ?? "TTS") available" : "Speech synthesis unavailable")
         ]
@@ -693,4 +773,9 @@ public final class VoxRuntimeService: @unchecked Sendable {
         }
         return chunks
     }
+}
+
+struct ASRRouteTranscriptionResult: Sendable {
+    let output: TranscriptionOutput
+    let performanceSample: PerformanceSample
 }
