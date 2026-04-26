@@ -94,7 +94,11 @@ public final class StdioTransport: @unchecked Sendable {
         queue.sync { _progressHandler = nil }
     }
 
-    public func call(method: String, params: [String: Any] = [:]) async throws -> [String: Any] {
+    public func call(
+        method: String,
+        params: [String: Any] = [:],
+        timeoutSeconds: TimeInterval? = nil
+    ) async throws -> [String: Any] {
         let isRunning = queue.sync { _isRunning }
         guard isRunning else {
             throw StdioTransportError.notRunning
@@ -130,13 +134,15 @@ public final class StdioTransport: @unchecked Sendable {
 
         pipe.fileHandleForWriting.write(lineData)
 
+        let timeout = timeoutSeconds ?? callTimeoutSeconds
+
         return try await withCheckedThrowingContinuation { continuation in
             queue.sync {
                 pending[id] = continuation
             }
 
             // Schedule timeout
-            queue.asyncAfter(deadline: .now() + self.callTimeoutSeconds) { [weak self] in
+            queue.asyncAfter(deadline: .now() + timeout) { [weak self] in
                 guard let self else { return }
                 let cont = self.pending.removeValue(forKey: id)
                 cont?.resume(throwing: StdioTransportError.timeout(method: method))

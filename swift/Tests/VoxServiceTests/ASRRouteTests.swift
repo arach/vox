@@ -136,6 +136,55 @@ private actor EmptyTTSProvider: TTSProvider {
     }
 }
 
+private actor SlowWarmupTTSProvider: TTSProvider {
+    private let modelId = VoxKokoroTTS.modelID
+    private var isPreloaded = false
+
+    func models() async -> [TTSModelInfo] {
+        if !isPreloaded {
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+
+        return [
+            TTSModelInfo(
+                id: modelId,
+                name: "Kokoro 82M",
+                backend: "kokoro",
+                installed: true,
+                preloaded: isPreloaded,
+                available: true
+            )
+        ]
+    }
+
+    func voices(modelId: String?) async throws -> [TTSVoiceInfo] { [] }
+
+    func preload(
+        modelId: String,
+        voiceId: String?,
+        progress: @escaping @Sendable (ModelProgress) -> Void
+    ) async throws -> TTSModelInfo {
+        progress(ModelProgress(modelId: modelId, progress: 0.5, status: "warming"))
+        try await Task.sleep(for: .milliseconds(150))
+        isPreloaded = true
+        progress(ModelProgress(modelId: modelId, progress: 1.0, status: "ready"))
+        return TTSModelInfo(
+            id: modelId,
+            name: "Kokoro 82M",
+            backend: "kokoro",
+            installed: true,
+            preloaded: true,
+            available: true
+        )
+    }
+
+    func synthesize(_ request: SynthesisRequest) async throws -> SynthesisOutput {
+        throw NSError(domain: "SlowWarmupTTSProvider", code: 2, userInfo: [
+            NSLocalizedDescriptionKey: "Not used in warmup tests"
+        ])
+    }
+}
+
 struct ASRRouteTests {
     @Test("models.install helper returns model info and forwards progress updates")
     func modelsInstallReturnsStructuredModelAndProgress() async throws {
@@ -241,6 +290,28 @@ struct ASRRouteTests {
         #expect(ready.requestedBy == "voice-loop")
         #expect(ready.completedAt != nil)
         #expect(await provider.preloadCallCount() == 1)
+    }
+
+    @Test("warmup status stays responsive while Kokoro warmup is active")
+    func warmupStatusRemainsResponsiveForTTSWarmup() async throws {
+        let service = VoxRuntimeService(
+            engine: EngineManager(provider: MockASRProvider()),
+            ttsEngine: TTSEngineManager(provider: SlowWarmupTTSProvider())
+        )
+
+        _ = await service.performWarmupStart(modelId: VoxKokoroTTS.modelID, requestedBy: "voice-loop")
+
+        let clock = ContinuousClock()
+        let start = clock.now
+        let status = await service.performWarmupStatus(modelId: VoxKokoroTTS.modelID, requestedBy: "voice-loop")
+        let elapsed = start.duration(to: clock.now)
+
+        #expect(status.state == "warming")
+        #expect(status.requestedBy == "voice-loop")
+        #expect(elapsed < .milliseconds(100))
+
+        let ready = try await eventuallyWarmStatus(from: service, modelId: VoxKokoroTTS.modelID, timeoutMs: 1000)
+        #expect(ready.state == "ready")
     }
 
     private func eventuallyWarmStatus(

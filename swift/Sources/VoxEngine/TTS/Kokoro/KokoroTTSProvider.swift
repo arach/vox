@@ -11,7 +11,12 @@ public actor KokoroTTSProvider: TTSProvider {
     ) throws {
         let env = VoxKokoroTTS.environment(additionalEnv: additionalEnv)
         let command = try BuiltinExternalProvider.mlxAudioCommand(kind: .tts, env: env)
-        self.externalProvider = ExternalTTSProvider(id: id, command: command, env: env)
+        self.externalProvider = ExternalTTSProvider(
+            id: id,
+            command: command,
+            env: env,
+            preloadTimeoutSeconds: Self.preloadTimeoutSeconds(env: env)
+        )
         self.modelStore = VoxKokoroModelStore(modelId: VoxKokoroTTS.modelID, env: env)
     }
 
@@ -58,5 +63,16 @@ public actor KokoroTTSProvider: TTSProvider {
 
     public func synthesize(_ request: SynthesisRequest) async throws -> SynthesisOutput {
         try await externalProvider.synthesize(request)
+    }
+
+    private static func preloadTimeoutSeconds(env: [String: String]) -> TimeInterval {
+        guard let rawValue = env["VOX_KOKORO_PRELOAD_TIMEOUT_SECONDS"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              let timeout = TimeInterval(rawValue),
+              timeout > 0 else {
+            return 300
+        }
+
+        return timeout
     }
 }

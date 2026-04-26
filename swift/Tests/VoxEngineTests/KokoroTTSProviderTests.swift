@@ -3,6 +3,55 @@ import Testing
 @testable import VoxEngine
 
 struct KokoroTTSProviderTests {
+    @Test("Kokoro preflight recognizes uv on PATH")
+    func kokoroPreflightRecognizesUvOnPath() throws {
+        let tempDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let binDirectory = tempDirectory.appendingPathComponent("bin", isDirectory: true)
+        try FileManager.default.createDirectory(at: binDirectory, withIntermediateDirectories: true)
+
+        let uvPath = binDirectory.appendingPathComponent("uv")
+        try Data("#!/bin/sh\nexit 0\n".utf8).write(to: uvPath)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: uvPath.path)
+
+        let preflight = VoxKokoroPreflight(
+            env: [
+                "VOX_MLX_AUDIO_USE_UV": "1",
+                "HF_HOME": tempDirectory.path,
+                "PATH": binDirectory.path,
+            ],
+            processEnv: [:]
+        )
+
+        #expect(preflight.prerequisiteCheck.status == "ok")
+        #expect(preflight.prerequisiteCheck.detail.contains("uv ready"))
+    }
+
+    @Test("Kokoro preflight warns when uv is missing")
+    func kokoroPreflightWarnsWhenUvMissing() throws {
+        let tempDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let preflight = VoxKokoroPreflight(
+            env: [
+                "VOX_MLX_AUDIO_USE_UV": "1",
+                "HF_HOME": tempDirectory.path,
+                "PATH": tempDirectory.path,
+            ],
+            processEnv: [:]
+        )
+
+        #expect(preflight.prerequisiteCheck.status == "warning")
+        #expect(preflight.prerequisiteCheck.detail.contains("Install uv"))
+        #expect(preflight.modelCheck.status == "warning")
+        #expect(preflight.modelCheck.detail.contains("not cached yet"))
+    }
+
     @Test("Kokoro model store recognizes installed snapshots in the Vox HF cache layout")
     func kokoroModelStoreRecognizesInstalledSnapshots() throws {
         let tempDirectory = FileManager.default.temporaryDirectory
