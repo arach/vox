@@ -1,4 +1,3 @@
-import AVFoundation
 import Foundation
 import VoxCore
 
@@ -7,21 +6,25 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
     private let manifest: ParakeetModelManifest
     private let store: ParakeetModelStore
     private let runtime: any ParakeetRuntime
+    private let audioLoader: ParakeetAudioLoader
 
     public init() {
         self.manifest = .v3
         self.store = ParakeetModelStore(manifest: .v3)
         self.runtime = FluidAudioParakeetRuntime()
+        self.audioLoader = ParakeetAudioLoader()
     }
 
     init(
         manifest: ParakeetModelManifest = .v3,
         store: ParakeetModelStore? = nil,
-        runtime: (any ParakeetRuntime)? = nil
+        runtime: (any ParakeetRuntime)? = nil,
+        audioLoader: ParakeetAudioLoader = ParakeetAudioLoader()
     ) {
         self.manifest = manifest
         self.store = store ?? ParakeetModelStore(manifest: manifest)
         self.runtime = runtime ?? FluidAudioParakeetRuntime()
+        self.audioLoader = audioLoader
     }
 
     public func models() async -> [ASRModelInfo] {
@@ -49,8 +52,9 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
 
         trace.begin("file_check")
         try validate(modelId: modelId)
-        let input = try inspectAudioInput(url: url)
-        trace.end("\(input.inputBytes) bytes")
+        try validateAudioFile(url: url)
+        let inputBytes = ((try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.intValue) ?? 0
+        trace.end("\(inputBytes) bytes")
 
         trace.begin("model_check")
         let wasPreloaded = await runtime.isPreloaded()
@@ -64,24 +68,27 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
             trace.end("initialized")
         }
 
+        trace.begin("audio_load")
+        let loadedInput = try audioLoader.load(from: url)
+        _ = trace.end("\(loadedInput.samples.count) samples")
+
         trace.begin("audio_prepare")
-        let prepared = try ParakeetClipPreparer.ensureMinimumDuration(url: url)
-        trace.end(prepared.cleanupURL == nil ? "unchanged" : "padded")
-        defer { prepared.cleanup() }
+        let prepared = ParakeetSamplePreparer.ensureMinimumDuration(samples: loadedInput.samples)
+        trace.end(prepared.wasPadded ? "padded" : "unchanged")
 
         trace.begin("inference")
-        let result = try await runtime.transcribe(url: prepared.url)
+        let result = try await runtime.transcribe(samples: prepared.samples)
         let inferenceMs = trace.end("\(result.text.count) chars")
 
         let metrics = TranscriptionMetrics(
             traceId: trace.traceId,
-            audioDurationMs: input.audioDurationMs,
-            inputBytes: input.inputBytes,
+            audioDurationMs: loadedInput.audioDurationMs,
+            inputBytes: loadedInput.inputBytes,
             wasPreloaded: wasPreloaded,
             fileCheckMs: trace.durationMs(for: "file_check"),
             modelCheckMs: trace.durationMs(for: "model_check"),
             modelLoadMs: trace.durationMs(for: "model_load"),
-            audioLoadMs: input.audioLoadMs,
+            audioLoadMs: loadedInput.audioLoadMs,
             audioPrepareMs: trace.durationMs(for: "audio_prepare"),
             inferenceMs: inferenceMs,
             totalMs: trace.elapsedMs
@@ -127,23 +134,6 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
         }
     }
 
-    private func inspectAudioInput(url: URL) throws -> InputAudioMetadata {
-        try validateAudioFile(url: url)
-
-        let inputBytes = ((try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.intValue) ?? 0
-
-        let startedAt = CFAbsoluteTimeGetCurrent()
-        let file = try AVAudioFile(forReading: url)
-        let audioLoadMs = Int((CFAbsoluteTimeGetCurrent() - startedAt) * 1000)
-        let audioDurationMs = Int((Double(file.length) / file.processingFormat.sampleRate) * 1000)
-
-        return InputAudioMetadata(
-            inputBytes: inputBytes,
-            audioDurationMs: audioDurationMs,
-            audioLoadMs: audioLoadMs
-        )
-    }
-
     private func ensureLoaded(
         progress: @escaping @Sendable (ModelProgress) -> Void
     ) async throws -> ASRModelInfo {
@@ -169,73 +159,22 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
     }
 }
 
-private struct InputAudioMetadata {
-    let inputBytes: Int
-    let audioDurationMs: Int
-    let audioLoadMs: Int
+struct ParakeetSamplePreparationResult {
+    let samples: [Float]
+    let wasPadded: Bool
 }
 
-private struct ParakeetClipPreparationResult {
-    let url: URL
-    let cleanupURL: URL?
+enum ParakeetSamplePreparer {
+    private static let minimumDurationSeconds: Double = 1.5
+    private static let sampleRate: Double = 16_000
 
-    func cleanup() {
-        guard let cleanupURL else { return }
-        try? FileManager.default.removeItem(at: cleanupURL)
-    }
-}
-
-private enum ParakeetClipPreparer {
-    private static let minimumDuration: TimeInterval = 1.5
-
-    static func ensureMinimumDuration(url: URL) throws -> ParakeetClipPreparationResult {
-        let file = try AVAudioFile(forReading: url)
-        let format = file.processingFormat
-        let duration = Double(file.length) / format.sampleRate
-        guard duration < minimumDuration else {
-            return ParakeetClipPreparationResult(url: url, cleanupURL: nil)
+    static func ensureMinimumDuration(samples: [Float]) -> ParakeetSamplePreparationResult {
+        let minimumSamples = Int((minimumDurationSeconds * sampleRate).rounded(.up))
+        guard samples.count < minimumSamples else {
+            return ParakeetSamplePreparationResult(samples: samples, wasPadded: false)
         }
 
-        guard format.commonFormat == .pcmFormatFloat32 else {
-            return ParakeetClipPreparationResult(url: url, cleanupURL: nil)
-        }
-
-        let minimumFrames = AVAudioFrameCount((minimumDuration * format.sampleRate).rounded(.up))
-        guard
-            let readBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: max(AVAudioFrameCount(file.length), 1)),
-            let paddedBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: minimumFrames)
-        else {
-            return ParakeetClipPreparationResult(url: url, cleanupURL: nil)
-        }
-
-        try file.read(into: readBuffer)
-        let framesRead = min(readBuffer.frameLength, minimumFrames)
-
-        guard
-            let sourceChannels = readBuffer.floatChannelData,
-            let targetChannels = paddedBuffer.floatChannelData
-        else {
-            return ParakeetClipPreparationResult(url: url, cleanupURL: nil)
-        }
-
-        for channel in 0..<Int(format.channelCount) {
-            let target = targetChannels[channel]
-            let source = sourceChannels[channel]
-            target.update(from: source, count: Int(framesRead))
-            let remaining = Int(minimumFrames - framesRead)
-            if remaining > 0 {
-                target.advanced(by: Int(framesRead)).initialize(repeating: 0, count: remaining)
-            }
-        }
-
-        paddedBuffer.frameLength = minimumFrames
-        let paddedURL = url.deletingPathExtension().appendingPathExtension("parakeet-padded.wav")
-        if FileManager.default.fileExists(atPath: paddedURL.path) {
-            try FileManager.default.removeItem(at: paddedURL)
-        }
-
-        let output = try AVAudioFile(forWriting: paddedURL, settings: file.fileFormat.settings)
-        try output.write(from: paddedBuffer)
-        return ParakeetClipPreparationResult(url: paddedURL, cleanupURL: paddedURL)
+        let padded = samples + Array(repeating: 0, count: minimumSamples - samples.count)
+        return ParakeetSamplePreparationResult(samples: padded, wasPadded: true)
     }
 }

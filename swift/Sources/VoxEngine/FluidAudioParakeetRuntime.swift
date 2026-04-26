@@ -55,7 +55,7 @@ final class FluidAudioParakeetRuntime: @unchecked Sendable, ParakeetRuntime {
 #endif
     }
 
-    func transcribe(url: URL) async throws -> ParakeetInferenceResult {
+    func transcribe(samples: [Float]) async throws -> ParakeetInferenceResult {
 #if canImport(FluidAudio)
         guard let manager else {
             throw NSError(domain: "VoxEngine", code: 4, userInfo: [
@@ -63,8 +63,8 @@ final class FluidAudioParakeetRuntime: @unchecked Sendable, ParakeetRuntime {
             ])
         }
 
-        var decoderState = TdtDecoderState.make()
-        let result = try await manager.transcribe(url, decoderState: &decoderState)
+        var decoderState = TdtDecoderState.make(decoderLayers: await manager.decoderLayerCount)
+        let result = try await manager.transcribe(samples, decoderState: &decoderState)
         let words: [WordTiming] = (result.tokenTimings ?? []).compactMap { timing in
             let word = timing.token.trimmingCharacters(in: .whitespaces)
             guard !word.isEmpty else { return nil }

@@ -5,7 +5,7 @@ protocol ParakeetRuntime: Sendable {
     var isAvailable: Bool { get }
     func isPreloaded() async -> Bool
     func load(from directory: URL, progress: @escaping @Sendable (ModelProgress) -> Void) async throws
-    func transcribe(url: URL) async throws -> ParakeetInferenceResult
+    func transcribe(samples: [Float]) async throws -> ParakeetInferenceResult
 }
 
 struct ParakeetInferenceResult: Sendable {
