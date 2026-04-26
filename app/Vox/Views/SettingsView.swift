@@ -68,7 +68,7 @@ struct GeneralTab: View {
                 }
 
                 LabeledContent("Backend") {
-                    Text("FluidAudio (CoreML)")
+                    Text("Parakeet (CoreML)")
                 }
             } header: {
                 Text("Model")
