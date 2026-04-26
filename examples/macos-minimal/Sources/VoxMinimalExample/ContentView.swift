@@ -117,7 +117,7 @@ struct ContentView: View {
             HStack(spacing: 8) {
                 FeatureChip(title: model.responseEngineName, icon: "sparkles")
                 StatusChip(title: model.asrStateTitle, icon: asrStatusIcon, tint: asrStatusTint)
-                FeatureChip(title: model.ttsModel?.backend ?? "mlx-audio", icon: "speaker.wave.2.fill")
+                FeatureChip(title: model.ttsModel?.backend ?? "kokoro", icon: "speaker.wave.2.fill")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 

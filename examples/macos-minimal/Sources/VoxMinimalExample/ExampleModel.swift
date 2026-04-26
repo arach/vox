@@ -6,22 +6,11 @@ import VoxCore
 import VoxEngine
 
 private enum ExampleConfig {
-    static let ttsModelId = "mlx-community/Kokoro-82M-bf16"
+    static let ttsModelId = VoxKokoroTTS.modelID
     static let asrModelId = "parakeet:v3"
 
     static func makeTTSEngine() -> TTSEngineManager {
-        TTSEngineManager(provider: TTSProviderRegistry(config: ProvidersConfig(providers: [
-            ProviderEntry(
-                id: "mlx-audio",
-                kind: .tts,
-                builtin: true,
-                models: [ttsModelId],
-                env: [
-                    "VOX_MLX_AUDIO_USE_UV": "1",
-                    "VOX_MLX_AUDIO_TTS_MODELS": ttsModelId,
-                ]
-            )
-        ])))
+        VoxKokoroTTS.makeEngine()
     }
 }
 

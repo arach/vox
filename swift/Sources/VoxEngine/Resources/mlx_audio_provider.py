@@ -12,7 +12,7 @@ import wave
 from typing import Any, Dict, Iterable, List, Optional
 
 
-BACKEND = "mlx-audio"
+BACKEND = os.environ.get("VOX_PROVIDER_BACKEND", "mlx-audio").strip() or "mlx-audio"
 DEFAULT_ASR_MODELS = [
     "mlx-community/parakeet-tdt-0.6b-v3",
     "mlx-community/whisper-large-v3-turbo-asr-fp16",

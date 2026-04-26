@@ -4,6 +4,25 @@ import VoxCore
 @testable import VoxEngine
 
 struct ProviderRegistryTests {
+    @Test("Vox Kokoro TTS entry uses Vox-owned local defaults")
+    func voxKokoroProviderEntryUsesOwnedDefaults() throws {
+        let entry = VoxKokoroTTS.providerEntry()
+
+        #expect(entry.id == VoxKokoroTTS.providerID)
+        #expect(entry.kind == .tts)
+        #expect(entry.builtin == true)
+        #expect(entry.models == [VoxKokoroTTS.modelID])
+
+        let env = try #require(entry.env)
+        #expect(env["VOX_MLX_AUDIO_USE_UV"] == "1")
+        #expect(env["VOX_MLX_AUDIO_TTS_MODELS"] == VoxKokoroTTS.modelID)
+        #expect(env["VOX_MLX_AUDIO_TTS_DEFAULT_VOICE"] == VoxKokoroTTS.defaultVoiceID)
+        #expect(env["VOX_PROVIDER_BACKEND"] == VoxKokoroTTS.backendID)
+        #expect(env["VOX_MLX_AUDIO_TTS_VOICES_JSON"]?.contains(VoxKokoroTTS.defaultVoiceID) == true)
+        #expect(env["HF_HOME"]?.hasSuffix("/.vox/cache/huggingface") == true)
+        #expect(env["HF_HUB_CACHE"]?.hasSuffix("/.vox/cache/huggingface/hub") == true)
+    }
+
     @Test("builtin mlx-audio provider resolves bundled script command")
     func builtinMlxAudioCommandUsesBundledScript() throws {
         let command = try BuiltinExternalProvider.mlxAudioCommand(kind: .asr, env: nil)
@@ -38,6 +57,18 @@ struct ProviderRegistryTests {
         #expect(command.contains("misaki"))
         #expect(command.contains("python"))
         #expect(command.last == "tts")
+    }
+
+    @Test("builtin kokoro provider resolves through the shared uv-managed local TTS path")
+    func builtinKokoroProviderUsesSharedLocalPath() throws {
+        let entry = VoxKokoroTTS.providerEntry()
+        let env = try #require(entry.env)
+        let command = try BuiltinExternalProvider.mlxAudioCommand(kind: .tts, env: env)
+
+        #expect(command.starts(with: ["/usr/bin/env", "uv", "run"]))
+        #expect(command.contains("mlx-audio"))
+        #expect(command.last == "tts")
+        #expect(env["VOX_PROVIDER_BACKEND"] == VoxKokoroTTS.backendID)
     }
 
     @Test("ASR registry resolves models discovered from the provider at runtime")
