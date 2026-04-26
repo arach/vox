@@ -1,4 +1,5 @@
 import Foundation
+import VoxCore
 
 enum LaunchAgentManager {
     static let label = "com.vox.daemon"
@@ -19,7 +20,7 @@ enum LaunchAgentManager {
 
         let plist: [String: Any] = [
             "Label": label,
-            "ProgramArguments": [voxdPath, "--port", "42137"],
+            "ProgramArguments": [voxdPath, "--port", String(VoxDefaults.daemonPort)],
             "RunAtLoad": true,
             "KeepAlive": ["SuccessfulExit": false],
             "StandardOutPath": logPath("stdout"),

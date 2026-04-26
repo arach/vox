@@ -3,7 +3,7 @@ import Network
 import VoxCore
 
 /// Lightweight HTTP server on localhost for browser-to-daemon communication.
-/// Listens on port 43115 and proxies requests to voxd via DaemonProxy.
+/// Listens on `VoxDefaults.bridgePort` by default and proxies requests to voxd via DaemonProxy.
 public final class HTTPBridgeServer: @unchecked Sendable {
     public static let defaultPort: UInt16 = VoxDefaults.bridgePort
     private static let headerDelimiter = Data("\r\n\r\n".utf8)

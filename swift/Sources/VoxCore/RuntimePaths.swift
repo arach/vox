@@ -4,25 +4,72 @@ public enum VoxVersion {
     public static let current = "0.2.0"
 }
 
+public struct VoxPortDefinition: Sendable, Equatable {
+    public let id: String
+    public let envVar: String
+    public let defaultPort: UInt16
+    public let transport: String
+    public let description: String
+    public let storedInRuntimeFile: Bool
+
+    public init(
+        id: String,
+        envVar: String,
+        defaultPort: UInt16,
+        transport: String,
+        description: String,
+        storedInRuntimeFile: Bool
+    ) {
+        self.id = id
+        self.envVar = envVar
+        self.defaultPort = defaultPort
+        self.transport = transport
+        self.description = description
+        self.storedInRuntimeFile = storedInRuntimeFile
+    }
+
+    public func resolvedPort() -> UInt16 {
+        if let raw = ProcessInfo.processInfo.environment[envVar],
+           let port = UInt16(raw) {
+            return port
+        }
+        return defaultPort
+    }
+}
+
+public enum VoxPorts {
+    public static let daemon = VoxPortDefinition(
+        id: "companion-ws",
+        envVar: "VOX_PORT",
+        defaultPort: 42137,
+        transport: "ws",
+        description: "Companion daemon WebSocket port",
+        storedInRuntimeFile: true
+    )
+
+    public static let bridge = VoxPortDefinition(
+        id: "companion-http",
+        envVar: "VOX_BRIDGE_PORT",
+        defaultPort: 43115,
+        transport: "http",
+        description: "Companion HTTP bridge port",
+        storedInRuntimeFile: false
+    )
+
+    public static let all = [daemon, bridge]
+}
+
 public enum VoxDefaults {
-    public static let daemonPort: UInt16 = 42137
-    public static let bridgePort: UInt16 = 43115
+    public static let daemonPort: UInt16 = VoxPorts.daemon.defaultPort
+    public static let bridgePort: UInt16 = VoxPorts.bridge.defaultPort
     public static let host = "127.0.0.1"
 
     public static func resolvedDaemonPort() -> UInt16 {
-        if let raw = ProcessInfo.processInfo.environment["VOX_PORT"],
-           let port = UInt16(raw) {
-            return port
-        }
-        return daemonPort
+        VoxPorts.daemon.resolvedPort()
     }
 
     public static func resolvedBridgePort() -> UInt16 {
-        if let raw = ProcessInfo.processInfo.environment["VOX_BRIDGE_PORT"],
-           let port = UInt16(raw) {
-            return port
-        }
-        return bridgePort
+        VoxPorts.bridge.resolvedPort()
     }
 
     public static func resolvedHost() -> String {

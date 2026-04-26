@@ -78,12 +78,23 @@ Speech sessions are coordinated in `VoxService`. Session ownership ties to both 
 
 ## Configuration
 
-Ports and bind address are configurable via environment variables:
+Ports and bind address are configurable via environment variables.
+
+Vox uses two named companion ports:
+
+| Role | Default | Transport | Env var | Stored |
+|------|---------|-----------|---------|--------|
+| `companion-ws` | `42137` | WebSocket | `VOX_PORT` | `runtime.json` |
+| `companion-http` | `43115` | HTTP | `VOX_BRIDGE_PORT` | process/env only |
+
+`companion-ws` is the `voxd` daemon port that `@voxd/sdk` discovers through `~/.vox/runtime.json`. `companion-http` is the browser-facing bridge port used by `@voxd/client`.
+
+The bind host is shared across both surfaces:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VOX_PORT` | `42137` | Daemon WebSocket port |
-| `VOX_BRIDGE_PORT` | `43115` | HTTP bridge port |
+| `VOX_PORT` | `42137` | `companion-ws` daemon WebSocket port |
+| `VOX_BRIDGE_PORT` | `43115` | `companion-http` bridge port |
 | `VOX_HOST` | `127.0.0.1` | Bind address for both services |
 | `VOX_HOME` | `~/.vox` | Runtime data directory |
 
