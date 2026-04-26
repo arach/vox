@@ -12,6 +12,15 @@ struct ParakeetModelURLs: Sendable {
     let vocabulary: URL
 }
 
+struct ParakeetLoadedModels: Sendable {
+    let preprocessor: MLModel
+    let encoder: MLModel
+    let decoder: MLModel
+    let joint: MLModel
+    let configuration: MLModelConfiguration
+    let vocabulary: [Int: String]
+}
+
 struct ParakeetModelLoader: Sendable {
     let manifest: ParakeetModelManifest
 
@@ -29,8 +38,7 @@ struct ParakeetModelLoader: Sendable {
         )
     }
 
-    func loadAsrModels(from directory: URL) throws -> AsrModels {
-        #if canImport(FluidAudio)
+    func loadModels(from directory: URL) throws -> ParakeetLoadedModels {
         let urls = modelURLs(in: directory)
         let preprocessor = try MLModel(
             contentsOf: urls.preprocessor,
@@ -51,20 +59,14 @@ struct ParakeetModelLoader: Sendable {
         let vocabulary = try ParakeetVocabulary.load(from: urls.vocabulary)
         let configuration = modelConfiguration(computeUnits: .cpuAndNeuralEngine)
 
-        return AsrModels(
-            encoder: encoder,
+        return ParakeetLoadedModels(
             preprocessor: preprocessor,
+            encoder: encoder,
             decoder: decoder,
             joint: joint,
             configuration: configuration,
-            vocabulary: vocabulary,
-            version: .v3
+            vocabulary: vocabulary
         )
-        #else
-        throw NSError(domain: "VoxEngine", code: 106, userInfo: [
-            NSLocalizedDescriptionKey: "FluidAudio is unavailable in this build."
-        ])
-        #endif
     }
 
     private func modelConfiguration(computeUnits: MLComputeUnits) -> MLModelConfiguration {
@@ -74,3 +76,19 @@ struct ParakeetModelLoader: Sendable {
         return configuration
     }
 }
+
+#if canImport(FluidAudio)
+extension ParakeetLoadedModels {
+    func asrModels(version: AsrModelVersion = .v3) -> AsrModels {
+        AsrModels(
+            encoder: encoder,
+            preprocessor: preprocessor,
+            decoder: decoder,
+            joint: joint,
+            configuration: configuration,
+            vocabulary: vocabulary,
+            version: version
+        )
+    }
+}
+#endif

@@ -21,7 +21,7 @@ final class FluidAudioParakeetRuntime: @unchecked Sendable, ParakeetRuntime {
     }
 
 #if canImport(FluidAudio)
-    private var loadedModels: AsrModels?
+    private var loadedModels: ParakeetLoadedModels?
     private var manager: AsrManager?
 #endif
 
@@ -41,10 +41,10 @@ final class FluidAudioParakeetRuntime: @unchecked Sendable, ParakeetRuntime {
         }
 
         progress(ModelProgress(modelId: ParakeetModelManifest.v3.modelId, progress: 0.85, status: "loading"))
-        let loadedModels = try modelLoader.loadAsrModels(from: directory)
+        let loadedModels = try modelLoader.loadModels(from: directory)
 
         let manager = AsrManager(config: .init())
-        try await manager.loadModels(loadedModels)
+        try await manager.loadModels(loadedModels.asrModels())
         self.loadedModels = loadedModels
         self.manager = manager
         progress(ModelProgress(modelId: ParakeetModelManifest.v3.modelId, progress: 1.0, status: "ready"))
