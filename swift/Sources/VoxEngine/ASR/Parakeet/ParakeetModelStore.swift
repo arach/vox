@@ -7,7 +7,6 @@ struct ParakeetModelManifest: Sendable {
     let backend: String
     let repositoryFolderName: String
     let cacheDirectoryName: String
-    let legacyCacheDirectoryNames: [String]
     let requiredModelFiles: Set<String>
     let vocabularyFile: String
 
@@ -17,7 +16,6 @@ struct ParakeetModelManifest: Sendable {
         backend: "parakeet",
         repositoryFolderName: "FluidInference/parakeet-tdt-0.6b-v3-coreml",
         cacheDirectoryName: "parakeet-tdt-0.6b-v3",
-        legacyCacheDirectoryNames: ["parakeet-tdt-0.6b-v3-coreml"],
         requiredModelFiles: [
             "Preprocessor.mlmodelc",
             "Encoder.mlmodelc",
@@ -26,10 +24,6 @@ struct ParakeetModelManifest: Sendable {
         ],
         vocabularyFile: "parakeet_vocab.json"
     )
-
-    var candidateDirectoryNames: [String] {
-        [cacheDirectoryName] + legacyCacheDirectoryNames
-    }
 }
 
 struct ParakeetModelStore: Sendable {
@@ -80,34 +74,7 @@ struct ParakeetModelStore: Sendable {
     }
 
     func candidateModelDirectories(fileManager: FileManager = .default) -> [URL] {
-        if let preferredModelsRootOverride {
-            return manifest.candidateDirectoryNames.map { directoryName in
-                preferredModelsRootOverride.appendingPathComponent(directoryName, isDirectory: true)
-            }
-        }
-
-        let cacheDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
-        let appSupportDirectory = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-
-        let roots = [
-            preferredModelsRootDirectory(fileManager: fileManager),
-            RuntimePaths.voxHomeURL()
-                .appendingPathComponent("cache", isDirectory: true)
-                .appendingPathComponent("FluidAudio", isDirectory: true)
-                .appendingPathComponent("Models", isDirectory: true),
-            cacheDirectory?
-                .appendingPathComponent("FluidAudio", isDirectory: true)
-                .appendingPathComponent("Models", isDirectory: true),
-            appSupportDirectory?
-                .appendingPathComponent("FluidAudio", isDirectory: true)
-                .appendingPathComponent("Models", isDirectory: true)
-        ].compactMap { $0 }
-
-        return roots.flatMap { root in
-            manifest.candidateDirectoryNames.map { directoryName in
-                root.appendingPathComponent(directoryName, isDirectory: true)
-            }
-        }
+        [preferredInstallDirectory(fileManager: fileManager)]
     }
 
     func ensureInstalled(
