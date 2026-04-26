@@ -20,7 +20,7 @@ struct EmbedDemoTab: View {
                 }
 
                 LabeledContent("Backend") {
-                    Text(state.voiceModel?.backend ?? "mlx-audio")
+                    Text(state.voiceModel?.backend ?? "kokoro")
                 }
 
                 Picker("Voice", selection: Binding(
@@ -65,7 +65,7 @@ struct EmbedDemoTab: View {
             } header: {
                 Text("Speech")
             } footer: {
-                Text("The app synthesizes audio in process with VoxEngine and the MLX TTS provider.")
+                Text("The app synthesizes audio in process with VoxEngine and the Vox Kokoro speech path.")
             }
 
             Section {

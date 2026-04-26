@@ -6,6 +6,7 @@ public actor ExternalTTSProvider: TTSProvider {
     private let providerId: String
     private let command: [String]
     private let env: [String: String]?
+    private let preloadTimeoutSeconds: TimeInterval
     private var transport: StdioTransport?
 
     private var crashCount: Int = 0
@@ -13,10 +14,16 @@ public actor ExternalTTSProvider: TTSProvider {
     private let maxCrashRestarts = 5
     private let stabilityWindow: TimeInterval = 60
 
-    public init(id: String, command: [String], env: [String: String]? = nil) {
+    public init(
+        id: String,
+        command: [String],
+        env: [String: String]? = nil,
+        preloadTimeoutSeconds: TimeInterval = 30
+    ) {
         self.providerId = id
         self.command = command
         self.env = env
+        self.preloadTimeoutSeconds = preloadTimeoutSeconds
     }
 
     public func models() async -> [TTSModelInfo] {
@@ -71,7 +78,11 @@ public actor ExternalTTSProvider: TTSProvider {
             params["voiceId"] = voiceId
         }
 
-        let result = try await transport.call(method: "preload", params: params)
+        let result = try await transport.call(
+            method: "preload",
+            params: params,
+            timeoutSeconds: preloadTimeoutSeconds
+        )
         guard let model = result["model"] as? [String: Any],
               let info = parseModelInfo(model) else {
             throw ExternalTTSProviderError.invalidResponse("preload")

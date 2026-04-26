@@ -1,6 +1,15 @@
 import Foundation
+import Darwin
 
 struct QwenFallbackAvailability: Sendable, Equatable {
+    enum State: String, Sendable, Equatable {
+        case unavailable
+        case cold
+        case warming
+        case ready
+    }
+
+    let state: State
     let isAvailable: Bool
     let message: String
 }
@@ -17,8 +26,7 @@ actor QwenFallbackService {
     static let displayName = "Qwen3 0.6B"
 
     private static let host = "127.0.0.1"
-    private static let port = 8197
-    private static let baseURL = URL(string: "http://\(host):\(port)")!
+    private static let preferredPort = 8197
     private static let systemPrompt = """
     You are a warm, concise on-device voice assistant inside a minimal macOS demo.
     The demo records a short voice turn, transcribes it locally with Vox, generates a reply on device, and speaks the answer back out loud.
@@ -28,36 +36,68 @@ actor QwenFallbackService {
     """
 
     private let session: URLSession
+    private let port: Int
     private var serverProcess: Process?
     private var stdoutPipe: Pipe?
     private var stderrPipe: Pipe?
+    private var lastStartupFailure: String?
 
     init() {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 180
         configuration.timeoutIntervalForResource = 600
         session = URLSession(configuration: configuration)
+        port = Self.allocatePort(preferred: Self.preferredPort)
+    }
+
+    deinit {
+        serverProcess?.terminate()
     }
 
     func availability() async -> QwenFallbackAvailability {
         guard canUseUV() else {
             return QwenFallbackAvailability(
+                state: .unavailable,
                 isAvailable: false,
                 message: "Install uv to enable the local Qwen fallback."
             )
         }
 
         if await isServerReady() {
+            lastStartupFailure = nil
             return QwenFallbackAvailability(
+                state: .ready,
                 isAvailable: true,
                 message: "\(Self.displayName) ready."
             )
         }
 
+        if let serverProcess, serverProcess.isRunning {
+            return QwenFallbackAvailability(
+                state: .warming,
+                isAvailable: true,
+                message: "\(Self.displayName) is warming up in the background."
+            )
+        }
+
+        if let lastStartupFailure, !lastStartupFailure.isEmpty {
+            return QwenFallbackAvailability(
+                state: .cold,
+                isAvailable: true,
+                message: "\(Self.displayName) can retry. Last startup failed: \(lastStartupFailure)"
+            )
+        }
+
         return QwenFallbackAvailability(
+            state: .cold,
             isAvailable: true,
             message: "\(Self.displayName) is available as the local fallback."
         )
+    }
+
+    func warmupIfNeeded() async throws -> QwenFallbackAvailability {
+        try await ensureServerRunning()
+        return await availability()
     }
 
     func generateReply(for transcript: String) async throws -> QwenFallbackReply {
@@ -69,7 +109,7 @@ actor QwenFallbackService {
         try await ensureServerRunning()
 
         let startedAt = Date()
-        var request = URLRequest(url: Self.baseURL.appendingPathComponent("v1/chat/completions"))
+        var request = URLRequest(url: baseURL.appendingPathComponent("v1/chat/completions"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(ChatCompletionRequest(
@@ -106,9 +146,31 @@ actor QwenFallbackService {
     }
 
     private func ensureServerRunning() async throws {
+        var attempts = 0
+        var lastError: Error?
+
+        while attempts < 2 {
+            attempts += 1
+            do {
+                try await ensureServerRunningOnce()
+                lastStartupFailure = nil
+                return
+            } catch {
+                lastError = error
+                lastStartupFailure = error.localizedDescription
+                clearStoppedProcess()
+            }
+        }
+
+        throw lastError ?? QwenFallbackError.startupTimedOut
+    }
+
+    private func ensureServerRunningOnce() async throws {
         if await isServerReady() {
             return
         }
+
+        clearStoppedProcess()
 
         if let serverProcess, serverProcess.isRunning {
             try await waitUntilReady()
@@ -129,7 +191,7 @@ actor QwenFallbackService {
             "mlx_lm.server",
             "--model", Self.modelId,
             "--host", Self.host,
-            "--port", String(Self.port),
+            "--port", String(port),
             "--chat-template-args", #"{"enable_thinking":false}"#,
             "--temp", "0.7",
             "--top-p", "0.8",
@@ -155,6 +217,7 @@ actor QwenFallbackService {
     private func waitUntilReady() async throws {
         for _ in 0..<240 {
             if await isServerReady() {
+                lastStartupFailure = nil
                 return
             }
 
@@ -169,7 +232,7 @@ actor QwenFallbackService {
     }
 
     private func isServerReady() async -> Bool {
-        var request = URLRequest(url: Self.baseURL.appendingPathComponent("v1/models"))
+        var request = URLRequest(url: baseURL.appendingPathComponent("v1/models"))
         request.timeoutInterval = 2
 
         do {
@@ -201,6 +264,52 @@ actor QwenFallbackService {
             let data = handle.availableData
             if data.isEmpty {
                 handle.readabilityHandler = nil
+            }
+        }
+    }
+
+    private func clearStoppedProcess() {
+        guard let serverProcess, !serverProcess.isRunning else { return }
+        self.serverProcess = nil
+        stdoutPipe = nil
+        stderrPipe = nil
+    }
+
+    private var baseURL: URL {
+        URL(string: "http://\(Self.host):\(port)")!
+    }
+
+    private static func allocatePort(preferred: Int) -> Int {
+        if canBind(port: preferred) {
+            return preferred
+        }
+
+        for candidate in (preferred + 1)...(preferred + 40) {
+            if canBind(port: candidate) {
+                return candidate
+            }
+        }
+
+        return preferred
+    }
+
+    private static func canBind(port: Int) -> Bool {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        guard fd >= 0 else { return false }
+        defer { close(fd) }
+
+        var reuse: Int32 = 1
+        _ = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
+
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_port = in_port_t(UInt16(port).bigEndian)
+        address.sin_addr = in_addr(s_addr: inet_addr(Self.host))
+
+        return withUnsafePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
+                bind(fd, sockaddrPointer, socklen_t(MemoryLayout<sockaddr_in>.size)) == 0
             }
         }
     }

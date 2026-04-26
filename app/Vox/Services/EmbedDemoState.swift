@@ -6,25 +6,10 @@ import VoxCore
 import VoxEngine
 
 private enum EmbedDemoConfig {
-    static let ttsModelId = "mlx-community/Kokoro-82M-bf16"
+    static let ttsModelId = VoxKokoroTTS.modelID
 
     static func makeTTSEngine() -> TTSEngineManager {
-        TTSEngineManager(provider: TTSProviderRegistry(config: ProvidersConfig(providers: [
-            ProviderEntry(
-                id: "mlx-audio",
-                kind: .tts,
-                builtin: true,
-                models: [ttsModelId],
-                env: mlxAudioEnvironment()
-            )
-        ])))
-    }
-
-    static func mlxAudioEnvironment() -> [String: String] {
-        [
-            "VOX_MLX_AUDIO_USE_UV": "1",
-            "VOX_MLX_AUDIO_TTS_MODELS": ttsModelId,
-        ]
+        VoxKokoroTTS.makeEngine()
     }
 }
 
@@ -193,7 +178,7 @@ final class EmbedDemoState: ObservableObject {
                     loadedVoices.first(where: \.isDefault)?.id ?? loadedVoices.first?.id
             }
         } catch {
-            speechStatus = mlxttsStatus(for: error)
+            speechStatus = localTTSStatus(for: error)
         }
     }
 
@@ -216,7 +201,7 @@ final class EmbedDemoState: ObservableObject {
         }
     }
 
-    private func mlxttsStatus(for error: Error) -> String {
+    private func localTTSStatus(for error: Error) -> String {
         let message = error.localizedDescription
         if message.localizedCaseInsensitiveContains("mlx-audio is not installed") {
             return message
@@ -226,7 +211,7 @@ final class EmbedDemoState: ObservableObject {
             || message.localizedCaseInsensitiveContains("provider process is not running")
         {
             return
-                "MLX TTS needs uv on PATH so Vox can launch the Kokoro provider environment."
+                "Kokoro TTS needs uv on PATH so Vox can launch the local speech provider environment."
         }
 
         return message

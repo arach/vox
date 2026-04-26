@@ -14,6 +14,13 @@ public actor TTSProviderRegistry: TTSProvider {
                 switch entry.id.lowercased() {
                 case "avspeech", "avspeechsynthesizer", "apple-tts", "system-tts":
                     provider = AVSpeechSynthesizerProvider()
+                case "kokoro", "vox-kokoro", "local-kokoro":
+                    do {
+                        provider = try KokoroTTSProvider(id: entry.id, additionalEnv: entry.env ?? [:])
+                    } catch {
+                        log.error("Skipping builtin TTS provider \(entry.id): \(error.localizedDescription)")
+                        continue
+                    }
                 case "openai", "openai-tts":
                     provider = OpenAITTSProvider(env: entry.env)
                 case "mlx-audio", "mlx_audio", "mlx-audio-tts", "mlx_audio_tts":

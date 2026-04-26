@@ -24,6 +24,7 @@ import {
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
 const SWIFT_ROOT = join(REPO_ROOT, "swift");
 const DAEMON_BINARY = join(SWIFT_ROOT, ".build", "debug", "voxd");
+const KOKORO_MODEL_ID = "mlx-community/Kokoro-82M-bf16";
 
 async function main(argv: string[]): Promise<void> {
   const [command, subcommand, ...rest] = argv;
@@ -226,6 +227,43 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
 }
 
 async function handleSpeak(subcommand: string | undefined, rest: string[]): Promise<void> {
+  if (subcommand === "bootstrap") {
+    const args = rest;
+    const modelId = readOption(args, "--model") ?? KOKORO_MODEL_ID;
+
+    await withClient(async (client) => {
+      let status = await client.startWarmup(modelId);
+      printWarmupStatus(status);
+
+      if (status.state === "ready") {
+        return;
+      }
+
+      if (status.state === "failed") {
+        throw new Error(status.lastError ?? `Failed to warm ${modelId}`);
+      }
+
+      console.log("waiting: local TTS warmup");
+      const deadline = Date.now() + 5 * 60_000;
+
+      while (Date.now() < deadline) {
+        await Bun.sleep(500);
+        status = await client.getWarmupStatus(modelId);
+        if (status.state === "ready") {
+          printWarmupStatus(status);
+          return;
+        }
+        if (status.state === "failed") {
+          printWarmupStatus(status);
+          throw new Error(status.lastError ?? `Failed to warm ${modelId}`);
+        }
+      }
+
+      throw new Error(`Timed out waiting for ${modelId} warmup to finish.`);
+    });
+    return;
+  }
+
   if (subcommand === "bench") {
     const args = rest;
     const modelId = readOption(args, "--model") ?? "avspeech:system";
@@ -978,6 +1016,7 @@ Usage:
   vox transcribe cancel [sessionId]
   vox transcribe live [--model <id>] [--timestamps]
   vox speak [--model <id>] [--voice <id>] [--output <path>] [--metrics] [--no-play] <text>
+  vox speak bootstrap [--model <id>]
   vox speak bench [--model <id>] [--voice <id>] <text> [runs]
   vox voices [list] [--model <id>]
   vox tui`);

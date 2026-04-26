@@ -38,6 +38,7 @@ func defaultTTSConfig() -> ProvidersConfig {
             builtin: true,
             models: [AVSpeechSynthesizerProvider.modelID]
         ),
+        VoxKokoroTTS.providerEntry(),
         ProviderEntry(
             id: "openai-tts",
             kind: .tts,

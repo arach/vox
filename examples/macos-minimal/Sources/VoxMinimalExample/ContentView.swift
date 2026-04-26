@@ -94,6 +94,8 @@ struct ContentView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             StatusChip(title: model.asrStateTitle, icon: asrStatusIcon, tint: asrStatusTint)
+                            StatusChip(title: model.ttsStateTitle, icon: ttsStatusIcon, tint: ttsStatusTint)
+                            StatusChip(title: model.qwenStateTitle, icon: qwenStatusIcon, tint: qwenStatusTint)
                             FeatureChip(title: model.responseEngineName, icon: "sparkles")
                             FeatureChip(title: model.microphoneStatus, icon: "mic.circle")
                         }
@@ -115,9 +117,11 @@ struct ContentView: View {
     private var onboardingHero: some View {
         VStack(spacing: 18) {
             HStack(spacing: 8) {
+                responseEnginePicker
                 FeatureChip(title: model.responseEngineName, icon: "sparkles")
                 StatusChip(title: model.asrStateTitle, icon: asrStatusIcon, tint: asrStatusTint)
-                FeatureChip(title: model.ttsModel?.backend ?? "mlx-audio", icon: "speaker.wave.2.fill")
+                StatusChip(title: model.ttsStateTitle, icon: ttsStatusIcon, tint: ttsStatusTint)
+                StatusChip(title: model.qwenStateTitle, icon: qwenStatusIcon, tint: qwenStatusTint)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -198,6 +202,15 @@ struct ContentView: View {
                     .buttonStyle(.borderless)
                     .foregroundStyle(asrStatusTint)
                     .disabled(model.isRecording || model.isWorking || model.isWarmingASR)
+                }
+
+                if !model.ttsReadyInMemory {
+                    Button(model.isWarmingTTS ? "Warming Kokoro..." : "Warm Kokoro") {
+                        model.warmTTS()
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(ttsStatusTint)
+                    .disabled(model.isRecording || model.isWorking || model.isWarmingTTS)
                 }
 
                 if model.hasPendingImportedClip {
@@ -295,6 +308,10 @@ struct ContentView: View {
                         }
                     )
                 )
+
+                if let errorView = errorBanner {
+                    errorView
+                }
             }
         }
         .padding(22)
@@ -422,6 +439,15 @@ struct ContentView: View {
                         .disabled(model.isRecording || model.isWorking || model.isWarmingASR)
                     }
 
+                    if !model.ttsReadyInMemory {
+                        Button(model.isWarmingTTS ? "Warming Kokoro..." : "Warm Kokoro") {
+                            model.warmTTS()
+                        }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(ttsStatusTint)
+                        .disabled(model.isRecording || model.isWorking || model.isWarmingTTS)
+                    }
+
                     Button("Import Audio") {
                         model.chooseAudioFile()
                     }
@@ -443,6 +469,7 @@ struct ContentView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
+                    responseEnginePicker
                     if let modelInfo = model.ttsModel {
                         FeatureChip(title: modelInfo.name, icon: "speaker.wave.2.fill")
                     }
@@ -456,13 +483,15 @@ struct ContentView: View {
                     }
 
                     FeatureChip(title: model.asrStateDetail, icon: "mic.circle")
+                    FeatureChip(title: model.ttsStateDetail, icon: "speaker.wave.2")
+                    FeatureChip(title: model.qwenStateDetail, icon: "cpu")
                     FeatureChip(title: model.responseEngineStatus, icon: "sparkles")
-
-                    if let error = model.lastErrorMessage, !error.isEmpty {
-                        WarningChip(title: error)
-                    }
                 }
                 .padding(.horizontal, 2)
+            }
+
+            if let errorView = errorBanner {
+                errorView
             }
         }
         .padding(20)
@@ -489,15 +518,41 @@ struct ContentView: View {
                 }
 
                 FeatureChip(title: model.microphoneStatus, icon: "mic.circle")
+                responseEnginePicker
                 FeatureChip(title: model.responseEngineName, icon: "sparkles")
                 FeatureChip(title: model.asrStateDetail, icon: "waveform")
-
-                if let error = model.lastErrorMessage, !error.isEmpty {
-                    WarningChip(title: error)
-                }
+                FeatureChip(title: model.ttsStateDetail, icon: "speaker.wave.2")
+                FeatureChip(title: model.qwenStateDetail, icon: "cpu")
             }
             .padding(.horizontal, 2)
         }
+    }
+
+    private var errorBanner: AnyView? {
+        guard let detail = model.lastErrorMessage, !detail.isEmpty else { return nil }
+        return AnyView(
+            ErrorBanner(
+                title: model.lastErrorTitle ?? "Something went wrong",
+                detail: detail
+            )
+        )
+    }
+
+    private var responseEnginePicker: some View {
+        Picker(
+            "Reply Engine",
+            selection: Binding(
+                get: { model.responseEnginePreference },
+                set: { model.setResponseEnginePreference($0) }
+            )
+        ) {
+            ForEach(ResponseEnginePreference.allCases) { preference in
+                Text(preference.label).tag(preference)
+            }
+        }
+        .pickerStyle(.menu)
+        .labelsHidden()
+        .frame(width: 96)
     }
 
     private var selectedVoice: TTSVoiceInfo? {
@@ -625,6 +680,46 @@ struct ContentView: View {
         return .secondary
     }
 
+    private var ttsStatusIcon: String {
+        if model.isWarmingTTS {
+            return "arrow.triangle.2.circlepath"
+        }
+        if model.ttsReadyInMemory {
+            return "checkmark.circle.fill"
+        }
+        return "speaker.wave.2.fill"
+    }
+
+    private var ttsStatusTint: Color {
+        if model.isWarmingTTS {
+            return .orange
+        }
+        if model.ttsReadyInMemory {
+            return .green
+        }
+        return .secondary
+    }
+
+    private var qwenStatusIcon: String {
+        if model.isWarmingQwen {
+            return "arrow.triangle.2.circlepath"
+        }
+        if model.qwenReady {
+            return "checkmark.circle.fill"
+        }
+        return "cpu.fill"
+    }
+
+    private var qwenStatusTint: Color {
+        if model.isWarmingQwen {
+            return .orange
+        }
+        if model.qwenReady {
+            return .green
+        }
+        return .secondary
+    }
+
     private var replyMetricItems: [(String, String)] {
         var items: [(String, String)] = []
 
@@ -675,6 +770,41 @@ private struct WarningChip: View {
                 Capsule(style: .continuous)
                     .strokeBorder(Color.red.opacity(0.18), lineWidth: 1)
             )
+    }
+}
+
+private struct ErrorBanner: View {
+    let title: String
+    let detail: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.headline)
+                .foregroundStyle(.red)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.red.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.red.opacity(0.16), lineWidth: 1)
+        )
     }
 }
 

@@ -200,7 +200,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
         bridge.handle("doctor.run") { [weak self] _, reply in
             guard let self else { return }
             Task {
-                let report = await self.makeDoctorReport()
+                let report = await self.performDoctorRun()
                 reply(report.dictionaryValue(), nil)
             }
         }
@@ -708,7 +708,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
         }
     }
 
-    private func makeDoctorReport() async -> DoctorReport {
+    func performDoctorRun(kokoroChecks: [DoctorCheck]? = nil) async -> DoctorReport {
         let runtimeExists = ((try? RuntimeRegistry.read()) != nil)
         let asrModels = await asrEngine.models()
         let asrModel = asrModels.first
@@ -720,7 +720,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
             DoctorCheck(name: "backend", status: (asrModel?.available ?? false) ? "ok" : "error", detail: (asrModel?.available ?? false) ? "Parakeet available" : "Parakeet unavailable"),
             DoctorCheck(name: "model", status: (asrModel?.installed ?? false) ? "ok" : "warning", detail: (asrModel?.installed ?? false) ? "Parakeet model installed" : "Parakeet model not installed"),
             DoctorCheck(name: "synthesis", status: (ttsModel?.available ?? false) ? "ok" : "warning", detail: (ttsModel?.available ?? false) ? "\(ttsModel?.name ?? "TTS") available" : "Speech synthesis unavailable")
-        ]
+        ] + (kokoroChecks ?? VoxKokoroPreflight.doctorChecks())
 
         return DoctorReport(ready: checks.allSatisfy { $0.status != "error" }, checks: checks)
     }

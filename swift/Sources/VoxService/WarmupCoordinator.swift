@@ -96,6 +96,10 @@ actor WarmupCoordinator {
     }
 
     func status(modelId: String, requestedBy: String? = nil) async -> WarmupStatus {
+        if let record = records[modelId], record.state != .idle {
+            return snapshot(modelId: modelId, fallbackRequestedBy: requestedBy)
+        }
+
         if await isModelPreloaded(modelId: modelId) {
             var record = records[modelId] ?? Record()
             record.state = .ready
