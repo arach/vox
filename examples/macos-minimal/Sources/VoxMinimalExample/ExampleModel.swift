@@ -226,6 +226,9 @@ final class ExampleModel: ObservableObject {
         responseEnginePreference = preference
         Task {
             await refreshResponseEngineAvailability()
+            if preference == .qwen {
+                await warmQwenIfNeeded(userInitiated: true)
+            }
         }
     }
 
@@ -510,6 +513,10 @@ final class ExampleModel: ObservableObject {
             qwenReady = true
             qwenStateTitle = "Qwen ready"
             qwenStateDetail = availability.message
+        case .warming:
+            qwenReady = false
+            qwenStateTitle = "Qwen warming"
+            qwenStateDetail = availability.message
         case .cold:
             qwenReady = false
             qwenStateTitle = isWarmingQwen ? "Qwen warming" : "Qwen cold"
@@ -524,15 +531,21 @@ final class ExampleModel: ObservableObject {
     private func warmQwenInBackgroundIfNeeded() async {
         guard !hasStartedQwenWarmup else { return }
         hasStartedQwenWarmup = true
+        await warmQwenIfNeeded(userInitiated: false)
+    }
 
+    private func warmQwenIfNeeded(userInitiated: Bool) async {
         let availability = await QwenFallbackService.shared.availability()
         applyQwenAvailability(availability)
 
         guard availability.isAvailable, availability.state != .ready else { return }
+        guard !isWarmingQwen else { return }
 
         isWarmingQwen = true
         qwenStateTitle = "Qwen warming"
-        qwenStateDetail = "Starting \(QwenFallbackService.displayName) in the background."
+        qwenStateDetail = userInitiated
+            ? "Starting \(QwenFallbackService.displayName) for the next reply."
+            : "Starting \(QwenFallbackService.displayName) in the background."
         defer { isWarmingQwen = false }
 
         do {
@@ -543,6 +556,7 @@ final class ExampleModel: ObservableObject {
             qwenReady = false
             qwenStateTitle = "Qwen unavailable"
             qwenStateDetail = error.localizedDescription
+            await refreshResponseEngineAvailability()
         }
     }
 
@@ -596,7 +610,12 @@ final class ExampleModel: ObservableObject {
         responseEngineStatus = availability.message
         applyQwenAvailability(availability.qwen)
 
-        if availability.preferredEngineName == QwenFallbackService.displayName {
+        if responseEnginePreference == .qwen || availability.preferredEngineName == QwenFallbackService.displayName {
+            await warmQwenIfNeeded(userInitiated: true)
+            let refreshedAvailability = await ResponseEngineService.availability(preference: responseEnginePreference)
+            responseEngineName = refreshedAvailability.preferredEngineName
+            responseEngineStatus = refreshedAvailability.message
+            applyQwenAvailability(refreshedAvailability.qwen)
             statusMessage = "Starting \(QwenFallbackService.displayName)..."
             speechStatus = statusMessage
         }
