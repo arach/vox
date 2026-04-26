@@ -266,6 +266,69 @@ public struct WordTiming: Sendable, Equatable {
     }
 }
 
+public struct SpeakerSegment: Sendable, Equatable {
+    public let speakerId: String
+    public let start: Double
+    public let end: Double
+    public let confidence: Float?
+
+    public init(speakerId: String, start: Double, end: Double, confidence: Float? = nil) {
+        self.speakerId = speakerId
+        self.start = start
+        self.end = end
+        self.confidence = confidence
+    }
+
+    public func dictionaryValue() -> [String: Any] {
+        [
+            "speakerId": speakerId,
+            "start": start,
+            "end": end,
+            "confidence": confidence ?? NSNull()
+        ]
+    }
+}
+
+public struct AttributedWordTiming: Sendable, Equatable {
+    public let word: String
+    public let start: Double
+    public let end: Double
+    public let confidence: Float
+    public let speakerId: String?
+
+    public init(
+        word: String,
+        start: Double,
+        end: Double,
+        confidence: Float,
+        speakerId: String? = nil
+    ) {
+        self.word = word
+        self.start = start
+        self.end = end
+        self.confidence = confidence
+        self.speakerId = speakerId
+    }
+
+    public init(wordTiming: WordTiming, speakerId: String? = nil) {
+        self.word = wordTiming.word
+        self.start = wordTiming.start
+        self.end = wordTiming.end
+        self.confidence = wordTiming.confidence
+        self.speakerId = speakerId
+    }
+
+    public func dictionaryValue() -> [String: Any] {
+        [
+            "word": word,
+            "start": start,
+            "end": end,
+            "confidence": confidence,
+            "speakerId": speakerId ?? NSNull()
+        ]
+    }
+}
+
 public struct TranscriptionOutput: Sendable, Equatable {
     public let modelId: String
     public let text: String
@@ -288,6 +351,42 @@ public struct TranscriptionOutput: Sendable, Equatable {
             "elapsedMs": elapsedMs,
             "metrics": metrics.dictionaryValue(),
             "words": words.map { $0.dictionaryValue() }
+        ]
+    }
+}
+
+public struct AnnotationOutput: Sendable, Equatable {
+    public let modelId: String
+    public let text: String?
+    public let elapsedMs: Int
+    public let metrics: AnnotationMetrics
+    public let words: [AttributedWordTiming]
+    public let speakers: [SpeakerSegment]
+
+    public init(
+        modelId: String,
+        text: String? = nil,
+        elapsedMs: Int,
+        metrics: AnnotationMetrics,
+        words: [AttributedWordTiming] = [],
+        speakers: [SpeakerSegment] = []
+    ) {
+        self.modelId = modelId
+        self.text = text
+        self.elapsedMs = elapsedMs
+        self.metrics = metrics
+        self.words = words
+        self.speakers = speakers
+    }
+
+    public func dictionaryValue() -> [String: Any] {
+        [
+            "modelId": modelId,
+            "text": text ?? NSNull(),
+            "elapsedMs": elapsedMs,
+            "metrics": metrics.dictionaryValue(),
+            "words": words.map { $0.dictionaryValue() },
+            "speakers": speakers.map { $0.dictionaryValue() }
         ]
     }
 }
@@ -448,6 +547,130 @@ public struct TranscriptionMetrics: Codable, Sendable, Equatable {
             modelCheckMs: modelCheckMs,
             modelLoadMs: modelLoadMs,
             inferenceMs: inferenceMs,
+            totalMs: totalMs,
+            inputBytes: inputBytes,
+            fileCheckMs: fileCheckMs,
+            audioLoadMs: audioLoadMs,
+            audioPrepareMs: audioPrepareMs
+        )
+    }
+}
+
+public struct AnnotationMetrics: Codable, Sendable, Equatable {
+    public let traceId: String
+    public let audioDurationMs: Int
+    public let inputBytes: Int
+    public let wasPreloaded: Bool
+    public let fileCheckMs: Int
+    public let modelCheckMs: Int
+    public let modelLoadMs: Int
+    public let audioLoadMs: Int
+    public let audioPrepareMs: Int
+    public let diarizationMs: Int
+    public let totalMs: Int
+
+    public init(
+        traceId: String,
+        audioDurationMs: Int,
+        inputBytes: Int,
+        wasPreloaded: Bool,
+        fileCheckMs: Int,
+        modelCheckMs: Int,
+        modelLoadMs: Int,
+        audioLoadMs: Int,
+        audioPrepareMs: Int,
+        diarizationMs: Int,
+        totalMs: Int
+    ) {
+        self.traceId = traceId
+        self.audioDurationMs = audioDurationMs
+        self.inputBytes = inputBytes
+        self.wasPreloaded = wasPreloaded
+        self.fileCheckMs = fileCheckMs
+        self.modelCheckMs = modelCheckMs
+        self.modelLoadMs = modelLoadMs
+        self.audioLoadMs = audioLoadMs
+        self.audioPrepareMs = audioPrepareMs
+        self.diarizationMs = diarizationMs
+        self.totalMs = totalMs
+    }
+
+    public var realtimeFactor: Double {
+        guard audioDurationMs > 0 else { return 0 }
+        return Double(diarizationMs) / Double(audioDurationMs)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case traceId
+        case audioDurationMs
+        case inputBytes
+        case wasPreloaded
+        case fileCheckMs
+        case modelCheckMs
+        case modelLoadMs
+        case audioLoadMs
+        case audioPrepareMs
+        case diarizationMs
+        case totalMs
+        case realtimeFactor
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        traceId = try container.decode(String.self, forKey: .traceId)
+        audioDurationMs = try container.decode(Int.self, forKey: .audioDurationMs)
+        inputBytes = try container.decode(Int.self, forKey: .inputBytes)
+        wasPreloaded = try container.decode(Bool.self, forKey: .wasPreloaded)
+        fileCheckMs = try container.decode(Int.self, forKey: .fileCheckMs)
+        modelCheckMs = try container.decode(Int.self, forKey: .modelCheckMs)
+        modelLoadMs = try container.decode(Int.self, forKey: .modelLoadMs)
+        audioLoadMs = try container.decode(Int.self, forKey: .audioLoadMs)
+        audioPrepareMs = try container.decode(Int.self, forKey: .audioPrepareMs)
+        diarizationMs = try container.decode(Int.self, forKey: .diarizationMs)
+        totalMs = try container.decode(Int.self, forKey: .totalMs)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(traceId, forKey: .traceId)
+        try container.encode(audioDurationMs, forKey: .audioDurationMs)
+        try container.encode(inputBytes, forKey: .inputBytes)
+        try container.encode(wasPreloaded, forKey: .wasPreloaded)
+        try container.encode(fileCheckMs, forKey: .fileCheckMs)
+        try container.encode(modelCheckMs, forKey: .modelCheckMs)
+        try container.encode(modelLoadMs, forKey: .modelLoadMs)
+        try container.encode(audioLoadMs, forKey: .audioLoadMs)
+        try container.encode(audioPrepareMs, forKey: .audioPrepareMs)
+        try container.encode(diarizationMs, forKey: .diarizationMs)
+        try container.encode(totalMs, forKey: .totalMs)
+        try container.encode(realtimeFactor, forKey: .realtimeFactor)
+    }
+
+    public func dictionaryValue() -> [String: Any] {
+        [
+            "traceId": traceId,
+            "audioDurationMs": audioDurationMs,
+            "inputBytes": inputBytes,
+            "wasPreloaded": wasPreloaded,
+            "fileCheckMs": fileCheckMs,
+            "modelCheckMs": modelCheckMs,
+            "modelLoadMs": modelLoadMs,
+            "audioLoadMs": audioLoadMs,
+            "audioPrepareMs": audioPrepareMs,
+            "diarizationMs": diarizationMs,
+            "totalMs": totalMs,
+            "realtimeFactor": realtimeFactor
+        ]
+    }
+
+    public var performanceMetrics: PerformanceMetrics {
+        PerformanceMetrics(
+            traceId: traceId,
+            audioDurationMs: audioDurationMs,
+            wasPreloaded: wasPreloaded,
+            modelCheckMs: modelCheckMs,
+            modelLoadMs: modelLoadMs,
+            inferenceMs: diarizationMs,
             totalMs: totalMs,
             inputBytes: inputBytes,
             fileCheckMs: fileCheckMs,
