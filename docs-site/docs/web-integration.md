@@ -1,6 +1,8 @@
-# Web Integration
+# Web Integration (Companion Client)
 
-`@voxd/client` adds local transcription to web apps and browser extensions. It talks to the Vox Companion on the user's Mac over a local HTTP bridge. No server needed.
+> For Apple apps, embed Vox's Swift packages directly. For Bun/Node companion clients, use [`@voxd/sdk`](./sdk.md) instead — it connects to `voxd` over local WebSocket JSON-RPC.
+
+`@voxd/client` adds local transcription to web apps and browser extensions. Talks to the Vox Companion on the user's Mac over a local HTTP bridge. No server needed.
 
 This browser client is STT / alignment focused today. For TTS, use the companion-facing TypeScript SDK or the CLI.
 
@@ -33,7 +35,7 @@ if (await client.probe()) {
 
 ## Discovery
 
-Call `probe()` on page load. It hits `127.0.0.1:43115/health` with a short timeout and returns `true` or `false`. Fails silently when the companion is not installed.
+Call `probe()` on page load. It hits the companion's health endpoint with a short timeout and returns `true` or `false`. Fails silently when the companion is not installed.
 
 ```ts
 const client = createVoxdClient();
@@ -178,7 +180,7 @@ try {
 
 ## HTTP bridge reference
 
-The companion listens on `http://127.0.0.1:43115`. These endpoints are what `@voxd/client` calls under the hood.
+The companion HTTP bridge listens on `http://127.0.0.1:43115` by default (the `companion-http` port, configurable via `host` and `port` options). These endpoints are what `@voxd/client` calls under the hood.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
@@ -192,15 +194,25 @@ The companion listens on `http://127.0.0.1:43115`. These endpoints are what `@vo
 | `POST` | `/live/stop` | Origin | Stop a live session and get final transcript |
 | `POST` | `/live/cancel` | Origin | Cancel a live session without transcribing |
 
-**Origin gating:** All endpoints except `/health` check the `Origin` header against an allowlist. Vox ships with `https://uselinea.com` and `https://www.uselinea.com` enabled. Users can add origins in Vox settings. Integrations can drop JSON files like `{"origins":["https://app.example.com"]}` into `~/.vox/origins.d/`. Vox merges all origin sources. For local dev, wildcard ports work on loopback hosts (`http://localhost:*`).
+**Origin gating:** All endpoints except `/health` require a valid `Origin` header. Vox ships with built-in origins for first-party apps. Add your own in Vox settings, or drop a JSON file into `~/.vox/origins.d/`:
+
+```json
+{"origins":["https://app.example.com"]}
+```
+
+Vox merges all origin sources. Wildcard ports work on loopback hosts (`http://localhost:*`).
 
 ## Configuration
 
 ```ts
 const client = createVoxdClient({
-  port: 43115,          // default
-  baseUrl: "http://127.0.0.1:43115", // or use this instead of port
+  host: "127.0.0.1",   // default — override for non-loopback setups
+  port: 43115,          // override the `companion-http` bridge port
+  baseUrl: "http://...",// overrides host + port when set
+  clientId: "my-app",   // stable identity for telemetry
   probeTimeout: 2000,   // ms before probe gives up
   pollInterval: 500,    // ms between job status polls
 });
 ```
+
+On the daemon side, set `VOX_PORT`, `VOX_BRIDGE_PORT`, or `VOX_HOST` environment variables to override defaults. `VOX_BRIDGE_PORT` controls the `companion-http` bridge, while `VOX_PORT` controls the underlying `companion-ws` daemon.

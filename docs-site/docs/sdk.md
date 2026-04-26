@@ -1,6 +1,8 @@
-# SDK
+# SDK (Companion Client)
 
-`packages/client/` -- connects to the local runtime, manages models, voices, and warm-up, transcribes files, synthesizes speech, creates live sessions, and returns stage metrics.
+> Apple apps on macOS and iOS can embed Vox's Swift packages directly. `@voxd/sdk` is the TypeScript client for Bun/Node tools and other companion-connected integrations that connect to `voxd` over local WebSocket JSON-RPC. For web apps or browser extensions, use [`@voxd/client`](./web-integration.md) instead — it talks to Vox Companion over HTTP.
+
+`packages/client/` -- connects to `voxd` when you want out-of-process access to models, voices, warm-up, transcription, synthesis, and stage metrics.
 
 ## Example
 
@@ -22,6 +24,7 @@ const speech = await client.synthesize("Hello from Vox", {
 
 console.log(transcript.text);
 console.log(transcript.metrics?.inferenceMs);
+console.log(transcript.words);
 console.log(speech.audioBytes);
 console.log(speech.metrics?.synthesisMs);
 
@@ -81,9 +84,50 @@ interface SynthesisResult {
 }
 ```
 
+## Error handling
+
+All client methods throw when `voxd` is unreachable, the model isn't installed, or a transcription or synthesis request fails. Errors are plain `Error` instances, so check `message` for a human-readable description.
+
+```ts
+try {
+  const result = await client.transcribeFile("/tmp/audio.wav");
+} catch (err) {
+  // Common causes:
+  // - Companion not running: start with `vox daemon start`
+  // - Model not installed: run `vox models install` first
+  // - Voice mismatch: inspect `client.listVoices(modelId)`
+  // - Request failed: daemon logs have details (`vox logs daemon`)
+  console.error(err.message);
+}
+```
+
+For live sessions, call `session.cancel()` in a `finally` block to ensure the microphone is always released:
+
+```ts
+const session = await client.createLiveSession();
+try {
+  // ...use session
+} finally {
+  await session.cancel();
+}
+```
+
+## Configuration
+
+```ts
+const client = new VoxClient({
+  clientId: "menu-bar",    // stable identity for telemetry
+  port: 42137,             // override the `companion-ws` daemon port
+  host: "127.0.0.1",       // override daemon host
+});
+```
+
+On the daemon side, set `VOX_PORT` or `VOX_HOST` environment variables to override defaults. `VOX_PORT` controls the `companion-ws` daemon port discovered from `~/.vox/runtime.json`.
+
 ## Integration advice
 
-- use a stable `clientId` per product surface such as `menu-bar`, `browser-extension`, or `vox-cli`
+- embed Swift directly for macOS and iOS apps; use `@voxd/sdk` when you want Vox Companion access from JS or tooling
+- use a stable `clientId` per product surface — `menu-bar`, `browser-extension`, `vox-cli`
 - warm on intent, not on every keystroke
 - call `listVoices(modelId)` before pinning a TTS voice in product code
 - benchmark with representative audio clips and read `inferenceMs` separately from `totalMs`

@@ -16,6 +16,8 @@ vox doctor       # expect ready: true
 
 If you are running from a repo checkout instead of a global install, replace `vox` with `bun packages/cli/src/index.ts`.
 
+If you are building a browser client, pair the local companion with `@voxd/client` and the [Web Integration Guide](./web-integration.md).
+
 ## Speech to text
 
 ```bash
@@ -70,4 +72,4 @@ If you are integrating Vox into a macOS or iOS app, read the [Swift Embed Guide]
 
 If you are wiring external STT or TTS engines into Vox Companion, read the [Provider Protocol](./providers.md).
 
-Try the [sample app](https://github.com/arach/vox/tree/main/examples/transcribe-tui) -- a terminal transcription tool that connects to the runtime, warms the model, and shows timing bars for each file.
+Try the [minimal macOS demo app](https://github.com/arach/vox/tree/main/examples/macos-minimal) for the current Apple embed reference, or the [transcribe TUI](https://github.com/arach/vox/tree/main/examples/transcribe-tui) for a companion-connected terminal sample.

@@ -5,9 +5,17 @@ Vox is a local-first voice stack for Apple platforms, built as a Bun + SwiftPM m
 - `VoxCore`, `VoxEngine`, `VoxService`, and `VoxBridge` -- embeddable Swift packages for macOS and iOS apps.
 - `voxd` -- Vox Companion, the Swift daemon for web-facing, shared-process, and operator integrations.
 - `@voxd/sdk` -- TypeScript SDK. Typed JSON-RPC client for Vox Companion integrations.
+- `@voxd/client` -- Browser SDK. HTTP bridge client for local web integrations.
 - `vox` -- Bun CLI. Health checks, benchmarks, warm-up scheduling, dashboards.
 
-Apple apps can embed Vox directly. Web, browser, and shared local tooling can connect to `voxd` over the same voice surface.
+Apple apps can embed Vox directly. Bun and Node tools can connect to `voxd` over local WebSocket JSON-RPC. Browser clients can connect through the companion HTTP bridge with `@voxd/client`.
+
+## Pick a surface
+
+- Build a native Apple app: start with `VoxCore`, `VoxEngine`, `VoxService`, and `VoxBridge`.
+- Build a local tool or companion-connected service: start with `voxd` plus `@voxd/sdk`.
+- Build a browser integration: start with `@voxd/client` plus the local bridge path.
+- Operate or benchmark Vox itself: start with the `vox` CLI.
 
 ## Get Going Fast
 
@@ -61,6 +69,7 @@ bun packages/cli/src/index.ts transcribe file /path/to/audio.wav
 If you are writing a local client, start in:
 
 - `packages/client/` for the TypeScript SDK
+- `packages/web-client/` for the browser SDK
 - `swift/` for direct Apple embed mode
 
 ### c. demo
@@ -88,10 +97,13 @@ Notes:
 - The app will ask for microphone access.
 - Apple Intelligence is optional for the demo, not required.
 
+The current standalone demo lives in `examples/macos-minimal/` and is the best reference app for the direct embed story.
+
 ## Layout
 
 - `swift/` contains `VoxCore`, `VoxEngine`, `VoxService`, and the `voxd` daemon.
 - `packages/client` contains the TypeScript SDK for talking to `voxd` over local WebSocket JSON-RPC.
+- `packages/web-client` contains the browser SDK for talking to the local HTTP bridge.
 - `packages/cli` contains the `vox` CLI.
 - `docs/` contains Dewey source docs.
 - `site/` contains the marketing site, docs route, and OG generation.

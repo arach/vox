@@ -29,6 +29,10 @@ Public protocol and SDK-facing type shapes.
 - `transcribe.stopSession`
 - `transcribe.cancelSession`
 
+### Annotation
+
+- `annotate.file`
+
 ### Synthesis
 
 - `synthesize.voices`
@@ -43,6 +47,7 @@ These fields are present on every performance sample recorded to `~/.vox/perform
 
 ```ts
 type PerformanceRoute =
+  | "annotate.file"
   | "transcribe.file"
   | "transcribe.live"
   | "synthesize.generate"
@@ -86,6 +91,7 @@ interface PerformanceMetrics {
 Current emitted performance routes:
 
 - `transcribe.file`
+- `annotate.file`
 - `transcribe.live`
 - `synthesize.generate`
 - `synthesize.startSession`
@@ -105,6 +111,7 @@ Current emitted performance routes:
 - `startWarmup()`
 - `scheduleWarmup()`
 - `transcribeFile()`
+- `annotateFile()`
 - `synthesize()`
 - `getLiveSessionStatus()`
 - `cancelLiveSession()`
@@ -128,6 +135,15 @@ Current emitted performance routes:
 - `audioBytes`
 - `elapsedMs`
 - `metrics`
+
+### `FileAnnotationResult`
+
+- `modelId`
+- `text`
+- `elapsedMs`
+- `metrics`
+- `words`
+- `speakers`
 
 ### `TranscriptionMetrics`
 
@@ -159,6 +175,21 @@ Current emitted performance routes:
 - `totalMs`
 - `realtimeFactor`
 
+### `AnnotationMetrics`
+
+- `traceId`
+- `audioDurationMs`
+- `inputBytes`
+- `wasPreloaded`
+- `fileCheckMs`
+- `modelCheckMs`
+- `modelLoadMs`
+- `audioLoadMs`
+- `audioPrepareMs`
+- `diarizationMs`
+- `totalMs`
+- `realtimeFactor`
+
 ## Interface shapes
 
 ```ts
@@ -183,6 +214,45 @@ interface FileTranscriptionResult {
   elapsedMs: number;
   metrics?: TranscriptionMetrics;
   words: WordTiming[];
+}
+
+interface SpeakerSegment {
+  speakerId: string;
+  start: number;
+  end: number;
+  confidence?: number | null;
+}
+
+interface AttributedWordTiming {
+  word: string;
+  start: number;
+  end: number;
+  confidence: number;
+  speakerId?: string | null;
+}
+
+interface AnnotationMetrics {
+  traceId: string;
+  audioDurationMs: number;
+  inputBytes: number;
+  wasPreloaded: boolean;
+  fileCheckMs: number;
+  modelCheckMs: number;
+  modelLoadMs: number;
+  audioLoadMs: number;
+  audioPrepareMs: number;
+  diarizationMs: number;
+  totalMs: number;
+  realtimeFactor: number;
+}
+
+interface FileAnnotationResult {
+  modelId: string;
+  text?: string;
+  elapsedMs: number;
+  metrics?: AnnotationMetrics;
+  words: AttributedWordTiming[];
+  speakers: SpeakerSegment[];
 }
 
 interface SynthesisOptions {

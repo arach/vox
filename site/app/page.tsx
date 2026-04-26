@@ -7,26 +7,82 @@ const featureCards = [
   {
     icon: AudioLines,
     idx: "01",
-    title: "FAST LOCAL INFERENCE",
-    body: "Parakeet is the fastest speech model on Apple Silicon — by far.",
+    title: "APPLE-NATIVE FIRST",
+    body: "Swift owns the embeddable engine surface. When an Apple app can keep speech local and in process, Vox is designed to let it do exactly that.",
   },
   {
     icon: Radar,
     idx: "02",
-    title: "INSTRUMENTATION FIRST",
-    body: "Every voice request carries stage timings and dimensions for clientId, route, modelId, and voiceId when relevant so operators can inspect real latency instead of guessing.",
+    title: "WARM-UP IS PART OF THE PRODUCT",
+    body: "Cold versus warm state is explicit. Apps and tools can schedule, inspect, and reason about model readiness instead of treating latency as a black box.",
   },
   {
     icon: Boxes,
     idx: "03",
-    title: "COMPANION MODE",
-    body: "Vox Companion serves browser integrations, local tools, and the CLI without duplicating warm models or splitting the voice stack.",
+    title: "COMPANION, NOT CLOUD",
+    body: "Vox Companion serves browser integrations, local tools, and the CLI on the same machine, without pretending every voice workflow needs a remote backend.",
   },
   {
     icon: Waypoints,
     idx: "04",
-    title: "ONE PROTOCOL SURFACE",
-    body: "Swift packages for embed mode, plus Bun and TypeScript clients for companion mode, all aligned around the same warm-up and telemetry semantics.",
+    title: "ONE STACK, SEVERAL SURFACES",
+    body: "Swift packages for embed mode, plus `voxd`, `@voxd/sdk`, `@voxd/client`, and `@voxd/cli` for companion mode, all aligned around the same telemetry and lifecycle semantics.",
+  },
+];
+
+const surfaceCards = [
+  {
+    eyebrow: "Swift packages",
+    title: "VoxCore · VoxEngine · VoxService · VoxBridge",
+    body: "The Apple-native embed surface for apps that want speech in process, with explicit warm-up and observable runtime behavior.",
+    href: "/docs/overview",
+    cta: "Open the overview",
+  },
+  {
+    eyebrow: "Companion runtime",
+    title: "voxd",
+    body: "The local daemon that stays warm for shared-process clients and gives tools a stable WebSocket JSON-RPC runtime to talk to.",
+    href: "/docs/runtime",
+    cta: "Read runtime docs",
+  },
+  {
+    eyebrow: "Bun and Node SDK",
+    title: "@voxd/sdk",
+    body: "Typed companion client for local tools, agents, and app-side operator flows that want direct access to the daemon surface.",
+    href: "/docs/sdk",
+    cta: "See the SDK",
+  },
+  {
+    eyebrow: "Browser SDK",
+    title: "@voxd/client",
+    body: "HTTP bridge client for browser apps that need local speech without pretending the browser owns the runtime.",
+    href: "/web",
+    cta: "Explore the web SDK",
+  },
+  {
+    eyebrow: "Operator CLI",
+    title: "@voxd/cli",
+    body: "Doctor, voices, benchmarks, warm-up controls, and dashboards for the people actually operating the stack.",
+    href: "/docs/quickstart",
+    cta: "Quickstart",
+  },
+];
+
+const relatedProjects = [
+  {
+    name: "Talklie",
+    href: "https://usetalklie.com",
+    body: "A related product path in the Vox orbit.",
+  },
+  {
+    name: "Linea",
+    href: "https://uselinea.com",
+    body: "Another native client direction built around the same local-first ideas.",
+  },
+  {
+    name: "Lattices",
+    href: "https://lattices.dev",
+    body: "Adjacent infrastructure work for agentic local workflows.",
   },
 ];
 
@@ -49,6 +105,9 @@ export default function Home() {
             </Link>
             <Link href="/blog" className="px-3 py-1.5 transition-colors hover:text-ink">
               Blog
+            </Link>
+            <Link href="#surfaces" className="px-3 py-1.5 transition-colors hover:text-ink">
+              Packages
             </Link>
             <Link href="#companion" className="px-3 py-1.5 transition-colors hover:text-ink">
               Companion
@@ -87,13 +146,11 @@ export default function Home() {
           <div className="grid gap-16 lg:grid-cols-[1.4fr_0.6fr] lg:items-end lg:gap-20">
             <div>
               <h1 className="max-w-[18ch] font-sans text-[clamp(2rem,5vw,3.5rem)] font-light leading-[1.1] tracking-[-0.03em]">
-                One engine for{" "}
-                <em className="font-display italic text-ink">all</em>{" "}
-                your voice apps.
+                Apple-first local voice stack for apps, companions, and tools.
               </h1>
 
               <p className="mt-8 max-w-md text-[15px] leading-8 text-secondary">
-                Got tired of rebuilding local voice plumbing for every app, so I made Vox. Embed it in macOS and iOS apps, or run Vox Companion for web surfaces, local tools, and shared voice workflows.
+                Vox ships as real surfaces: Swift packages for direct Apple embed mode, `voxd` for the warm companion runtime, `@voxd/sdk` for local tools, `@voxd/client` for browser apps, and a CLI for operators.
               </p>
 
               <div className="mt-12 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
@@ -114,9 +171,9 @@ export default function Home() {
               </div>
 
               <div className="mt-8">
-                <CopyCommand command="bun add -g @voxd/client@latest" />
+                <CopyCommand command="bun add -g @voxd/cli@latest" />
                 <p className="mt-2 font-mono text-[10px] tracking-wide text-muted">
-                  or npm i / pnpm add / yarn add
+                  fastest path to a local runtime, doctor, warm-up, and benchmarks
                 </p>
               </div>
             </div>
@@ -142,10 +199,41 @@ export default function Home() {
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         <div className="flex items-center gap-4 font-mono text-[9px] uppercase tracking-[0.2em] text-muted">
           <div className="h-px flex-1 bg-line" />
-          <span>TWO FIRST-CLASS VOX MODES</span>
+          <span>REAL SURFACES, NOT JUST A SLOGAN</span>
           <div className="h-px flex-1 bg-line" />
         </div>
       </div>
+
+      <section id="surfaces" className="px-6 py-20 sm:px-8 sm:py-24 lg:px-12">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-14 sm:mb-16">
+            <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">PACKAGES</p>
+            <h2 className="max-w-[18ch] font-display text-3xl italic leading-tight tracking-[-0.03em] sm:text-5xl lg:text-6xl">
+              Vox is a stack with named entry points, not a blob.
+            </h2>
+            <p className="mt-6 max-w-2xl text-[15px] leading-7 text-secondary">
+              The same point of view shows up in different forms depending on where the voice work lives: in-process Swift, the local companion, the browser bridge, or operator tooling.
+            </p>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            {surfaceCards.map((card) => (
+              <article key={card.title} className="rounded-none border border-line bg-panel p-6">
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">{card.eyebrow}</p>
+                <h3 className="mt-4 text-lg font-semibold tracking-tight text-ink">{card.title}</h3>
+                <p className="mt-3 text-[14px] leading-7 text-secondary">{card.body}</p>
+                <Link
+                  href={card.href}
+                  className="group mt-5 inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted transition-colors hover:text-ink"
+                >
+                  {card.cta}
+                  <ArrowUpRight className="h-3 w-3 opacity-40 transition-all group-hover:opacity-70 group-hover:-translate-y-px group-hover:translate-x-px" />
+                </Link>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Runtime pillars — ruled list */}
       <section id="companion" className="px-6 py-20 sm:px-8 sm:py-28 lg:px-12">
@@ -163,6 +251,35 @@ export default function Home() {
                 <h3 className="font-mono text-[12px] font-medium tracking-[0.08em] text-ink">{title}</h3>
                 <p className="col-start-2 text-[14px] leading-7 text-secondary sm:col-start-3">{body}</p>
               </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-line px-6 py-20 sm:px-8 sm:py-24 lg:px-12">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-12">
+            <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">RELATED PROJECTS</p>
+            <h2 className="max-w-[18ch] font-display text-3xl italic leading-tight tracking-[-0.03em] sm:text-4xl lg:text-5xl">
+              Vox is part of a broader local-first product family.
+            </h2>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            {relatedProjects.map((project) => (
+              <Link
+                key={project.name}
+                href={project.href}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="group rounded-none border border-line bg-panel p-6 transition-colors hover:border-line-strong hover:bg-wave"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">{project.name}</span>
+                  <ArrowUpRight className="h-3.5 w-3.5 text-muted transition-all group-hover:text-ink group-hover:-translate-y-px group-hover:translate-x-px" />
+                </div>
+                <p className="mt-4 text-[14px] leading-7 text-secondary">{project.body}</p>
+                <p className="mt-4 font-mono text-[10px] tracking-[0.14em] text-muted">{project.href.replace("https://", "")}</p>
+              </Link>
             ))}
           </div>
         </div>

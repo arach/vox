@@ -8,10 +8,12 @@ order: 35
 
 Vox separates the runtime (mic capture, sessions, routing, telemetry, playback handoff) from the speech engine. Engines are called _providers_ -- external processes or built-in bridges that speak JSON-RPC over stdin/stdout.
 
+Provider configuration plugs directly into the companion runtime's install, preload, and route-dispatch flow. Read [Runtime](./runtime.md) alongside this spec if you want the full daemon-side picture.
+
 Providers can serve either:
 
-- ASR / STT -- accept audio and return text
-- TTS -- accept text and return audio
+- ASR / STT — accept audio and return text
+- TTS — accept text and return audio
 
 Built-in providers include:
 

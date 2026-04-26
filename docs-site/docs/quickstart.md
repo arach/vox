@@ -6,16 +6,17 @@
 - Bun
 - Swift 6.2+
 
-## Clone, build, verify
+## Install and verify
 
 ```bash
-git clone https://github.com/arach/vox.git && cd vox
-bun install && bun run build
+bun add -g @voxd/cli
 vox daemon start
 vox doctor       # expect ready: true
 ```
 
-If you are running from a repo checkout without a global install, replace `vox` with `bun packages/cli/src/index.ts`.
+If you are running from a repo checkout instead of a global install, replace `vox` with `bun packages/cli/src/index.ts`.
+
+If you are building a browser client, pair the local companion with `@voxd/client` and the [Web Integration Guide](./web-integration.md).
 
 ## Speech to text
 
@@ -41,7 +42,7 @@ vox speak bench --model avspeech:system "Hello from Vox" 5
 
 For non-Parakeet ASR or non-system TTS, add entries to `~/.vox/providers.json` and then pass the returned model ID with `--model`.
 
-The [Provider Protocol](/docs/providers/) includes built-in `mlx-audio` examples for both STT and TTS.
+The [Provider Protocol](./providers.md) includes built-in `mlx-audio` examples for both STT and TTS.
 
 ## Measure and inspect
 
@@ -51,7 +52,7 @@ vox logs daemon --tail 80
 vox transcribe status
 ```
 
-`perf dashboard` shows latency samples by client, route, and model.
+`perf dashboard` shows latency samples by client, route, and model. Use `logs daemon` and `transcribe status` when a live session gets stuck or the mic is busy.
 
 ## Common failure cases
 
@@ -67,8 +68,8 @@ vox transcribe status
 
 ## Next steps
 
-If you are integrating Vox into a macOS or iOS app, read the [Swift Embed Guide](/docs/apple-embed/).
+If you are integrating Vox into a macOS or iOS app, read the [Swift Embed Guide](./apple-embed.md).
 
-If you are wiring external STT or TTS engines into Vox Companion, read the [Provider Protocol](/docs/providers/).
+If you are wiring external STT or TTS engines into Vox Companion, read the [Provider Protocol](./providers.md).
 
-Try the [sample app](https://github.com/arach/vox/tree/main/examples/transcribe-tui) -- a terminal transcription tool that connects to the runtime, warms the model, and shows timing bars for each file.
+Try the [minimal macOS demo app](https://github.com/arach/vox/tree/main/examples/macos-minimal) for the current Apple embed reference, or the [transcribe TUI](https://github.com/arach/vox/tree/main/examples/transcribe-tui) for a companion-connected terminal sample.

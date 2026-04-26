@@ -2,10 +2,10 @@
 
 ## Core Flow
 
-1. A client connects to `voxd` over local WebSocket JSON-RPC.
+1. A companion-connected client connects to `voxd` over local WebSocket JSON-RPC, or reaches it indirectly through the local HTTP bridge.
 2. The runtime resolves health, model state, and optional warm-up state.
-3. The client triggers file transcription, a live ASR session, one-shot synthesis, or a synthesis session.
-4. `VoxEngine` resolves the right ASR or TTS provider and returns transcript text, word timings, or WAV bytes plus stage metrics.
+3. The client triggers file transcription, file annotation, a live ASR session, one-shot synthesis, or a synthesis session.
+4. `VoxEngine` resolves the right ASR, annotation, or TTS provider and returns transcript text, speaker attribution, word timings, or WAV bytes plus stage metrics.
 5. The runtime records a tagged performance sample to `~/.vox/performance.jsonl`.
 6. The daemon appends operational logs to `~/.vox/logs/voxd.log`.
 
@@ -22,6 +22,12 @@ Typical pattern: create a `VoxClient` with a stable `clientId`, warm when the us
 ## File Transcription
 
 `transcribe.file` is best for benchmarks because it takes mic capture out of the measurement. Returns transcript text, word-level timestamps, `modelId`, elapsed time, and stage metrics.
+
+## File Annotation
+
+`annotate.file` is the file-first speaker annotation route. It accepts an audio path plus optional transcript text and word timings, and returns speaker segments, speaker-attributed words, and annotation metrics.
+
+The route is scaffolded now so evaluation harnesses and future diarization backends can share one contract even before the default annotation backend lands.
 
 ## Synthesis
 
@@ -48,6 +54,7 @@ Longer-running output flows use:
 The runtime exposes these RPC routes:
 
 - `transcribe.file`
+- `annotate.file`
 - `transcribe.startSession`
 - `transcribe.sessionStatus`
 - `transcribe.stopSession`
@@ -66,6 +73,7 @@ The runtime exposes these RPC routes:
 These are the route values currently emitted into `performance.jsonl`:
 
 - `transcribe.file`
+- `annotate.file`
 - `transcribe.live`
 - `synthesize.generate`
 - `synthesize.startSession`
