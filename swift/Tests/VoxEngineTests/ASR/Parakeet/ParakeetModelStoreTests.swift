@@ -88,6 +88,35 @@ struct ParakeetModelStoreTests {
         #expect(await recorder.downloadCount() == 0)
     }
 
+    @Test("Parakeet model store reuses legacy directory names without re-downloading")
+    func ensureInstalledReusesLegacyDirectoryName() async throws {
+        let tempDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let manifest = ParakeetModelManifest.v3
+        let recorder = DownloadRecorder()
+        let store = ParakeetModelStore(
+            manifest: manifest,
+            downloader: MockDownloader { _, _, _ in
+                await recorder.recordDownload()
+            },
+            preferredModelsRootDirectory: tempDirectory
+        )
+
+        let legacyDirectory = tempDirectory.appendingPathComponent(
+            manifest.legacyCacheDirectoryNames[0],
+            isDirectory: true
+        )
+        try writeInstalledArtifacts(for: manifest, to: legacyDirectory)
+
+        let installed = try await store.ensureInstalled { _ in }
+
+        #expect(installed == legacyDirectory)
+        #expect(await recorder.downloadCount() == 0)
+    }
+
     @Test("Parakeet model store downloads missing artifacts into Vox's preferred cache root")
     func ensureInstalledDownloadsToPreferredRoot() async throws {
         let tempDirectory = FileManager.default.temporaryDirectory

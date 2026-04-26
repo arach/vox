@@ -1,8 +1,5 @@
 @preconcurrency import CoreML
 import Foundation
-#if canImport(FluidAudio)
-import FluidAudio
-#endif
 
 struct ParakeetModelURLs: Sendable {
     let preprocessor: URL
@@ -76,19 +73,3 @@ struct ParakeetModelLoader: Sendable {
         return configuration
     }
 }
-
-#if canImport(FluidAudio)
-extension ParakeetLoadedModels {
-    func asrModels(version: AsrModelVersion = .v3) -> AsrModels {
-        AsrModels(
-            encoder: encoder,
-            preprocessor: preprocessor,
-            decoder: decoder,
-            joint: joint,
-            configuration: configuration,
-            vocabulary: vocabulary,
-            version: version
-        )
-    }
-}
-#endif

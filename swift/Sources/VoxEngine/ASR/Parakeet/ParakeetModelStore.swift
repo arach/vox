@@ -1,7 +1,4 @@
 import Foundation
-#if canImport(FluidAudio)
-import FluidAudio
-#endif
 import VoxCore
 
 struct ParakeetModelManifest: Sendable {
@@ -42,7 +39,7 @@ struct ParakeetModelStore: Sendable {
 
     init(
         manifest: ParakeetModelManifest = .v3,
-        downloader: any ParakeetModelArtifactDownloader = FluidAudioParakeetArtifactDownloader(),
+        downloader: any ParakeetModelArtifactDownloader = VoxParakeetArtifactDownloader(),
         preferredModelsRootDirectory: URL? = nil
     ) {
         self.manifest = manifest
@@ -61,8 +58,7 @@ struct ParakeetModelStore: Sendable {
 
         return RuntimePaths.voxHomeURL()
             .appendingPathComponent("cache", isDirectory: true)
-            .appendingPathComponent("FluidAudio", isDirectory: true)
-            .appendingPathComponent("Models", isDirectory: true)
+            .appendingPathComponent("models", isDirectory: true)
     }
 
     func preferredInstallDirectory(fileManager: FileManager = .default) -> URL {
@@ -95,6 +91,10 @@ struct ParakeetModelStore: Sendable {
 
         let roots = [
             preferredModelsRootDirectory(fileManager: fileManager),
+            RuntimePaths.voxHomeURL()
+                .appendingPathComponent("cache", isDirectory: true)
+                .appendingPathComponent("FluidAudio", isDirectory: true)
+                .appendingPathComponent("Models", isDirectory: true),
             cacheDirectory?
                 .appendingPathComponent("FluidAudio", isDirectory: true)
                 .appendingPathComponent("Models", isDirectory: true),
@@ -176,58 +176,96 @@ protocol ParakeetModelArtifactDownloader: Sendable {
     ) async throws
 }
 
-struct FluidAudioParakeetArtifactDownloader: ParakeetModelArtifactDownloader {
+struct VoxParakeetArtifactDownloader: ParakeetModelArtifactDownloader {
+    private let log = VoxLog.engine
+
     func download(
         manifest: ParakeetModelManifest,
         to modelsRootDirectory: URL,
         progress: @escaping @Sendable (ModelProgress) -> Void
     ) async throws {
-        #if canImport(FluidAudio)
-        try await DownloadUtils.downloadRepo(
-            manifest.fluidAudioRepository,
-            to: modelsRootDirectory
-        ) { update in
-            progress(Self.modelProgress(for: manifest, update: update))
-        }
-        #else
-        throw NSError(domain: "VoxEngine", code: 105, userInfo: [
-            NSLocalizedDescriptionKey: "FluidAudio is unavailable in this build."
-        ])
-        #endif
-    }
+        log.info("Downloading \(manifest.cacheDirectoryName) from model registry")
 
-    #if canImport(FluidAudio)
-    private static func modelProgress(
-        for manifest: ParakeetModelManifest,
-        update: DownloadUtils.DownloadProgress
-    ) -> ModelProgress {
-        let status: String
-        switch update.phase {
-        case .listing:
-            status = "listing"
-        case .downloading(let completedFiles, let totalFiles):
-            if totalFiles > 0 {
-                status = "downloading \(completedFiles)/\(totalFiles)"
-            } else {
-                status = "downloading"
+        let installDirectory = modelsRootDirectory.appendingPathComponent(
+            manifest.cacheDirectoryName,
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: installDirectory, withIntermediateDirectories: true)
+
+        let requiredDirectoryPrefixes = manifest.requiredModelFiles.map { "\($0)/" }
+        let metadataFiles: Set<String> = [manifest.vocabularyFile, "config.json"]
+        var filesToDownload: [(path: String, size: Int)] = []
+
+        func shouldProcessDirectory(_ itemPath: String) -> Bool {
+            requiredDirectoryPrefixes.contains { prefix in
+                itemPath == String(prefix.dropLast())
+                    || itemPath.hasPrefix(prefix)
+                    || prefix.hasPrefix(itemPath + "/")
             }
-        case .compiling(let modelName):
-            status = "compiling \(modelName)"
         }
 
-        let scaledProgress = min(max((update.fractionCompleted * 0.7) + 0.1, 0.1), 0.75)
-        return ModelProgress(modelId: manifest.modelId, progress: scaledProgress, status: status)
-    }
-    #endif
-}
-
-#if canImport(FluidAudio)
-private extension ParakeetModelManifest {
-    var fluidAudioRepository: Repo {
-        guard let repository = Repo(rawValue: repositoryFolderName) else {
-            preconditionFailure("Unsupported FluidAudio repository: \(repositoryFolderName)")
+        func shouldIncludeFile(_ itemPath: String) -> Bool {
+            metadataFiles.contains(itemPath)
+                || requiredDirectoryPrefixes.contains { itemPath.hasPrefix($0) }
         }
-        return repository
+
+        func listDirectory(path: String) async throws {
+            let items = try await VoxModelHub.listDirectory(
+                repoPath: manifest.repositoryFolderName,
+                path: path
+            )
+            for item in items {
+                guard let itemPath = item["path"] as? String,
+                      let itemType = item["type"] as? String else {
+                    continue
+                }
+
+                if itemType == "directory" {
+                    if shouldProcessDirectory(itemPath) {
+                        try await listDirectory(path: itemPath)
+                    }
+                } else if itemType == "file", shouldIncludeFile(itemPath) {
+                    let fileSize = item["size"] as? Int ?? -1
+                    filesToDownload.append((path: itemPath, size: fileSize))
+                }
+            }
+        }
+
+        progress(ModelProgress(modelId: manifest.modelId, progress: 0.1, status: "listing"))
+        try await listDirectory(path: "")
+        filesToDownload.sort { $0.path < $1.path }
+
+        for (index, file) in filesToDownload.enumerated() {
+            let destinationURL = installDirectory.appendingPathComponent(file.path)
+            try await VoxModelHub.downloadFile(
+                repoPath: manifest.repositoryFolderName,
+                remotePath: file.path,
+                to: destinationURL
+            )
+
+            let fraction = filesToDownload.isEmpty ? 1.0 : Double(index + 1) / Double(filesToDownload.count)
+            let scaledProgress = min(max((fraction * 0.7) + 0.1, 0.1), 0.8)
+            progress(
+                ModelProgress(
+                    modelId: manifest.modelId,
+                    progress: scaledProgress,
+                    status: "downloading \(index + 1)/\(filesToDownload.count)"
+                )
+            )
+        }
+
+        for requiredModel in manifest.requiredModelFiles {
+            let modelPath = installDirectory.appendingPathComponent(requiredModel)
+            guard FileManager.default.fileExists(atPath: modelPath.path) else {
+                throw VoxModelHubError.modelNotFound(path: requiredModel)
+            }
+        }
+
+        let vocabularyPath = installDirectory.appendingPathComponent(manifest.vocabularyFile)
+        guard FileManager.default.fileExists(atPath: vocabularyPath.path) else {
+            throw VoxModelHubError.modelNotFound(path: manifest.vocabularyFile)
+        }
+
+        log.info("Downloaded all required artifacts for \(manifest.cacheDirectoryName)")
     }
 }
-#endif
