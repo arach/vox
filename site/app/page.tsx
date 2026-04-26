@@ -7,26 +7,26 @@ const featureCards = [
   {
     icon: AudioLines,
     idx: "01",
-    title: "APPLE-NATIVE FIRST",
-    body: "Swift owns the embeddable engine surface. When an Apple app can keep speech local and in process, Vox is designed to let it do exactly that.",
+    title: "APPLE APPS",
+    body: "Swift owns the embed surface. If an Apple app can keep speech local and in process, Vox lets it do that.",
   },
   {
     icon: Radar,
     idx: "02",
     title: "WARM-UP IS PART OF THE PRODUCT",
-    body: "Cold versus warm state is explicit. Apps and tools can schedule, inspect, and reason about model readiness instead of treating latency as a black box.",
+    body: "Cold and warm state stay visible. Apps and tools can schedule, inspect, and reason about model readiness instead of guessing where the delay comes from.",
   },
   {
     icon: Boxes,
     idx: "03",
     title: "COMPANION, NOT CLOUD",
-    body: "Vox Companion serves browser integrations, local tools, and the CLI on the same machine, without pretending every voice workflow needs a remote backend.",
+    body: "Vox Companion serves browser integrations, local tools, and the CLI on the same machine. You do not need to turn every voice workflow into a cloud service.",
   },
   {
     icon: Waypoints,
     idx: "04",
-    title: "ONE STACK, SEVERAL SURFACES",
-    body: "Swift packages for embed mode, plus `voxd`, `@voxd/sdk`, `@voxd/client`, and `@voxd/cli` for companion mode, all aligned around the same telemetry and lifecycle semantics.",
+    title: "SHARED SURFACES",
+    body: "Swift packages, `voxd`, `@voxd/sdk`, `@voxd/client`, and `@voxd/cli` all share the same runtime ideas, telemetry, and lifecycle semantics.",
   },
 ];
 
@@ -34,35 +34,35 @@ const surfaceCards = [
   {
     eyebrow: "Swift packages",
     title: "VoxCore · VoxEngine · VoxService · VoxBridge",
-    body: "The Apple-native embed surface for apps that want speech in process, with explicit warm-up and observable runtime behavior.",
+    body: "The embed surface for Apple apps that want speech in process, with explicit warm-up and easy-to-follow runtime behavior.",
     href: "/docs/overview",
     cta: "Open the overview",
   },
   {
     eyebrow: "Companion runtime",
     title: "voxd",
-    body: "The local daemon that stays warm for shared-process clients and gives tools a stable WebSocket JSON-RPC runtime to talk to.",
+    body: "The local daemon that stays warm for shared-process clients and gives tools a steady WebSocket JSON-RPC runtime to talk to.",
     href: "/docs/runtime",
     cta: "Read runtime docs",
   },
   {
     eyebrow: "Bun and Node SDK",
     title: "@voxd/sdk",
-    body: "Typed companion client for local tools, agents, and app-side operator flows that want direct access to the daemon surface.",
+    body: "Typed companion client for local tools, agents, and app-side flows that want direct access to the daemon surface.",
     href: "/docs/sdk",
     cta: "See the SDK",
   },
   {
     eyebrow: "Browser SDK",
     title: "@voxd/client",
-    body: "HTTP bridge client for browser apps that need local speech without pretending the browser owns the runtime.",
+    body: "HTTP bridge client for browser apps that need local speech while keeping the runtime on the same machine.",
     href: "/web",
     cta: "Explore the web SDK",
   },
   {
     eyebrow: "Operator CLI",
     title: "@voxd/cli",
-    body: "Doctor, voices, benchmarks, warm-up controls, and dashboards for the people actually operating the stack.",
+    body: "Doctor, voices, benchmarks, warm-up controls, and dashboards for day-to-day work with the stack.",
     href: "/docs/quickstart",
     cta: "Quickstart",
   },
@@ -72,17 +72,17 @@ const relatedProjects = [
   {
     name: "Talklie",
     href: "https://usetalklie.com",
-    body: "A related product path in the Vox orbit.",
+    body: "A related product built around the same local voice ideas.",
   },
   {
     name: "Linea",
     href: "https://uselinea.com",
-    body: "Another native client direction built around the same local-first ideas.",
+    body: "Another native client direction built around the same local-first approach.",
   },
   {
     name: "Lattices",
     href: "https://lattices.dev",
-    body: "Adjacent infrastructure work for agentic local workflows.",
+    body: "Related infrastructure work for local agent workflows.",
   },
 ];
 
@@ -146,11 +146,11 @@ export default function Home() {
           <div className="grid gap-16 lg:grid-cols-[1.4fr_0.6fr] lg:items-end lg:gap-20">
             <div>
               <h1 className="max-w-[18ch] font-sans text-[clamp(2rem,5vw,3.5rem)] font-light leading-[1.1] tracking-[-0.03em]">
-                Apple-first local voice stack for apps, companions, and tools.
+                Local voice runtime for Apple apps, companion clients, and tools.
               </h1>
 
               <p className="mt-8 max-w-md text-[15px] leading-8 text-secondary">
-                Vox ships as real surfaces: Swift packages for direct Apple embed mode, `voxd` for the warm companion runtime, `@voxd/sdk` for local tools, `@voxd/client` for browser apps, and a CLI for operators.
+                Vox provides Swift packages for direct Apple embed mode, `voxd` for the local companion runtime, `@voxd/sdk` for local tools, `@voxd/client` for browser apps, and a CLI for checks and benchmarks.
               </p>
 
               <div className="mt-12 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
@@ -173,7 +173,7 @@ export default function Home() {
               <div className="mt-8">
                 <CopyCommand command="bun add -g @voxd/cli@latest" />
                 <p className="mt-2 font-mono text-[10px] tracking-wide text-muted">
-                  fastest path to a local runtime, doctor, warm-up, and benchmarks
+                  a quick way to get a local runtime, doctor, warm-up, and benchmarks
                 </p>
               </div>
             </div>
@@ -199,7 +199,7 @@ export default function Home() {
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         <div className="flex items-center gap-4 font-mono text-[9px] uppercase tracking-[0.2em] text-muted">
           <div className="h-px flex-1 bg-line" />
-          <span>REAL SURFACES, NOT JUST A SLOGAN</span>
+          <span>PACKAGES AND RUNTIME</span>
           <div className="h-px flex-1 bg-line" />
         </div>
       </div>
@@ -209,10 +209,10 @@ export default function Home() {
           <div className="mb-14 sm:mb-16">
             <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">PACKAGES</p>
             <h2 className="max-w-[18ch] font-display text-3xl italic leading-tight tracking-[-0.03em] sm:text-5xl lg:text-6xl">
-              Vox is a stack with named entry points, not a blob.
+              Pick the surface that fits your app.
             </h2>
             <p className="mt-6 max-w-2xl text-[15px] leading-7 text-secondary">
-              The same point of view shows up in different forms depending on where the voice work lives: in-process Swift, the local companion, the browser bridge, or operator tooling.
+              The same runtime ideas show up in different forms depending on where the voice work lives: in-process Swift, the local companion, the browser bridge, or operator tooling.
             </p>
           </div>
 
@@ -261,7 +261,7 @@ export default function Home() {
           <div className="mb-12">
             <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">RELATED PROJECTS</p>
             <h2 className="max-w-[18ch] font-display text-3xl italic leading-tight tracking-[-0.03em] sm:text-4xl lg:text-5xl">
-              Vox is part of a broader local-first product family.
+              A few related projects.
             </h2>
           </div>
           <div className="grid gap-4 lg:grid-cols-3">
@@ -292,10 +292,10 @@ export default function Home() {
             <div>
               <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">OBSERVABILITY</p>
               <h2 className="max-w-[22ch] font-display text-3xl italic leading-tight tracking-[-0.03em] sm:text-5xl lg:text-6xl">
-                Measure what operators actually care about.
+                See where the time goes.
               </h2>
               <p className="mt-6 max-w-md text-[15px] leading-7 text-secondary">
-                Stage timings for every voice request. Slice by client, route, model, and voice.
+                Every voice request carries stage timings. Slice by client, route, model, and voice.
               </p>
               <div className="mt-8">
                 <CopyCommand command="vox tui" />
@@ -307,7 +307,7 @@ export default function Home() {
                 src="/tui-dashboard.png"
                 alt="Vox dashboard showing performance stats, per-client breakdown, and recent voice activity"
                 title="vox tui"
-                caption="Performance dashboard — per-client breakdown and recent voice activity at a glance."
+                caption="Performance dashboard with a per-client breakdown and recent voice activity."
                 className="relative"
               />
             </div>
@@ -321,7 +321,7 @@ export default function Home() {
           <div className="mb-16 sm:mb-20">
             <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">GET STARTED</p>
             <h2 className="max-w-[22ch] font-display text-3xl italic leading-tight tracking-[-0.03em] sm:text-5xl lg:text-6xl">
-              Install once, serve the web and local tools.
+              Get the companion running for the web and local tools.
             </h2>
             <p className="mt-6 max-w-lg text-[15px] leading-7 text-secondary">
               Apple apps can embed Vox directly. For browser and shared-process workflows, install the companion app or use the CLI so local web clients and tools can connect to the same warm Vox engine.
@@ -381,7 +381,7 @@ export default function Home() {
                 Open-source local voice stack for Apple platforms.
               </p>
               <p className="mt-1 font-mono text-[10px] tracking-wide text-muted">
-                Local-first. No cloud. No latency excuses.
+                Local-first. Built for Apple apps and companion clients.
               </p>
             </div>
             <div className="flex gap-6 font-mono text-[10px] uppercase tracking-[0.16em] text-muted">

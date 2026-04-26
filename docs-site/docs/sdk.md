@@ -1,8 +1,8 @@
 # SDK (Companion Client)
 
-> Apple apps on macOS and iOS can embed Vox's Swift packages directly. `@voxd/sdk` is the TypeScript client for Bun/Node tools and other companion-connected integrations that connect to `voxd` over local WebSocket JSON-RPC. For web apps or browser extensions, use [`@voxd/client`](./web-integration.md) instead — it talks to Vox Companion over HTTP.
+> Use `@voxd/sdk` when you want a Bun or Node tool to talk to `voxd` over local WebSocket JSON-RPC. For Apple apps, embed the Swift packages directly. For web apps or browser extensions, use [`@voxd/client`](./web-integration.md) instead.
 
-`packages/client/` -- connects to `voxd` when you want out-of-process access to models, voices, warm-up, transcription, synthesis, and stage metrics.
+`packages/client/` connects to `voxd` when you want out-of-process access to models, voices, warm-up, transcription, synthesis, and stage metrics.
 
 ## Example
 
@@ -127,7 +127,7 @@ On the daemon side, set `VOX_PORT` or `VOX_HOST` environment variables to overri
 ## Integration advice
 
 - embed Swift directly for macOS and iOS apps; use `@voxd/sdk` when you want Vox Companion access from JS or tooling
-- use a stable `clientId` per product surface — `menu-bar`, `browser-extension`, `vox-cli`
+- use a stable `clientId` per product surface such as `menu-bar`, `browser-extension`, or `vox-cli`
 - warm on intent, not on every keystroke
 - call `listVoices(modelId)` before pinning a TTS voice in product code
 - benchmark with representative audio clips and read `inferenceMs` separately from `totalMs`

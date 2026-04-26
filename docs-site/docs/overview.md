@@ -1,17 +1,17 @@
 # Vox Overview
 
-Vox is a local-first voice stack for macOS and iOS. It supports both speech-to-text (STT / ASR) and text-to-speech (TTS) in two first-class integration modes:
+Vox is a local-first voice stack for macOS and iOS. It supports both speech-to-text (STT / ASR) and text-to-speech (TTS), and you can use it in two main ways:
 
-- Embed mode — Apple apps link Vox's Swift packages directly and keep speech in and speech out in process.
-- Companion mode — `voxd` exposes the runtime over local WebSocket JSON-RPC, and `VoxBridge` / `voxbridge` exposes an HTTP bridge for browser clients when web or shared-process access is useful.
+- Embed mode: Apple apps link Vox's Swift packages directly and keep speech in and speech out in process.
+- Companion mode: `voxd` exposes the runtime over local WebSocket JSON-RPC, and `VoxBridge` / `voxbridge` exposes an HTTP bridge for browser clients when web or shared-process access is useful.
 
 Main surfaces:
 
-- Swift packages — `VoxCore`, `VoxEngine`, `VoxService`, `VoxBridge` for embedded Apple app integrations.
-- `voxd` — Vox Companion, the Swift daemon. Warm-up, telemetry, bridge transport, shared-process coordination.
-- `@voxd/sdk` — TypeScript SDK for Bun/Node and other companion-connected integrations. WebSocket JSON-RPC to `voxd`.
-- `@voxd/client` — Browser SDK. HTTP bridge to the Vox Companion for web apps.
-- `@voxd/cli` — Bun CLI. Health checks, model management, transcription, synthesis, voices, warm-up, and benchmarks.
+- Swift packages: `VoxCore`, `VoxEngine`, `VoxService`, `VoxBridge` for embedded Apple app integrations.
+- `voxd`: Vox Companion, the Swift daemon. Warm-up, telemetry, bridge transport, shared-process coordination.
+- `@voxd/sdk`: TypeScript SDK for Bun/Node and other companion-connected integrations. WebSocket JSON-RPC to `voxd`.
+- `@voxd/client`: Browser SDK. HTTP bridge to the Vox Companion for web apps.
+- `@voxd/cli`: Bun CLI. Health checks, model management, transcription, synthesis, voices, warm-up, and benchmarks.
 
 ## Which surface to reach for
 
@@ -22,22 +22,22 @@ Main surfaces:
 
 ## Why it exists
 
-Most voice stacks hide lifecycle, warm-up, and latency. Vox keeps them visible:
+Many voice stacks hide lifecycle, warm-up, and latency. Vox tries to keep those parts visible:
 
 - Model stays local
 - STT and TTS stay explicit runtime capabilities instead of hidden backend switches
 - Warm-up is an explicit API
 - Latency dimensions (`clientId`, `route`, `modelId`) are preserved
-- Runtime is observable from day one
+- Runtime stays easy to inspect from the start
 
 ## Repository layout
 
-- `swift/` — VoxCore, VoxEngine, VoxService, VoxBridge, voxd companion
-- `packages/client/` — `@voxd/sdk` (TypeScript SDK)
-- `packages/web-client/` — `@voxd/client` (browser SDK)
-- `packages/cli/` — `@voxd/cli` (Bun CLI)
-- `docs/` — Dewey source content
-- `site/` — website and docs UI
+- `swift/`: VoxCore, VoxEngine, VoxService, VoxBridge, voxd companion
+- `packages/client/`: `@voxd/sdk` (TypeScript SDK)
+- `packages/web-client/`: `@voxd/client` (browser SDK)
+- `packages/cli/`: `@voxd/cli` (Bun CLI)
+- `docs/`: Dewey source content
+- `site/`: website and docs UI
 
 ## Design principles
 
@@ -52,8 +52,8 @@ Apple app teams embed the Swift packages directly and keep the same provider, wa
 
 ## Reference implementations
 
-- `examples/macos-minimal/` is the best standalone reference for the direct Apple embed path.
-- `packages/client/` and `packages/web-client/` are the clearest companion-mode SDK surfaces in the repo.
+- `examples/macos-minimal/` is a good standalone reference for the direct Apple embed path.
+- `packages/client/` and `packages/web-client/` are good companion-mode SDK references in the repo.
 
 ## Workflows
 

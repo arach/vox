@@ -1,12 +1,12 @@
 # Vox
 
-Vox is a local-first voice stack for Apple platforms, built as a Bun + SwiftPM monorepo with two first-class deployment modes.
+Vox is a local-first voice stack for Apple platforms. This repo brings together the Swift runtime, the companion daemon, the TypeScript clients, and the CLI.
 
-- `VoxCore`, `VoxEngine`, `VoxService`, and `VoxBridge` -- embeddable Swift packages for macOS and iOS apps.
-- `voxd` -- Vox Companion, the Swift daemon for web-facing, shared-process, and operator integrations.
-- `@voxd/sdk` -- TypeScript SDK. Typed JSON-RPC client for Vox Companion integrations.
-- `@voxd/client` -- Browser SDK. HTTP bridge client for local web integrations.
-- `vox` -- Bun CLI. Health checks, benchmarks, warm-up scheduling, dashboards.
+- `VoxCore`, `VoxEngine`, `VoxService`, and `VoxBridge`: embeddable Swift packages for macOS and iOS apps.
+- `voxd`: Vox Companion, the Swift daemon for web-facing, shared-process, and operator integrations.
+- `@voxd/sdk`: TypeScript SDK. Typed JSON-RPC client for Vox Companion integrations.
+- `@voxd/client`: Browser SDK. HTTP bridge client for local web integrations.
+- `vox`: Bun CLI. Health checks, benchmarks, warm-up scheduling, dashboards.
 
 Apple apps can embed Vox directly. Bun and Node tools can connect to `voxd` over local WebSocket JSON-RPC. Browser clients can connect through the companion HTTP bridge with `@voxd/client`.
 
@@ -28,7 +28,7 @@ Requirements:
 
 ### a. dev
 
-If you are developing Vox itself:
+To work on Vox:
 
 ```bash
 git clone https://github.com/arach/vox.git
@@ -48,7 +48,7 @@ swift build --package-path swift
 
 ### b. client
 
-If you want to use Vox Companion locally from the CLI or SDK:
+To use Vox Companion locally from the CLI or SDK:
 
 ```bash
 git clone https://github.com/arach/vox.git
@@ -66,7 +66,7 @@ bun packages/cli/src/index.ts models preload parakeet:v3
 bun packages/cli/src/index.ts transcribe file /path/to/audio.wav
 ```
 
-If you are writing a local client, start in:
+If you are writing a local client, start here:
 
 - `packages/client/` for the TypeScript SDK
 - `packages/web-client/` for the browser SDK
@@ -74,7 +74,7 @@ If you are writing a local client, start in:
 
 ### c. demo
 
-If you want to run the standalone macOS demo app:
+To run the standalone macOS demo app:
 
 ```bash
 git clone https://github.com/arach/vox.git
@@ -97,7 +97,7 @@ Notes:
 - The app will ask for microphone access.
 - Apple Intelligence is optional for the demo, not required.
 
-The current standalone demo lives in `examples/macos-minimal/` and is the best reference app for the direct embed story.
+The current standalone demo lives in `examples/macos-minimal/` and is a good reference app for direct embed mode.
 
 ## Layout
 
@@ -126,7 +126,7 @@ bun run docs:generate
 
 Each transcription or synthesis request appends a tagged sample to `~/.vox/performance.jsonl` with `clientId`, `route`, `modelId`, and `voiceId` when applicable.
 
-You can answer: is the hot model fast? Which integration is regressing? Is latency in inference, audio prep, or cold runtime work?
+This lets you answer a few practical questions: is the hot model fast, which integration is regressing, and whether latency is in inference, audio prep, or cold runtime work.
 
 ### CLI
 

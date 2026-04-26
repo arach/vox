@@ -38,19 +38,19 @@ Daemon-side orchestration:
 
 ### TypeScript SDK
 
-`@voxd/sdk` — health, models, voices, warm-up, file transcription, synthesis, live sessions, metrics parsing.
+`@voxd/sdk`: health, models, voices, warm-up, file transcription, synthesis, live sessions, metrics parsing.
 
 ### Browser SDK
 
-`@voxd/client` — probe, transcribe, align, live sessions over the HTTP bridge.
+`@voxd/client`: probe, transcribe, align, live sessions over the HTTP bridge.
 
 ### Companion bridge
 
-`VoxBridge` / `voxbridge` — browser-facing HTTP bridge that proxies into the companion daemon while keeping the browser surface narrower than the underlying WebSocket RPC runtime.
+`VoxBridge` / `voxbridge`: browser-facing HTTP bridge that proxies into the companion daemon while keeping the browser surface narrower than the underlying WebSocket RPC runtime.
 
 ### CLI
 
-`@voxd/cli` — operator tool. Doctor, daemon lifecycle, model management, voices, transcription, synthesis, benchmarks, dashboards.
+`@voxd/cli`: operator tool. Doctor, daemon lifecycle, model management, voices, transcription, synthesis, benchmarks, dashboards.
 
 ## Ownership
 

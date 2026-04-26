@@ -1,8 +1,8 @@
 # Web Integration (Companion Client)
 
-> For Apple apps, embed Vox's Swift packages directly. For Bun/Node companion clients, use [`@voxd/sdk`](./sdk.md) instead — it connects to `voxd` over local WebSocket JSON-RPC.
+> For Apple apps, embed Vox's Swift packages directly. For Bun/Node companion clients, use [`@voxd/sdk`](./sdk.md) instead. It connects to `voxd` over local WebSocket JSON-RPC.
 
-`@voxd/client` adds local transcription to web apps and browser extensions. Talks to the Vox Companion on the user's Mac over a local HTTP bridge. No server needed.
+`@voxd/client` lets a web app or browser extension talk to Vox Companion on the user's Mac over a local HTTP bridge. No server required.
 
 This browser client is STT / alignment focused today. For TTS, use the companion-facing TypeScript SDK or the CLI.
 
@@ -117,9 +117,9 @@ const status = await client.getJob(jobId);
 // status.result?.alignment: { words, durationMs }
 ```
 
-## Graceful degradation
+## Fallbacks
 
-Vox Companion is a first-class deployment mode, but it will not be installed or running on every machine. Build your app to probe for it and degrade gracefully when it is unavailable.
+Vox Companion will not be installed or running on every machine. It helps to probe for it and keep a fallback path ready when it is unavailable.
 
 ```ts
 const client = createVoxdClient();
@@ -206,7 +206,7 @@ Vox merges all origin sources. Wildcard ports work on loopback hosts (`http://lo
 
 ```ts
 const client = createVoxdClient({
-  host: "127.0.0.1",   // default — override for non-loopback setups
+  host: "127.0.0.1",   // default; override for non-loopback setups
   port: 43115,          // override the `companion-http` bridge port
   baseUrl: "http://...",// overrides host + port when set
   clientId: "my-app",   // stable identity for telemetry
