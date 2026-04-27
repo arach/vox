@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
-import { existsSync, mkdirSync, readFileSync, rmSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { homedir } from "os";
 import { dirname, join, resolve } from "path";
 import { createInterface } from "readline";
 import {
@@ -24,6 +25,10 @@ import {
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
 const SWIFT_ROOT = join(REPO_ROOT, "swift");
 const DAEMON_BINARY = join(SWIFT_ROOT, ".build", "debug", "voxd");
+
+const LAUNCH_AGENT_LABEL = "com.vox.daemon";
+const PLIST_PATH = join(homedir(), "Library", "LaunchAgents", `${LAUNCH_AGENT_LABEL}.plist`);
+const LOGS_DIR = join(homedir(), ".vox", "logs");
 
 async function main(argv: string[]): Promise<void> {
   const [command, subcommand, ...rest] = argv;
@@ -61,6 +66,12 @@ async function main(argv: string[]): Promise<void> {
       return;
     case "tui":
       launchTui();
+      return;
+    case "install":
+      await handleInstall();
+      return;
+    case "uninstall":
+      await handleUninstall();
       return;
     case "help":
     case undefined:
@@ -961,10 +972,113 @@ function launchTui(): void {
   process.exit(proc.exitCode ?? 0);
 }
 
+async function handleInstall(): Promise<void> {
+  const voxdPath = resolveVoxdBinary();
+  if (!voxdPath) {
+    throw new Error(
+      "voxd binary not found. Install Vox.app from https://github.com/arach/vox/releases, " +
+      "or place voxd at ~/.vox/bin/voxd, or build it locally with `swift build --package-path swift --product voxd`."
+    );
+  }
+
+  mkdirSync(dirname(PLIST_PATH), { recursive: true });
+  mkdirSync(LOGS_DIR, { recursive: true });
+
+  writeFileSync(PLIST_PATH, buildLaunchAgentPlist(voxdPath), { mode: 0o644 });
+
+  // Defensive: bootout any prior copy so bootstrap is idempotent.
+  launchctl(["bootout", `gui/${process.getuid?.() ?? 501}/${LAUNCH_AGENT_LABEL}`], { allowFail: true });
+  const code = launchctl(["bootstrap", `gui/${process.getuid?.() ?? 501}`, PLIST_PATH]);
+  if (code !== 0) {
+    throw new Error(`launchctl bootstrap failed with exit code ${code}. Plist written to ${PLIST_PATH}.`);
+  }
+
+  console.log("Vox Companion installed, LaunchAgent registered");
+  console.log(`  plist: ${PLIST_PATH}`);
+  console.log(`  voxd:  ${voxdPath}`);
+  console.log(`  logs:  ${LOGS_DIR}`);
+}
+
+async function handleUninstall(): Promise<void> {
+  if (existsSync(PLIST_PATH)) {
+    launchctl(["bootout", `gui/${process.getuid?.() ?? 501}/${LAUNCH_AGENT_LABEL}`], { allowFail: true });
+    rmSync(PLIST_PATH, { force: true });
+    console.log("Vox Companion uninstalled, LaunchAgent removed");
+  } else {
+    console.log("Vox Companion is not installed (no plist found).");
+  }
+}
+
+function resolveVoxdBinary(): string | null {
+  const candidates = [
+    join(homedir(), ".vox", "bin", "voxd"),
+    "/Applications/Vox.app/Contents/Resources/voxd",
+    join(SWIFT_ROOT, ".build", "release", "voxd"),
+    DAEMON_BINARY,
+  ];
+  for (const path of candidates) {
+    if (existsSync(path)) return path;
+  }
+  const which = Bun.spawnSync(["/usr/bin/which", "voxd"]);
+  if (which.exitCode === 0) {
+    const found = new TextDecoder().decode(which.stdout).trim();
+    if (found && existsSync(found)) return found;
+  }
+  return null;
+}
+
+function buildLaunchAgentPlist(voxdPath: string): string {
+  const stdout = join(LOGS_DIR, "voxd.stdout.log");
+  const stderr = join(LOGS_DIR, "voxd.stderr.log");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${xmlEscape(LAUNCH_AGENT_LABEL)}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${xmlEscape(voxdPath)}</string>
+    <string>--port</string>
+    <string>${DEFAULT_PORT}</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>${xmlEscape(stdout)}</string>
+  <key>StandardErrorPath</key>
+  <string>${xmlEscape(stderr)}</string>
+</dict>
+</plist>
+`;
+}
+
+function xmlEscape(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function launchctl(args: string[], opts: { allowFail?: boolean } = {}): number {
+  const proc = Bun.spawnSync(["/bin/launchctl", ...args], {
+    stdout: "ignore",
+    stderr: opts.allowFail ? "ignore" : "inherit",
+  });
+  return proc.exitCode ?? 0;
+}
+
 function printUsage(): void {
   console.log(`Vox CLI
 
 Usage:
+  vox install
+  vox uninstall
   vox daemon start|stop|status
   vox doctor
   vox models list|install|preload [modelId]
