@@ -78,31 +78,6 @@ a {
   margin-bottom: 1rem;
 }
 
-/* VOX wordmark styling */
-.vox-wordmark {
-  font-family: var(--font-mono), monospace;
-  font-weight: 500;
-  font-size: clamp(1.25rem, 3vw, 2rem);
-  letter-spacing: -0.04em;
-  line-height: 0.85;
-}
-
-/* Ruled feature list with hover */
-.feature-row {
-  transition: background-color 0.15s ease;
-}
-.feature-row:hover {
-  background-color: rgba(255, 255, 255, 0.02);
-}
-
-/* Big number index style */
-.feature-index {
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  color: var(--muted);
-  letter-spacing: 0.08em;
-}
-
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

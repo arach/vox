@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Space_Grotesk, Instrument_Serif } from "next/font/google";
+import {
+  IBM_Plex_Mono,
+  Space_Grotesk,
+  Instrument_Serif,
+} from "next/font/google";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://voxd.cc";
