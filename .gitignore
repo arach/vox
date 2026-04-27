@@ -2,6 +2,7 @@
 !.gitignore
 node_modules
 .next
+site/next-env.d.ts
 site/out
 dist
 coverage
