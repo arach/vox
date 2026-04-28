@@ -87,9 +87,9 @@ export default function Home() {
             </div>
 
             <div className="mt-8 max-w-md">
-              <CopyCommand command="bun add -g @voxd/cli@latest" />
+              <CopyCommand command="npm install -g @voxd/cli@latest" />
               <p className="mt-2 font-mono text-[10px] tracking-wide text-muted">
-                local runtime · doctor · warm-up · benchmarks
+                register · doctor · warm-up · benchmarks
               </p>
             </div>
           </div>
@@ -255,7 +255,7 @@ export default function Home() {
             Get the companion running for the web and local tools.
           </h2>
           <p className="mt-4 max-w-2xl text-[15px] leading-7 text-secondary">
-            Apple apps can embed Vox directly. For browser and shared-process workflows, install the companion app or use the CLI so local web clients and tools can connect to the same warm Vox engine.
+            Apple apps can embed Vox directly. For browser and shared-process workflows, install the companion app first. The Node CLI can then register, inspect, and benchmark the same local runtime from terminal workflows.
           </p>
 
           <div className="mt-10 grid grid-cols-1 rounded-sm border border-line lg:grid-cols-2">
@@ -275,9 +275,9 @@ export default function Home() {
             <div className="px-6 py-7">
               <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">CLI</p>
               <div className="mt-3 font-mono text-[12.5px] leading-7">
-                <div className="text-muted">$ npx @voxd/cli install</div>
-                <div className="text-secondary">Vox Companion installed, LaunchAgent registered</div>
-                <div className="mt-2.5 text-muted">$ npx @voxd/cli doctor</div>
+                <div className="text-muted">$ npx -y @voxd/cli install</div>
+                <div className="text-secondary">registers Vox.app or ~/.vox/bin/voxd as a LaunchAgent</div>
+                <div className="mt-2.5 text-muted">$ npx -y @voxd/cli doctor</div>
                 <div className="text-ink">daemon: running</div>
                 <div className="text-ink">backend: parakeet</div>
                 <div className="text-ink">ready</div>

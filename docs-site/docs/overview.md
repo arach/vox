@@ -11,7 +11,7 @@ Main surfaces:
 - `voxd`: Vox Companion, the Swift daemon. Warm-up, telemetry, bridge transport, shared-process coordination.
 - `@voxd/sdk`: TypeScript SDK for Bun/Node and other companion-connected integrations. WebSocket JSON-RPC to `voxd`.
 - `@voxd/client`: Browser SDK. HTTP bridge to the Vox Companion for web apps.
-- `@voxd/cli`: Bun CLI. Health checks, model management, transcription, synthesis, voices, warm-up, and benchmarks.
+- `@voxd/cli`: Node CLI. Health checks, model management, transcription, synthesis, voices, warm-up, and benchmarks.
 
 ## Which surface to reach for
 
@@ -35,7 +35,7 @@ Many voice stacks hide lifecycle, warm-up, and latency. Vox tries to keep those 
 - `swift/`: VoxCore, VoxEngine, VoxService, VoxBridge, voxd companion
 - `packages/client/`: `@voxd/sdk` (TypeScript SDK)
 - `packages/web-client/`: `@voxd/client` (browser SDK)
-- `packages/cli/`: `@voxd/cli` (Bun CLI)
+- `packages/cli/`: `@voxd/cli` (Node CLI)
 - `docs/`: Dewey source content
 - `site/`: website and docs UI
 
@@ -57,7 +57,7 @@ Apple app teams embed the Swift packages directly and keep the same provider, wa
 
 ## Workflows
 
-These examples assume `vox` is on your `PATH`. In a repo checkout, replace `vox` with `bun packages/cli/src/index.ts`.
+These examples assume `vox` is on your `PATH`. In a repo checkout, replace `vox` with `node packages/cli/dist/index.js` after `bun run build`.
 
 ```bash
 # Build and verify

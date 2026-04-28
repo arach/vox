@@ -6,7 +6,7 @@ Vox is a local-first voice stack for Apple platforms. This repo brings together 
 - `voxd`: Vox Companion, the Swift daemon for web-facing, shared-process, and operator integrations.
 - `@voxd/sdk`: TypeScript SDK. Typed JSON-RPC client for Vox Companion integrations.
 - `@voxd/client`: Browser SDK. HTTP bridge client for local web integrations.
-- `vox`: Bun CLI. Health checks, benchmarks, warm-up scheduling, dashboards.
+- `vox`: Node CLI. Health checks, benchmarks, warm-up scheduling, dashboards.
 
 Apple apps can embed Vox directly. Bun and Node tools can connect to `voxd` over local WebSocket JSON-RPC. Browser clients can connect through the companion HTTP bridge with `@voxd/client`.
 
@@ -23,6 +23,7 @@ Requirements:
 
 - macOS 26+
 - Bun 1.2+
+- Node 22+
 - Swift 6.2+
 - `uv` for the MLX-backed demo paths
 
@@ -60,10 +61,10 @@ bun run build
 Start the daemon, verify health, then transcribe:
 
 ```bash
-bun packages/cli/src/index.ts daemon start
-bun packages/cli/src/index.ts doctor
-bun packages/cli/src/index.ts models preload parakeet:v3
-bun packages/cli/src/index.ts transcribe file /path/to/audio.wav
+node packages/cli/dist/index.js daemon start
+node packages/cli/dist/index.js doctor
+node packages/cli/dist/index.js models preload parakeet:v3
+node packages/cli/dist/index.js transcribe file /path/to/audio.wav
 ```
 
 If you are writing a local client, start here:
@@ -165,3 +166,5 @@ vox transcribe live --timestamps
 
 - GitHub Pages deploys from `.github/workflows/deploy-pages.yml` to `https://voxd.cc`
 - npm publishing runs from `.github/workflows/publish-packages.yml`, publishes `@voxd/sdk` before `@voxd/cli`
+- DMG builds and GitHub release asset uploads run from `.github/workflows/release-dmg.yml`
+  Requires Apple signing and notarization secrets if you want the uploaded `Vox.dmg` to be signed and stapled for Gatekeeper.

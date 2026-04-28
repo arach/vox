@@ -1,5 +1,8 @@
 .*
 !.gitignore
+!.github
+!.github/workflows
+!.github/workflows/*.yml
 node_modules
 .next
 site/next-env.d.ts

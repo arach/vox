@@ -1,9 +1,12 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
+import { spawn, spawnSync } from "child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { writeFile } from "fs/promises";
 import { homedir } from "os";
 import { dirname, join, resolve } from "path";
 import { createInterface } from "readline";
+import { fileURLToPath } from "url";
 import {
   getVoxHome,
   RuntimeDiscovery,
@@ -22,9 +25,10 @@ import {
   DEFAULT_PORT,
 } from "@voxd/sdk";
 
-const REPO_ROOT = resolve(import.meta.dir, "../../..");
-const SWIFT_ROOT = join(REPO_ROOT, "swift");
-const DAEMON_BINARY = join(SWIFT_ROOT, ".build", "debug", "voxd");
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
+const DEV_REPO_ROOT = resolve(MODULE_DIR, "../../..");
+const DEV_SWIFT_ROOT = join(DEV_REPO_ROOT, "swift");
+const DEV_DAEMON_BINARY = join(DEV_SWIFT_ROOT, ".build", "debug", "voxd");
 
 const LAUNCH_AGENT_LABEL = "com.vox.daemon";
 const PLIST_PATH = join(homedir(), "Library", "LaunchAgents", `${LAUNCH_AGENT_LABEL}.plist`);
@@ -411,14 +415,13 @@ async function ensureDaemonRunning(): Promise<RuntimeInfo> {
     }
   }
 
-  buildDaemon();
-  const proc = Bun.spawn([DAEMON_BINARY], {
-    cwd: REPO_ROOT,
+  const voxdPath = resolveOrBuildVoxdBinary();
+  const proc = spawn(voxdPath, [], {
+    cwd: resolveDaemonWorkingDirectory(),
     detached: true,
-    stdout: "ignore",
-    stderr: "ignore",
+    stdio: "ignore",
   });
-  proc.unref?.();
+  proc.unref();
 
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
@@ -429,26 +432,10 @@ async function ensureDaemonRunning(): Promise<RuntimeInfo> {
         return listenerPid === runtime.pid ? runtime : { ...runtime, pid: listenerPid };
       }
     }
-    await Bun.sleep(200);
+    await sleep(200);
   }
 
   throw new Error(`Timed out waiting for Vox daemon. Expected runtime file at ${getRuntimeFilePath()}`);
-}
-
-function buildDaemon(): void {
-  if (existsSync(DAEMON_BINARY)) {
-    return;
-  }
-
-  const result = Bun.spawnSync(["swift", "build", "--package-path", SWIFT_ROOT, "--product", "voxd"], {
-    cwd: REPO_ROOT,
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-
-  if (result.exitCode !== 0) {
-    throw new Error("Failed to build voxd.");
-  }
 }
 
 async function stopDaemon(): Promise<void> {
@@ -484,7 +471,7 @@ async function stopDaemon(): Promise<void> {
       rmSync(getRuntimeFilePath(), { force: true });
       return;
     }
-    await Bun.sleep(100);
+    await sleep(100);
   }
 }
 
@@ -896,7 +883,7 @@ function formatSpeedFactor(value: number): string {
 
 async function writeSynthesisOutput(outputPath: string, result: SynthesisResult): Promise<void> {
   mkdirSync(dirname(outputPath), { recursive: true });
-  await Bun.write(outputPath, result.audio);
+  await writeFile(outputPath, result.audio);
 }
 
 function makeTemporarySpeakPath(format: string): string {
@@ -906,10 +893,7 @@ function makeTemporarySpeakPath(format: string): string {
 }
 
 function playSynthesizedAudio(path: string): boolean {
-  const result = Bun.spawnSync(["afplay", path], {
-    stdout: "ignore",
-    stderr: "ignore",
-  });
+  const result = spawnSync("afplay", [path], { stdio: "ignore" });
   return result.exitCode === 0;
 }
 
@@ -928,15 +912,13 @@ function processIsRunning(pid: number): boolean {
 }
 
 function findListeningPid(port: number): number | null {
-  const result = Bun.spawnSync([
-    "lsof",
+  const result = spawnSync("lsof", [
     "-nP",
     `-iTCP:${port}`,
     "-sTCP:LISTEN",
     "-t",
   ], {
-    stdout: "pipe",
-    stderr: "ignore",
+    stdio: ["ignore", "pipe", "ignore"],
   });
 
   if (result.exitCode !== 0) {
@@ -962,12 +944,14 @@ async function waitForEnter(): Promise<void> {
 }
 
 function launchTui(): void {
-  const tuiPath = join(REPO_ROOT, "packages", "tui", "index.tsx");
-  const proc = Bun.spawnSync(["bun", "run", tuiPath], {
-    cwd: REPO_ROOT,
-    stdout: "inherit",
-    stderr: "inherit",
-    stdin: "inherit",
+  const repoRoot = resolveRepoRoot();
+  if (!repoRoot) {
+    throw new Error("`vox tui` is only available from a Vox repo checkout for now.");
+  }
+  const tuiPath = join(repoRoot, "packages", "tui", "index.tsx");
+  const proc = spawnSync("bun", ["run", tuiPath], {
+    cwd: repoRoot,
+    stdio: "inherit",
   });
   process.exit(proc.exitCode ?? 0);
 }
@@ -1010,16 +994,21 @@ async function handleUninstall(): Promise<void> {
 }
 
 function resolveVoxdBinary(): string | null {
-  const candidates = [
-    join(homedir(), ".vox", "bin", "voxd"),
-    "/Applications/Vox.app/Contents/Resources/voxd",
-    join(SWIFT_ROOT, ".build", "release", "voxd"),
-    DAEMON_BINARY,
-  ];
+  const candidates = [join(homedir(), ".vox", "bin", "voxd"), "/Applications/Vox.app/Contents/Resources/voxd"];
+  const repoRoot = resolveRepoRoot();
+  if (repoRoot) {
+    const swiftRoot = join(repoRoot, "swift");
+    candidates.push(
+      join(swiftRoot, ".build", "release", "voxd"),
+      join(swiftRoot, ".build", "debug", "voxd"),
+    );
+  }
   for (const path of candidates) {
     if (existsSync(path)) return path;
   }
-  const which = Bun.spawnSync(["/usr/bin/which", "voxd"]);
+  const which = spawnSync("/usr/bin/which", ["voxd"], {
+    stdio: ["ignore", "pipe", "ignore"],
+  });
   if (which.exitCode === 0) {
     const found = new TextDecoder().decode(which.stdout).trim();
     if (found && existsSync(found)) return found;
@@ -1066,11 +1055,71 @@ function xmlEscape(value: string): string {
 }
 
 function launchctl(args: string[], opts: { allowFail?: boolean } = {}): number {
-  const proc = Bun.spawnSync(["/bin/launchctl", ...args], {
-    stdout: "ignore",
-    stderr: opts.allowFail ? "ignore" : "inherit",
+  const proc = spawnSync("/bin/launchctl", args, {
+    stdio: ["ignore", "ignore", opts.allowFail ? "ignore" : "inherit"],
   });
   return proc.exitCode ?? 0;
+}
+
+function resolveRepoRoot(): string | null {
+  const swiftPackage = join(DEV_SWIFT_ROOT, "Package.swift");
+  return existsSync(swiftPackage) ? DEV_REPO_ROOT : null;
+}
+
+function resolveDaemonWorkingDirectory(): string {
+  return resolveRepoRoot() ?? process.cwd();
+}
+
+function resolveOrBuildVoxdBinary(): string {
+  const existing = resolveVoxdBinary();
+  if (existing) {
+    return existing;
+  }
+
+  const repoRoot = resolveRepoRoot();
+  if (!repoRoot) {
+    throw new Error(
+      "voxd binary not found. Install Vox.app from https://github.com/arach/vox/releases, " +
+      "or place voxd at ~/.vox/bin/voxd before running CLI commands.",
+    );
+  }
+
+  buildDaemon(repoRoot);
+  if (existsSync(DEV_DAEMON_BINARY)) {
+    return DEV_DAEMON_BINARY;
+  }
+
+  throw new Error("Failed to build voxd.");
+}
+
+function buildDaemon(repoRoot: string): void {
+  if (existsSync(DEV_DAEMON_BINARY)) {
+    return;
+  }
+
+  const swiftRoot = join(repoRoot, "swift");
+  const result = spawnSync("swift", ["build", "--package-path", swiftRoot, "--product", "voxd"], {
+    cwd: repoRoot,
+    stdio: "inherit",
+  });
+
+  if (result.exitCode !== 0) {
+    throw new Error("Failed to build voxd.");
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolvePromise) => {
+    setTimeout(resolvePromise, ms);
+  });
+}
+
+function isMainModule(): boolean {
+  const entrypoint = process.argv[1];
+  if (!entrypoint) {
+    return false;
+  }
+  return resolve(entrypoint) === fileURLToPath(import.meta.url);
 }
 
 function printUsage(): void {
@@ -1097,7 +1146,7 @@ Usage:
   vox tui`);
 }
 
-if (import.meta.main) {
+if (isMainModule()) {
   main(process.argv.slice(2)).catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);

@@ -3,18 +3,21 @@
 ## Prerequisites
 
 - macOS 26+ or iOS 26+ for Apple SDK consumers
-- Bun
-- Swift 6.2+
+- Node 22+
+- Vox Companion installed from the DMG, or `voxd` available at `~/.vox/bin/voxd`
+- Swift 6.2+ only if you plan to build Vox from a repo checkout
 
 ## Install and verify
 
 ```bash
-bun add -g @voxd/cli
-vox daemon start
+npm install -g @voxd/cli
+vox install
 vox doctor       # expect ready: true
 ```
 
-If you are running from a repo checkout instead of a global install, replace `vox` with `bun packages/cli/src/index.ts`.
+`vox install` registers the LaunchAgent for an existing `voxd` binary. The simplest path is to install `Vox.dmg` first, then run the CLI.
+
+If you are running from a repo checkout instead of a global install, replace `vox` with `node packages/cli/dist/index.js` after `bun run build`.
 
 If you are building a browser client, pair the local companion with `@voxd/client` and the [Web Integration Guide](./web-integration.md).
 
