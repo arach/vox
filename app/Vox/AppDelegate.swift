@@ -6,7 +6,7 @@ import VoxCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMenuDelegate {
-    private struct BridgeHealthResponse: Decodable {
+    private struct BridgeHealthResponse: Decodable, Sendable {
         let ok: Bool
         let port: UInt16?
         let service: String?
@@ -124,62 +124,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
 
     // MARK: - HTTP Bridge
 
-    private nonisolated func startBridge() {
+    private func startBridge() {
         let p = DaemonProxy()
         let a = OriginAllowlist()
         let port = HTTPBridgeServer.defaultPort
 
-        Task { @MainActor in
-            proxy = p
-            allowlist = a
-            bridge = nil
-            bridgeState.bind(allowlist: a)
-            bridgeState.port = port
-            bridgeState.isRunning = false
-            bridgeState.statusDetail = "Starting bridge..."
+        proxy = p
+        allowlist = a
+        bridge = nil
+        bridgeState.bind(allowlist: a)
+        bridgeState.port = port
+        bridgeState.isRunning = false
+        bridgeState.statusDetail = "Starting bridge..."
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.runBridgeStartup(proxy: p, allowlist: a, port: port)
         }
+    }
 
-        Task { [weak self] in
-            if let existingBridge = await Self.fetchBridgeHealth(port: port) {
-                VoxLog.service.info("Using existing HTTP bridge on http://127.0.0.1:\(existingBridge.port ?? port)")
-                await MainActor.run {
-                    self?.bridgeState.isRunning = true
-                    self?.bridgeState.port = existingBridge.port ?? port
-                    if let version = existingBridge.version, version != VoxVersion.current {
-                        self?.bridgeState.statusDetail =
-                            "Using existing bridge from another Vox instance (v\(version))."
-                    } else {
-                        self?.bridgeState.statusDetail = "Using existing bridge."
-                    }
-                }
-                try? await p.connect()
-                return
-            }
-
-            let bridge = HTTPBridgeServer(port: port, proxy: p, allowlist: a)
-            await MainActor.run {
-                self?.bridge = bridge
-            }
-
-            bridge.start()
-
-            if let startedBridge = await Self.waitForBridgeHealth(port: port) {
-                await MainActor.run {
-                    self?.bridgeState.isRunning = true
-                    self?.bridgeState.port = startedBridge.port ?? port
-                    self?.bridgeState.statusDetail = "Listening on localhost."
-                }
+    private func runBridgeStartup(proxy: DaemonProxy, allowlist: OriginAllowlist, port: UInt16) async {
+        if let existingBridge = await Self.fetchBridgeHealth(port: port) {
+            VoxLog.service.info("Using existing HTTP bridge on http://127.0.0.1:\(existingBridge.port ?? port)")
+            bridgeState.isRunning = true
+            bridgeState.port = existingBridge.port ?? port
+            if let version = existingBridge.version, version != VoxVersion.current {
+                bridgeState.statusDetail =
+                    "Using existing bridge from another Vox instance (v\(version))."
             } else {
-                await MainActor.run {
-                    self?.bridgeState.isRunning = false
-                    self?.bridgeState.port = port
-                    self?.bridgeState.statusDetail =
-                        "Bridge port \(port) is busy or unavailable."
-                }
+                bridgeState.statusDetail = "Using existing bridge."
             }
-
-            try? await p.connect()
+            try? await proxy.connect()
+            return
         }
+
+        let bridge = HTTPBridgeServer(port: port, proxy: proxy, allowlist: allowlist)
+        self.bridge = bridge
+        bridge.start()
+
+        if let startedBridge = await Self.waitForBridgeHealth(port: port) {
+            bridgeState.isRunning = true
+            bridgeState.port = startedBridge.port ?? port
+            bridgeState.statusDetail = "Listening on localhost."
+        } else {
+            bridgeState.isRunning = false
+            bridgeState.port = port
+            bridgeState.statusDetail = "Bridge port \(port) is busy or unavailable."
+        }
+
+        try? await proxy.connect()
     }
 
     private nonisolated static func fetchBridgeHealth(port: UInt16) async -> BridgeHealthResponse? {

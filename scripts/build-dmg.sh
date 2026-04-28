@@ -8,6 +8,8 @@ BUILD_DIR="$ROOT/dist"
 APP_NAME="Vox.app"
 DMG_NAME="Vox.dmg"
 BUNDLE="$BUILD_DIR/$APP_NAME"
+APP_BUILD_LOG="$(mktemp -t vox-app-build.XXXXXX.log)"
+VOXD_BUILD_LOG="$(mktemp -t vox-voxd-build.XXXXXX.log)"
 DEFAULT_VERSION="$(sed -n 's/  "version": "\(.*\)",/\1/p' "$ROOT/packages/cli/package.json" | head -n 1)"
 VERSION="${VOX_VERSION:-$DEFAULT_VERSION}"
 
@@ -26,11 +28,11 @@ fi
 
 echo "==> Building release binary..."
 cd "$APP_DIR"
-swift build -c release 2>&1 | tail -3
+swift build -c release 2>&1 | tee "$APP_BUILD_LOG"
 
 echo "==> Building voxd release binary..."
 cd "$ROOT/swift"
-swift build -c release --product voxd 2>&1 | tail -3
+swift build -c release --product voxd 2>&1 | tee "$VOXD_BUILD_LOG"
 
 echo "==> Creating app bundle..."
 rm -rf "$BUILD_DIR"
