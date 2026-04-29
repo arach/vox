@@ -85,13 +85,14 @@ export class VoxClient {
   }
 
   async installModel(
-    modelId = "parakeet:v3",
+    modelId?: string,
     onProgress?: (event: ModelProgress) => void,
   ): Promise<ModelInfo> {
-    const result = await this.callStreaming("models.install", { modelId }, (event, data) => {
+    const params = modelId ? { modelId } : undefined;
+    const result = await this.callStreaming("models.install", params, (event, data) => {
       if (event === "models.progress" && onProgress) {
         onProgress({
-          modelId: String(data.modelId ?? modelId),
+          modelId: String(data.modelId ?? modelId ?? ""),
           progress: Number(data.progress ?? 0),
           status: String(data.status ?? ""),
         });
@@ -101,13 +102,14 @@ export class VoxClient {
   }
 
   async preloadModel(
-    modelId = "parakeet:v3",
+    modelId?: string,
     onProgress?: (event: ModelProgress) => void,
   ): Promise<ModelInfo> {
-    const result = await this.callStreaming("models.preload", { modelId }, (event, data) => {
+    const params = modelId ? { modelId } : undefined;
+    const result = await this.callStreaming("models.preload", params, (event, data) => {
       if (event === "models.progress" && onProgress) {
         onProgress({
-          modelId: String(data.modelId ?? modelId),
+          modelId: String(data.modelId ?? modelId ?? ""),
           progress: Number(data.progress ?? 0),
           status: String(data.status ?? ""),
         });
@@ -116,29 +118,37 @@ export class VoxClient {
     return result.model as ModelInfo;
   }
 
-  async getWarmupStatus(modelId = "parakeet:v3"): Promise<WarmupStatus> {
-    const result = await this.call("warmup.status", { modelId });
+  async getWarmupStatus(modelId?: string): Promise<WarmupStatus> {
+    const result = await this.call("warmup.status", modelId ? { modelId } : undefined);
     return result.warmup as WarmupStatus;
   }
 
-  async startWarmup(modelId = "parakeet:v3"): Promise<WarmupStatus> {
-    const result = await this.call("warmup.start", { modelId });
+  async startWarmup(modelId?: string): Promise<WarmupStatus> {
+    const result = await this.call("warmup.start", modelId ? { modelId } : undefined);
     return result.warmup as WarmupStatus;
   }
 
-  async scheduleWarmup(modelId = "parakeet:v3", delayMs = 0): Promise<WarmupStatus> {
-    const result = await this.call("warmup.schedule", { modelId, delayMs });
+  async scheduleWarmup(modelId?: string, delayMs = 0): Promise<WarmupStatus> {
+    const params: Record<string, unknown> = { delayMs };
+    if (modelId) {
+      params.modelId = modelId;
+    }
+    const result = await this.call("warmup.schedule", params);
     return result.warmup as WarmupStatus;
   }
 
-  async transcribeFile(path: string, modelId = "parakeet:v3"): Promise<FileTranscriptionResult> {
+  async transcribeFile(path: string, modelId?: string): Promise<FileTranscriptionResult> {
+    const params: Record<string, unknown> = { clientId: this.clientId, path };
+    if (modelId) {
+      params.modelId = modelId;
+    }
     const result = await this.transport.call(
       "transcribe.file",
-      { clientId: this.clientId, path, modelId },
+      params,
       STREAM_TIMEOUT_MS,
     );
     return {
-      modelId: String(result.modelId ?? modelId),
+      modelId: String(result.modelId ?? modelId ?? ""),
       text: String(result.text ?? ""),
       elapsedMs: Number(result.elapsedMs ?? 0),
       metrics: parseTranscriptionMetrics(result.metrics, Number(result.elapsedMs ?? 0)),
@@ -183,24 +193,30 @@ export class VoxClient {
   }
 
   async synthesize(text: string, options: SynthesisOptions = {}): Promise<SynthesisResult> {
+    const params: Record<string, unknown> = {
+      clientId: this.clientId,
+      text,
+      format: options.format ?? "wav",
+      speed: options.speed,
+      instructions: options.instructions,
+    };
+    if (options.modelId) {
+      params.modelId = options.modelId;
+    }
+    if (options.voiceId) {
+      params.voiceId = options.voiceId;
+    }
+
     const result = await this.transport.call(
       "synthesize.generate",
-      {
-        clientId: this.clientId,
-        text,
-        modelId: options.modelId ?? "avspeech:system",
-        voiceId: options.voiceId,
-        format: options.format ?? "wav",
-        speed: options.speed,
-        instructions: options.instructions,
-      },
+      params,
       STREAM_TIMEOUT_MS,
     );
 
     const audioBase64 = String(result.audioBase64 ?? "");
     const audio = Buffer.from(audioBase64, "base64");
     return {
-      modelId: String(result.modelId ?? options.modelId ?? "avspeech:system"),
+      modelId: String(result.modelId ?? options.modelId ?? ""),
       voiceId: String(result.voiceId ?? options.voiceId ?? ""),
       format: String(result.format ?? options.format ?? "wav"),
       contentType: String(result.contentType ?? "audio/wav"),

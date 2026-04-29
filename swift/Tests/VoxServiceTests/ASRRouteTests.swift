@@ -22,9 +22,13 @@ private final class ProgressCollector: @unchecked Sendable {
 }
 
 private actor MockASRProvider: ASRProvider {
-    private let modelId = "parakeet:v3"
+    private let modelId: String
     private var isPreloaded = false
     private var preloadCalls = 0
+
+    init(modelId: String = "parakeet:v3") {
+        self.modelId = modelId
+    }
 
     func models() async -> [ASRModelInfo] {
         [
@@ -216,6 +220,67 @@ struct ASRRouteTests {
         #expect(result.performanceSample.textLength == result.output.text.count)
         #expect(result.performanceSample.metrics?.inputBytes == 8192)
         #expect(result.performanceSample.metrics?.audioPrepareMs == 4)
+    }
+
+    @Test("transcribe.file uses the user preference when modelId is omitted")
+    func transcribeFileUsesPreferredModelWhenOmitted() async throws {
+        let provider = MockASRProvider(modelId: "mock-asr:v2")
+        let service = VoxRuntimeService(
+            engine: EngineManager(provider: provider),
+            ttsEngine: TTSEngineManager(provider: EmptyTTSProvider()),
+            preferencesLoader: {
+                VoxPreferences(
+                    speech: VoxSpeechPreferences(preferredTranscriptionModelId: "mock-asr:v2")
+                )
+            }
+        )
+        let audioURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("wav")
+
+        let result = try await service.performTranscribeFile(params: [
+            "path": audioURL.path,
+            "clientId": "menu-bar"
+        ])
+
+        #expect(result.output.modelId == "mock-asr:v2")
+        #expect(result.performanceSample.modelId == "mock-asr:v2")
+    }
+
+    @Test("install, preload, and warmup helpers use the user preference when modelId is omitted")
+    func modelHelpersUsePreferredModelWhenOmitted() async throws {
+        let provider = MockASRProvider(modelId: "mock-asr:v2")
+        let collector = ProgressCollector()
+        let service = VoxRuntimeService(
+            engine: EngineManager(provider: provider),
+            ttsEngine: TTSEngineManager(provider: EmptyTTSProvider()),
+            preferencesLoader: {
+                VoxPreferences(
+                    speech: VoxSpeechPreferences(preferredTranscriptionModelId: "mock-asr:v2")
+                )
+            }
+        )
+
+        let installed = try await service.performModelsInstall(params: nil) { update in
+            collector.record(update)
+        }
+        let preloaded = try await service.performModelsPreload(params: nil) { update in
+            collector.record(update)
+        }
+        let scheduled = await service.performWarmupSchedule(params: [
+            "clientId": "voice-loop",
+            "delayMs": 0
+        ])
+
+        #expect(installed.id == "mock-asr:v2")
+        #expect(preloaded.id == "mock-asr:v2")
+        #expect(scheduled.modelId == "mock-asr:v2")
+        #expect(scheduled.requestedBy == "voice-loop")
+        #expect(collector.snapshot().contains(where: { $0.modelId == "mock-asr:v2" }))
+
+        let ready = try await eventuallyWarmStatus(from: service, modelId: "mock-asr:v2")
+        #expect(ready.state == "ready")
+        #expect(await provider.preloadCallCount() >= 1)
     }
 
     @Test("warmup helpers preserve requestedBy, scheduling, and readiness for ASR models")

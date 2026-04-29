@@ -61,8 +61,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "waveform.circle.fill", accessibilityDescription: "Vox")
+            button.image = MenuBarIcon.makeStatusImage(showsRecordingBadge: monitor.isRecording)
             button.image?.size = NSSize(width: 18, height: 18)
+            button.toolTip = "Vox"
         }
 
         let menu = NSMenu()
@@ -95,11 +96,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
               let statusMenuItem = menu.item(withTag: 100)
         else { return }
 
-        if monitor.isRunning {
-            button.contentTintColor = .systemGreen
+        button.image = MenuBarIcon.makeStatusImage(showsRecordingBadge: monitor.isRecording)
+        button.image?.size = NSSize(width: 18, height: 18)
+        button.contentTintColor = monitor.isRunning && monitor.isRecording ? nil : (monitor.isRunning ? nil : .systemRed)
+
+        if monitor.isRecording, let clientId = monitor.liveSessionClientId {
+            button.toolTip = "Vox is recording for \(clientId)"
+            statusMenuItem.title = "Daemon: Recording for \(clientId) (port \(monitor.port ?? 0))"
+        } else if monitor.isRunning {
+            button.toolTip = "Vox"
             statusMenuItem.title = "Daemon: Running (port \(monitor.port ?? 0))"
         } else {
-            button.contentTintColor = .systemRed
+            button.toolTip = "Vox daemon is stopped"
             statusMenuItem.title = "Daemon: Stopped"
         }
     }

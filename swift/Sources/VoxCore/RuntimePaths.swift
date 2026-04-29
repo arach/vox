@@ -127,6 +127,10 @@ public enum RuntimePaths {
         voxHomeURL().appendingPathComponent("providers.json")
     }
 
+    public static func preferencesFileURL() -> URL {
+        voxHomeURL().appendingPathComponent("preferences.json")
+    }
+
     public static func bridgeOriginsFileURL() -> URL {
         voxHomeURL().appendingPathComponent("origins.json")
     }

@@ -15,13 +15,17 @@ public final class VoxRuntimeService: @unchecked Sendable {
     private let sessions = LiveSessionCoordinator()
     private let synthesisSessions = SynthesisSessionCoordinator()
     private let startedAt = Date()
+    private let preferencesLoader: @Sendable () -> VoxPreferences
 
     public init(
         port: UInt16 = VoxDefaults.daemonPort,
         bindAddress: String = VoxDefaults.host,
         engine: EngineManager = EngineManager(),
         annotationEngine: AnnotationManager = AnnotationManager(),
-        ttsEngine: TTSEngineManager = TTSEngineManager()
+        ttsEngine: TTSEngineManager = TTSEngineManager(),
+        preferencesLoader: @escaping @Sendable () -> VoxPreferences = {
+            (try? VoxPreferences.load()) ?? VoxPreferences()
+        }
     ) {
         self.port = port
         self.bridge = ServiceBridge(port: port, serviceName: "Vox", bindAddress: bindAddress)
@@ -29,6 +33,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
         self.annotationEngine = annotationEngine
         self.ttsEngine = ttsEngine
         self.warmup = WarmupCoordinator(asrEngine: engine, ttsEngine: ttsEngine)
+        self.preferencesLoader = preferencesLoader
     }
 
     public func start() throws {
@@ -51,8 +56,14 @@ public final class VoxRuntimeService: @unchecked Sendable {
 
     func performSynthesizeGenerate(params: [String: Any]?) async throws -> SynthesisOutput {
         let text = (params?["text"] as? String) ?? ""
-        let modelId = (params?["modelId"] as? String) ?? TTSDefaults.modelId
-        let voiceId = params?["voiceId"] as? String
+        let requestedModelId = params?["modelId"] as? String
+        let requestedVoiceId = params?["voiceId"] as? String
+        let modelId = resolveSynthesisModelId(requestedModelId)
+        let voiceId = resolveSynthesisVoiceId(
+            requestedVoiceId,
+            resolvedModelId: modelId,
+            requestedModelId: requestedModelId
+        )
         let format = (params?["format"] as? String) ?? TTSDefaults.format
         let speed = params?["speed"] as? Double
         let instructions = params?["instructions"] as? String
@@ -71,11 +82,15 @@ public final class VoxRuntimeService: @unchecked Sendable {
         try await performSynthesizeVoices(modelId: params?["modelId"] as? String)
     }
 
+    func performSynthesizeModels() async -> [TTSModelInfo] {
+        await ttsEngine.models()
+    }
+
     func performModelsInstall(
         params: [String: Any]?,
         progress: @escaping @Sendable (ModelProgress) -> Void
     ) async throws -> ASRModelInfo {
-        let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+        let modelId = resolveTranscriptionModelId(params?["modelId"] as? String)
         return try await performModelsInstall(modelId: modelId, progress: progress)
     }
 
@@ -90,7 +105,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
         params: [String: Any]?,
         progress: @escaping @Sendable (ModelProgress) -> Void
     ) async throws -> ASRModelInfo {
-        let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+        let modelId = resolveTranscriptionModelId(params?["modelId"] as? String)
         return try await performModelsPreload(modelId: modelId, progress: progress)
     }
 
@@ -102,7 +117,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
     }
 
     func performWarmupStatus(params: [String: Any]?) async -> WarmupStatus {
-        let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+        let modelId = resolveTranscriptionModelId(params?["modelId"] as? String)
         let requestedBy = params?["clientId"] as? String
         return await performWarmupStatus(modelId: modelId, requestedBy: requestedBy)
     }
@@ -112,7 +127,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
     }
 
     func performWarmupStart(params: [String: Any]?) async -> WarmupStatus {
-        let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+        let modelId = resolveTranscriptionModelId(params?["modelId"] as? String)
         let requestedBy = params?["clientId"] as? String
         return await performWarmupStart(modelId: modelId, requestedBy: requestedBy)
     }
@@ -122,7 +137,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
     }
 
     func performWarmupSchedule(params: [String: Any]?) async -> WarmupStatus {
-        let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+        let modelId = resolveTranscriptionModelId(params?["modelId"] as? String)
         let requestedBy = params?["clientId"] as? String
         let delayMs = max((params?["delayMs"] as? Int) ?? 0, 0)
         return await performWarmupSchedule(modelId: modelId, delayMs: delayMs, requestedBy: requestedBy)
@@ -139,7 +154,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
             ])
         }
 
-        let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+        let modelId = resolveTranscriptionModelId(params?["modelId"] as? String)
         let clientId = (params?["clientId"] as? String) ?? "unknown"
         return try await performTranscribeFile(path: path, modelId: modelId, clientId: clientId)
     }
@@ -241,6 +256,72 @@ public final class VoxRuntimeService: @unchecked Sendable {
         try await ttsEngine.voices(modelId: modelId)
     }
 
+    private func currentPreferences() -> VoxPreferences {
+        preferencesLoader()
+    }
+
+    private func resolveTranscriptionModelId(_ requestedModelId: String?) -> String {
+        let normalizedRequestedModelId = normalizePreferenceValue(requestedModelId)
+        if let normalizedRequestedModelId {
+            return normalizedRequestedModelId
+        }
+
+        let preferences = currentPreferences()
+        return normalizePreferenceValue(preferences.speech.preferredTranscriptionModelId) ?? "parakeet:v3"
+    }
+
+    private func resolveSynthesisModelId(_ requestedModelId: String?) -> String {
+        let normalizedRequestedModelId = normalizePreferenceValue(requestedModelId)
+        if let normalizedRequestedModelId {
+            return normalizedRequestedModelId
+        }
+
+        let preferences = currentPreferences()
+        return normalizePreferenceValue(preferences.speech.preferredSynthesisModelId) ?? TTSDefaults.modelId
+    }
+
+    private func resolveSynthesisVoiceId(
+        _ requestedVoiceId: String?,
+        resolvedModelId: String,
+        requestedModelId: String?
+    ) -> String? {
+        if let requestedVoiceId = normalizePreferenceValue(requestedVoiceId) {
+            return requestedVoiceId
+        }
+
+        let preferences = currentPreferences()
+        let preferredVoiceId = normalizePreferenceValue(preferences.speech.preferredSynthesisVoiceId)
+        guard let preferredVoiceId else {
+            return nil
+        }
+
+        let preferredModelId = normalizePreferenceValue(preferences.speech.preferredSynthesisModelId) ?? TTSDefaults.modelId
+        let normalizedRequestedModelId = normalizePreferenceValue(requestedModelId)
+
+        // Only apply the user-level voice default when the resolved model matches
+        // the voice's preferred model. Explicit model overrides keep provider defaults.
+        guard resolvedModelId == preferredModelId,
+              normalizedRequestedModelId == nil || normalizedRequestedModelId == preferredModelId
+        else {
+            return nil
+        }
+
+        return preferredVoiceId
+    }
+
+    private func normalizePreferenceValue(_ value: String?) -> String? {
+        guard let value else {
+            return nil
+        }
+
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty
+        else {
+            return nil
+        }
+        return trimmed
+    }
+
     private func registerHandlers() {
         bridge.onClientDisconnected = { [weak self] connectionID in
             guard let self else { return }
@@ -294,7 +375,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
 
         bridge.handleStreaming("models.install") { [weak self] params, progress, reply in
             guard let self else { return }
-            let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+            let modelId = self.resolveTranscriptionModelId(params?["modelId"] as? String)
             Task {
                 do {
                     let model = try await self.performModelsInstall(modelId: modelId) { update in
@@ -309,7 +390,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
 
         bridge.handleStreaming("models.preload") { [weak self] params, progress, reply in
             guard let self else { return }
-            let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+            let modelId = self.resolveTranscriptionModelId(params?["modelId"] as? String)
             Task {
                 do {
                     let model = try await self.performModelsPreload(modelId: modelId) { update in
@@ -324,7 +405,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
 
         bridge.handle("warmup.status") { [weak self] params, reply in
             guard let self else { return }
-            let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+            let modelId = self.resolveTranscriptionModelId(params?["modelId"] as? String)
             let requestedBy = params?["clientId"] as? String
             Task {
                 let status = await self.performWarmupStatus(modelId: modelId, requestedBy: requestedBy)
@@ -334,7 +415,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
 
         bridge.handle("warmup.start") { [weak self] params, reply in
             guard let self else { return }
-            let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+            let modelId = self.resolveTranscriptionModelId(params?["modelId"] as? String)
             let requestedBy = params?["clientId"] as? String
             Task {
                 let status = await self.performWarmupStart(modelId: modelId, requestedBy: requestedBy)
@@ -344,7 +425,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
 
         bridge.handle("warmup.schedule") { [weak self] params, reply in
             guard let self else { return }
-            let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+            let modelId = self.resolveTranscriptionModelId(params?["modelId"] as? String)
             let requestedBy = params?["clientId"] as? String
             let delayMs = max((params?["delayMs"] as? Int) ?? 0, 0)
             Task {
@@ -356,8 +437,8 @@ public final class VoxRuntimeService: @unchecked Sendable {
         bridge.handle("transcribe.file") { [weak self] params, reply in
             guard let self else { return }
             let path = params?["path"] as? String
-            let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
             let clientId = (params?["clientId"] as? String) ?? "unknown"
+            let modelId = self.resolveTranscriptionModelId(params?["modelId"] as? String)
             Task {
                 do {
                     guard let path else {
@@ -434,10 +515,26 @@ public final class VoxRuntimeService: @unchecked Sendable {
             }
         }
 
+        bridge.handle("synthesize.models") { [weak self] _, reply in
+            guard let self else { return }
+            Task {
+                let models = await self.performSynthesizeModels()
+                reply([
+                    "models": models.map { $0.dictionaryValue() }
+                ], nil)
+            }
+        }
+
         bridge.handle("synthesize.generate") { [weak self] params, reply in
             guard let self else { return }
-            let modelId = (params?["modelId"] as? String) ?? TTSDefaults.modelId
+            let requestedModelId = params?["modelId"] as? String
+            let modelId = self.resolveSynthesisModelId(requestedModelId)
             let requestedVoiceId = params?["voiceId"] as? String
+            let voiceId = self.resolveSynthesisVoiceId(
+                requestedVoiceId,
+                resolvedModelId: modelId,
+                requestedModelId: requestedModelId
+            )
             let clientId = (params?["clientId"] as? String) ?? "unknown"
             let text = (params?["text"] as? String) ?? ""
             let format = (params?["format"] as? String) ?? TTSDefaults.format
@@ -446,7 +543,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
             let request = SynthesisRequest(
                 text: text,
                 modelId: modelId,
-                voiceId: requestedVoiceId,
+                voiceId: voiceId,
                 format: format,
                 speed: speed,
                 instructions: instructions
@@ -470,7 +567,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
                         clientId: clientId,
                         route: "synthesize.generate",
                         modelId: modelId,
-                        voiceId: requestedVoiceId,
+                        voiceId: voiceId,
                         outcome: "error",
                         textLength: text.count,
                         error: error.localizedDescription
@@ -500,7 +597,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
 
         bridge.handleStreaming("transcribe.startSession") { [weak self] params, progress, reply in
             guard let self else { return }
-            let modelId = (params?["modelId"] as? String) ?? "parakeet:v3"
+            let modelId = self.resolveTranscriptionModelId(params?["modelId"] as? String)
             let clientId = (params?["clientId"] as? String) ?? "unknown"
             let connectionID = (params?["_connectionID"] as? String) ?? UUID().uuidString
 
@@ -542,8 +639,13 @@ public final class VoxRuntimeService: @unchecked Sendable {
         bridge.handleStreaming("synthesize.startSession") { [weak self] params, progress, reply in
             guard let self else { return }
             let text = (params?["text"] as? String) ?? ""
-            let modelId = (params?["modelId"] as? String) ?? TTSDefaults.modelId
-            let voiceId = params?["voiceId"] as? String
+            let requestedModelId = params?["modelId"] as? String
+            let modelId = self.resolveSynthesisModelId(requestedModelId)
+            let voiceId = self.resolveSynthesisVoiceId(
+                params?["voiceId"] as? String,
+                resolvedModelId: modelId,
+                requestedModelId: requestedModelId
+            )
             let format = (params?["format"] as? String) ?? TTSDefaults.format
             let speed = params?["speed"] as? Double
             let instructions = params?["instructions"] as? String

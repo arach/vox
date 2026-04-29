@@ -105,7 +105,7 @@ async function handleDaemon(subcommand: string | undefined, rest: string[]): Pro
 }
 
 async function handleModels(subcommand: string | undefined, rest: string[]): Promise<void> {
-  const modelId = rest[0] ?? "parakeet:v3";
+  const modelId = rest[0];
 
   await withClient(async (client) => {
     switch (subcommand) {
@@ -140,7 +140,7 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
       const args = rest;
       const showMetrics = args.includes("--metrics");
       const showTimestamps = args.includes("--timestamps");
-      const modelId = readOption(args, "--model") ?? "parakeet:v3";
+      const modelId = readOption(args, "--model");
       const filePath = readPositionalArgs(args, new Set(["--model"]))[0];
       if (!filePath) {
         throw new Error("Usage: vox transcribe file [--model <id>] [--metrics] [--timestamps] <path>");
@@ -159,7 +159,7 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
     }
     case "bench": {
       const args = rest;
-      const modelId = readOption(args, "--model") ?? "parakeet:v3";
+      const modelId = readOption(args, "--model");
       const positional = readPositionalArgs(args, new Set(["--model"]));
       const filePath = positional[0];
       const runs = Number(positional[1] ?? 5);
@@ -196,7 +196,7 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
     case "live": {
       const args = rest;
       const showTimestamps = args.includes("--timestamps");
-      const modelId = readOption(args, "--model") ?? "parakeet:v3";
+      const modelId = readOption(args, "--model");
       await withClient(async (client) => {
         const session = client.createLiveSession();
         session.on("state", ({ state }) => {
@@ -243,7 +243,7 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
 async function handleSpeak(subcommand: string | undefined, rest: string[]): Promise<void> {
   if (subcommand === "bench") {
     const args = rest;
-    const modelId = readOption(args, "--model") ?? "avspeech:system";
+    const modelId = readOption(args, "--model");
     const voiceId = readOption(args, "--voice");
     const speedOption = readOption(args, "--speed");
     const speed = speedOption ? Number(speedOption) : undefined;
@@ -286,7 +286,7 @@ async function handleSpeak(subcommand: string | undefined, rest: string[]): Prom
   }
 
   const args = [subcommand, ...rest].filter((value): value is string => Boolean(value));
-  const modelId = readOption(args, "--model") ?? "avspeech:system";
+  const modelId = readOption(args, "--model");
   const voiceId = readOption(args, "--voice");
   const outputPathOption = readOption(args, "--output");
   const speedOption = readOption(args, "--speed");
@@ -338,7 +338,7 @@ async function handleVoices(subcommand: string | undefined, rest: string[]): Pro
 }
 
 async function handleWarmup(subcommand: string | undefined, rest: string[]): Promise<void> {
-  const modelId = rest.find((value) => !value.startsWith("--") && Number.isNaN(Number(value))) ?? "parakeet:v3";
+  const modelId = rest.find((value) => !value.startsWith("--") && Number.isNaN(Number(value)));
 
   await withClient(async (client) => {
     switch (subcommand) {

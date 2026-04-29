@@ -143,7 +143,7 @@ export class VoxDClient {
    * ```
    */
   async transcribe(options: TranscribeOptions): Promise<TranscriptionResult> {
-    const { audio, format, language, timestamps, metadata } = options;
+    const { audio, modelId, format, language, timestamps, metadata } = options;
 
     // Build multipart form
     const form = new FormData();
@@ -159,6 +159,7 @@ export class VoxDClient {
     }
 
     if (format) form.append("format", format);
+    if (modelId) form.append("modelId", modelId);
     if (language) form.append("language", language);
     if (timestamps) form.append("timestamps", "true");
     form.append("metadata", JSON.stringify(this.withClientMetadata(metadata)));
@@ -305,13 +306,17 @@ export class VoxDClient {
   }
 
   private async openLiveSession(options?: LiveSessionOptions): Promise<Response> {
+    const body: Record<string, unknown> = {
+      clientId: this.clientId,
+    };
+    if (options?.modelId) {
+      body.modelId = options.modelId;
+    }
+
     return this.fetch("/live", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId: this.clientId,
-        modelId: options?.modelId ?? "parakeet:v3",
-      }),
+      body: JSON.stringify(body),
     });
   }
 

@@ -41,7 +41,6 @@ describe("VoxClient", () => {
         params: {
           clientId: "test-client",
           path: "/tmp/sample.wav",
-          modelId: "parakeet:v3",
         },
         timeoutMs: STREAM_TIMEOUT_MS,
       },
@@ -217,8 +216,6 @@ describe("VoxClient", () => {
         params: {
           clientId: "test-client",
           text: "hello world",
-          modelId: "avspeech:system",
-          voiceId: undefined,
           format: "wav",
           speed: undefined,
           instructions: undefined,

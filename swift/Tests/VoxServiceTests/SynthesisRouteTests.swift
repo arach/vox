@@ -5,10 +5,18 @@ import VoxEngine
 @testable import VoxService
 
 private actor MockTTSProvider: TTSProvider {
+    private let modelId: String
+    private let voiceId: String
+
+    init(modelId: String = "mock-tts:v1", voiceId: String = "voice-mock") {
+        self.modelId = modelId
+        self.voiceId = voiceId
+    }
+
     func models() async -> [TTSModelInfo] {
         [
             TTSModelInfo(
-                id: "mock-tts:v1",
+                id: modelId,
                 name: "Mock TTS",
                 backend: "mock",
                 installed: true,
@@ -21,11 +29,11 @@ private actor MockTTSProvider: TTSProvider {
     func voices(modelId: String?) async throws -> [TTSVoiceInfo] {
         [
             TTSVoiceInfo(
-                id: "voice-mock",
+                id: voiceId,
                 name: "Mock Voice",
                 language: "en-US",
                 backend: "mock",
-                modelId: modelId ?? "mock-tts:v1",
+                modelId: modelId ?? self.modelId,
                 available: true,
                 isDefault: true
             )
@@ -65,7 +73,7 @@ private actor MockTTSProvider: TTSProvider {
 
         return SynthesisOutput(
             modelId: request.modelId,
-            voiceId: request.voiceId ?? "voice-mock",
+            voiceId: request.voiceId ?? voiceId,
             format: request.format,
             contentType: "audio/wav",
             audioData: bytes,
@@ -105,5 +113,30 @@ struct SynthesisRouteTests {
         #expect(voices.first?.id == "voice-mock")
         #expect(voices.first?.modelId == "mock-tts:v1")
         #expect(voices.first?.isDefault == true)
+    }
+
+    @Test("synthesize.generate uses speech preferences when model and voice are omitted")
+    func synthesizeGenerateUsesPreferredModelAndVoice() async throws {
+        let service = VoxRuntimeService(
+            ttsEngine: TTSEngineManager(provider: MockTTSProvider(
+                modelId: "mock-tts:v2",
+                voiceId: "voice-preferred"
+            )),
+            preferencesLoader: {
+                VoxPreferences(
+                    speech: VoxSpeechPreferences(
+                        preferredSynthesisModelId: "mock-tts:v2",
+                        preferredSynthesisVoiceId: "voice-preferred"
+                    )
+                )
+            }
+        )
+
+        let output = try await service.performSynthesizeGenerate(params: [
+            "text": "hello world"
+        ])
+
+        #expect(output.modelId == "mock-tts:v2")
+        #expect(output.voiceId == "voice-preferred")
     }
 }
