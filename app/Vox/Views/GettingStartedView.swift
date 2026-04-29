@@ -228,7 +228,7 @@ private struct SpeechSetupPanel: View {
                         }
                     )
                 ) {
-                    Text("Vox Default (\(TTSDefaults.modelId))")
+                    Text("Vox Default (\(speechPreferences.defaultSynthesisModelId))")
                         .tag("")
                     ForEach(speechPreferences.ttsModels, id: \.id) { model in
                         Text(model.id)

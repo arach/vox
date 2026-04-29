@@ -16,6 +16,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
     private let synthesisSessions = SynthesisSessionCoordinator()
     private let startedAt = Date()
     private let preferencesLoader: @Sendable () -> VoxPreferences
+    private let defaultSynthesisModelId: String
 
     public init(
         port: UInt16 = VoxDefaults.daemonPort,
@@ -23,6 +24,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
         engine: EngineManager = EngineManager(),
         annotationEngine: AnnotationManager = AnnotationManager(),
         ttsEngine: TTSEngineManager = TTSEngineManager(),
+        defaultSynthesisModelId: String = TTSDefaults.modelId,
         preferencesLoader: @escaping @Sendable () -> VoxPreferences = {
             (try? VoxPreferences.load()) ?? VoxPreferences()
         }
@@ -34,6 +36,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
         self.ttsEngine = ttsEngine
         self.warmup = WarmupCoordinator(asrEngine: engine, ttsEngine: ttsEngine)
         self.preferencesLoader = preferencesLoader
+        self.defaultSynthesisModelId = defaultSynthesisModelId
     }
 
     public func start() throws {
@@ -277,7 +280,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
         }
 
         let preferences = currentPreferences()
-        return normalizePreferenceValue(preferences.speech.preferredSynthesisModelId) ?? TTSDefaults.modelId
+        return normalizePreferenceValue(preferences.speech.preferredSynthesisModelId) ?? defaultSynthesisModelId
     }
 
     private func resolveSynthesisVoiceId(
@@ -295,7 +298,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
             return nil
         }
 
-        let preferredModelId = normalizePreferenceValue(preferences.speech.preferredSynthesisModelId) ?? TTSDefaults.modelId
+        let preferredModelId = normalizePreferenceValue(preferences.speech.preferredSynthesisModelId) ?? defaultSynthesisModelId
         let normalizedRequestedModelId = normalizePreferenceValue(requestedModelId)
 
         // Only apply the user-level voice default when the resolved model matches

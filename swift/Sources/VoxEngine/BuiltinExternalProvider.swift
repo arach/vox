@@ -27,7 +27,7 @@ struct BuiltinExternalProvider {
 
         let mergedEnv = mlxAudioEnvironment(env)
         if shouldUseUvRunner(mergedEnv) {
-            return uvRunnerCommand(kind: kind, scriptPath: scriptURL.path)
+            return uvRunnerCommand(kind: kind, scriptPath: scriptURL.path, env: mergedEnv)
         }
 
         let pythonOverride = env?["VOX_MLX_AUDIO_PYTHON"]
@@ -59,6 +59,10 @@ struct BuiltinExternalProvider {
             merged["PYTHONUNBUFFERED"] = "1"
         }
 
+        if shouldUseUvRunner(merged) {
+            merged["PATH"] = expandedExecutableSearchPath(merged["PATH"])
+        }
+
         let pythonOverride = merged["VOX_MLX_AUDIO_PYTHON"]
             ?? ProcessInfo.processInfo.environment["VOX_MLX_AUDIO_PYTHON"]
         if merged["VIRTUAL_ENV"] == nil,
@@ -84,9 +88,13 @@ struct BuiltinExternalProvider {
 
     private static func uvRunnerCommand(
         kind: BuiltinExternalProviderKind,
-        scriptPath: String
+        scriptPath: String,
+        env: [String: String]
     ) -> [String] {
-        var command = ["/usr/bin/env", "uv", "run"]
+        let uvExecutable = resolvedUvExecutable(env: env)
+        var command = uvExecutable == "/usr/bin/env"
+            ? ["/usr/bin/env", "uv", "run"]
+            : [uvExecutable, "run"]
 
         for dependency in uvRunnerDependencies(for: kind) {
             command.append(contentsOf: ["--with", dependency])
@@ -94,6 +102,51 @@ struct BuiltinExternalProvider {
 
         command.append(contentsOf: ["python", "-u", scriptPath, "--kind", kind.rawValue])
         return command
+    }
+
+    private static func resolvedUvExecutable(env: [String: String]) -> String {
+        let explicit = env["VOX_MLX_AUDIO_UV"]
+            ?? ProcessInfo.processInfo.environment["VOX_MLX_AUDIO_UV"]
+        if let explicit, !explicit.isEmpty {
+            return explicit
+        }
+
+        let fileManager = FileManager.default
+        for directory in expandedExecutableSearchPath(env["PATH"]).split(separator: ":") {
+            let candidate = URL(fileURLWithPath: String(directory))
+                .appendingPathComponent("uv")
+                .path
+            if fileManager.isExecutableFile(atPath: candidate) {
+                return candidate
+            }
+        }
+
+        return "/usr/bin/env"
+    }
+
+    private static func expandedExecutableSearchPath(_ path: String?) -> String {
+        var entries = path?
+            .split(separator: ":")
+            .map(String.init) ?? []
+
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let defaults = [
+            "\(home)/.local/bin",
+            "\(home)/.cargo/bin",
+            "\(home)/.bun/bin",
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/usr/bin",
+            "/bin",
+            "/usr/sbin",
+            "/sbin",
+        ]
+
+        for entry in defaults where !entries.contains(entry) {
+            entries.append(entry)
+        }
+
+        return entries.joined(separator: ":")
     }
 
     private static func uvRunnerDependencies(for kind: BuiltinExternalProviderKind) -> [String] {

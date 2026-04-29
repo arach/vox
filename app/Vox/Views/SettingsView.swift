@@ -169,7 +169,7 @@ struct GeneralTab: View {
                                 }
                             )
                         ) {
-                            Text("Vox Default (\(TTSDefaults.modelId))")
+                            Text("Vox Default (\(speechPreferences.defaultSynthesisModelId))")
                                 .tag("")
                             ForEach(speechPreferences.ttsModels, id: \.id) { model in
                                 Text(model.id)
@@ -240,7 +240,7 @@ struct GeneralTab: View {
 
     private var selectedSynthesisModelLabel: String {
         speechPreferences.preferredSynthesisModelId.isEmpty
-            ? TTSDefaults.modelId
+            ? speechPreferences.defaultSynthesisModelId
             : speechPreferences.preferredSynthesisModelId
     }
 

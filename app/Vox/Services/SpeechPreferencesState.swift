@@ -11,6 +11,7 @@ final class SpeechPreferencesState: ObservableObject {
     @Published private(set) var asrModels: [ASRModelInfo] = []
     @Published private(set) var ttsModels: [TTSModelInfo] = []
     @Published private(set) var voices: [TTSVoiceInfo] = []
+    @Published private(set) var defaultSynthesisModelId = TTSDefaults.modelId
     @Published var statusMessage: String?
 
     private let proxy = DaemonProxy()
@@ -71,6 +72,7 @@ final class SpeechPreferencesState: ObservableObject {
 
             let ttsResult = try await proxy.call("synthesize.models")
             ttsModels = parseTTSModels(ttsResult["models"])
+            defaultSynthesisModelId = recommendedSynthesisModelId()
 
             await refreshVoices()
 
@@ -112,11 +114,16 @@ final class SpeechPreferencesState: ObservableObject {
             return preferredModelId
         }
 
-        if ttsModels.contains(where: { $0.id == TTSDefaults.modelId }) {
-            return TTSDefaults.modelId
-        }
+        return defaultSynthesisModelId
+    }
 
-        return ttsModels.first?.id
+    private func recommendedSynthesisModelId() -> String {
+        let availableModels = ttsModels.filter { $0.available && $0.installed }
+        let candidateModels = availableModels.isEmpty ? ttsModels : availableModels
+
+        return candidateModels.first { $0.id != TTSDefaults.modelId }?.id
+            ?? candidateModels.first?.id
+            ?? TTSDefaults.modelId
     }
 
     private func normalizedPreferenceValue(_ value: String) -> String? {

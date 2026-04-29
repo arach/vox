@@ -34,11 +34,23 @@ struct ProviderRegistryTests {
             "VOX_MLX_AUDIO_USE_UV": "1"
         ])
 
-        #expect(command.starts(with: ["/usr/bin/env", "uv", "run"]))
+        #expect(command.contains("run"))
         #expect(command.contains("mlx-audio"))
         #expect(command.contains("misaki"))
         #expect(command.contains("python"))
         #expect(command.last == "tts")
+    }
+
+    @Test("builtin mlx-audio uv runner expands LaunchAgent PATH")
+    func builtinMlxAudioEnvironmentExpandsPathForUvRunner() {
+        let env = BuiltinExternalProvider.mlxAudioEnvironment([
+            "VOX_MLX_AUDIO_USE_UV": "1",
+            "PATH": "/usr/bin:/bin"
+        ])
+
+        #expect(env["PATH"]?.contains("\(FileManager.default.homeDirectoryForCurrentUser.path)/.local/bin") == true)
+        #expect(env["PATH"]?.contains("/opt/homebrew/bin") == true)
+        #expect(env["PYTHONUNBUFFERED"] == "1")
     }
 
     @Test("ASR registry resolves models discovered from the provider at runtime")

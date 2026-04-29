@@ -64,11 +64,17 @@ if [ -d "$ICNS" ]; then
     iconutil -c icns "$ICONSET_DIR" -o "$BUNDLE/Contents/Resources/AppIcon.icns" 2>/dev/null || true
 fi
 
-# Copy bundled resources from SPM build
-RESOURCES="$APP_DIR/.build/release/Vox_Vox.bundle"
-if [ -d "$RESOURCES" ]; then
+# Copy bundled resources from SPM builds. VoxEngine's bundle contains the
+# built-in MLX provider script used by the packaged daemon.
+while IFS= read -r -d '' RESOURCES; do
+    rm -rf "$BUNDLE/Contents/Resources/$(basename "$RESOURCES")"
     cp -R "$RESOURCES" "$BUNDLE/Contents/Resources/"
-fi
+    echo "    Bundled $(basename "$RESOURCES")"
+done < <(find "$APP_DIR/.build/release/" "$ROOT/swift/.build/release/" \
+    -maxdepth 1 \
+    -type d \
+    -name "*.bundle" \
+    -print0)
 
 # Entitlements
 cat > "$BUILD_DIR/Vox.entitlements" << 'ENT'
