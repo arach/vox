@@ -19,6 +19,15 @@ public actor ExternalProvider: ASRProvider {
         self.env = env
     }
 
+    deinit {
+        transport?.stop()
+    }
+
+    public func shutdown() {
+        transport?.stop()
+        transport = nil
+    }
+
     public func models() async -> [ASRModelInfo] {
         do {
             let transport = try ensureRunning()

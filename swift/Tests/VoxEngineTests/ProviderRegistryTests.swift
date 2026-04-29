@@ -3,6 +3,7 @@ import Testing
 import VoxCore
 @testable import VoxEngine
 
+@Suite(.serialized)
 struct ProviderRegistryTests {
     @Test("builtin mlx-audio provider resolves bundled script command")
     func builtinMlxAudioCommandUsesBundledScript() throws {
@@ -112,6 +113,8 @@ struct ProviderRegistryTests {
         #expect(output.modelId == "template:echo")
         #expect(output.text.contains(audioURL.path))
         #expect(output.metrics.totalMs >= 0)
+
+        await registry.shutdown()
     }
 
     @Test("TTS registry resolves models discovered from the provider at runtime")
@@ -249,6 +252,8 @@ struct ProviderRegistryTests {
         #expect(output.modelId == "tts-template:v1")
         #expect(output.voiceId == "voice-1")
         #expect(output.audioData == Data([0x52, 0x49, 0x46, 0x46]))
+
+        await registry.shutdown()
     }
 
     private func repositoryRoot(filePath: String = #filePath) -> URL {
