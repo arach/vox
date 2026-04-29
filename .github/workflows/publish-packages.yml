@@ -33,7 +33,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build packages
-        run: bun run --cwd packages/client build && bun run --cwd packages/cli build
+        run: bun run --cwd packages/client build && bun run --cwd packages/cli build && bun run --cwd packages/web-client build
 
       - name: Publish @voxd/sdk if needed
         working-directory: packages/client
@@ -43,6 +43,18 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           if npm view "@voxd/sdk@$VERSION" version >/dev/null 2>&1; then
             echo "@voxd/sdk@$VERSION already exists on npm"
+            exit 0
+          fi
+          npm publish --access public --provenance
+
+      - name: Publish @voxd/client if needed
+        working-directory: packages/web-client
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "@voxd/client@$VERSION" version >/dev/null 2>&1; then
+            echo "@voxd/client@$VERSION already exists on npm"
             exit 0
           fi
           npm publish --access public --provenance
