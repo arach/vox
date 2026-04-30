@@ -24,6 +24,7 @@ import {
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
 const SWIFT_ROOT = join(REPO_ROOT, "swift");
 const DAEMON_BINARY = join(SWIFT_ROOT, ".build", "debug", "voxd");
+const TTS_BINARY = join(SWIFT_ROOT, ".build", "debug", "voxttsd");
 
 async function main(argv: string[]): Promise<void> {
   const [command, subcommand, ...rest] = argv;
@@ -418,18 +419,27 @@ async function ensureDaemonRunning(): Promise<RuntimeInfo> {
 }
 
 function buildDaemon(): void {
-  if (existsSync(DAEMON_BINARY)) {
+  if (existsSync(DAEMON_BINARY) && existsSync(TTS_BINARY)) {
     return;
   }
 
-  const result = Bun.spawnSync(["swift", "build", "--package-path", SWIFT_ROOT, "--product", "voxd"], {
-    cwd: REPO_ROOT,
-    stdout: "inherit",
-    stderr: "inherit",
-  });
+  for (const product of ["voxd", "voxttsd"]) {
+    if (product === "voxd" && existsSync(DAEMON_BINARY)) {
+      continue;
+    }
+    if (product === "voxttsd" && existsSync(TTS_BINARY)) {
+      continue;
+    }
 
-  if (result.exitCode !== 0) {
-    throw new Error("Failed to build voxd.");
+    const result = Bun.spawnSync(["swift", "build", "--package-path", SWIFT_ROOT, "--product", product], {
+      cwd: REPO_ROOT,
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to build ${product}.`);
+    }
   }
 }
 

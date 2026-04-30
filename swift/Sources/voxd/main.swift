@@ -20,7 +20,7 @@ func parsePort() -> UInt16 {
 }
 
 func defaultASRConfig() -> ProvidersConfig {
-    ProvidersConfig(providers: [
+    return ProvidersConfig(providers: [
         ProviderEntry(
             id: "parakeet",
             kind: .asr,
@@ -31,7 +31,19 @@ func defaultASRConfig() -> ProvidersConfig {
 }
 
 func defaultTTSConfig() -> ProvidersConfig {
-    ProvidersConfig(providers: [
+    if let command = bundledTTSCommand() {
+        return ProvidersConfig(providers: [
+            ProviderEntry(
+                id: "voxttsd",
+                kind: .tts,
+                command: command,
+                models: [AVSpeechSynthesizerProvider.modelID] + OpenAITTSProvider.supportedModelIDs
+            )
+        ])
+    }
+
+    log.warning("voxttsd not found next to voxd; using in-process TTS providers")
+    return ProvidersConfig(providers: [
         ProviderEntry(
             id: "avspeech",
             kind: .tts,
@@ -45,6 +57,21 @@ func defaultTTSConfig() -> ProvidersConfig {
             models: OpenAITTSProvider.supportedModelIDs
         )
     ])
+}
+
+func bundledTTSCommand() -> [String]? {
+    let executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
+    let executableName = "voxttsd"
+    let siblingURL = executableURL.deletingLastPathComponent().appendingPathComponent(executableName)
+    if FileManager.default.isExecutableFile(atPath: siblingURL.path) {
+        return [siblingURL.path]
+    }
+
+    guard let resolvedPath = Bundle.main.path(forResource: executableName, ofType: nil),
+          FileManager.default.isExecutableFile(atPath: resolvedPath) else {
+        return nil
+    }
+    return [resolvedPath]
 }
 
 func loadEngines() -> (EngineManager, TTSEngineManager) {
