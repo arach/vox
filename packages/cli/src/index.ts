@@ -895,7 +895,7 @@ function makeTemporarySpeakPath(format: string): string {
 
 function playSynthesizedAudio(path: string): boolean {
   const result = spawnSync("afplay", [path], { stdio: "ignore" });
-  return exitStatus(result) === 0;
+  return spawnSyncStatus(result) === 0;
 }
 
 function readRuntimeInfo(): RuntimeInfo | null {
@@ -922,7 +922,7 @@ function findListeningPid(port: number): number | null {
     stdio: ["ignore", "pipe", "ignore"],
   });
 
-  if (exitStatus(result) !== 0) {
+  if (spawnSyncStatus(result) !== 0) {
     return null;
   }
 
@@ -954,7 +954,7 @@ function launchTui(): void {
     cwd: repoRoot,
     stdio: "inherit",
   });
-  process.exit(exitStatus(proc) ?? 0);
+  process.exit(spawnSyncStatus(proc) ?? 1);
 }
 
 async function handleInstall(): Promise<void> {
@@ -1010,7 +1010,7 @@ function resolveVoxdBinary(): string | null {
   const which = spawnSync("/usr/bin/which", ["voxd"], {
     stdio: ["ignore", "pipe", "ignore"],
   });
-  if (exitStatus(which) === 0) {
+  if (spawnSyncStatus(which) === 0) {
     const found = new TextDecoder().decode(which.stdout).trim();
     if (found && existsSync(found)) return found;
   }
@@ -1059,7 +1059,7 @@ function launchctl(args: string[], opts: { allowFail?: boolean } = {}): number {
   const proc = spawnSync("/bin/launchctl", args, {
     stdio: ["ignore", "ignore", opts.allowFail ? "ignore" : "inherit"],
   });
-  return exitStatus(proc) ?? 0;
+  return spawnSyncStatus(proc) ?? 1;
 }
 
 function resolveRepoRoot(): string | null {
@@ -1112,14 +1112,20 @@ function buildDaemon(repoRoot: string): void {
       stdio: "inherit",
     });
 
-    if (exitStatus(result) !== 0) {
+    if (spawnSyncStatus(result) !== 0) {
       throw new Error(`Failed to build ${product}.`);
     }
   }
 }
 
-function exitStatus(result: ReturnType<typeof spawnSync>): number | null {
-  return result.status ?? result.exitCode ?? null;
+function spawnSyncStatus(result: { status?: number | null; exitCode?: number | null; error?: unknown }): number | null {
+  if (typeof result.status === "number") {
+    return result.status;
+  }
+  if (typeof result.exitCode === "number") {
+    return result.exitCode;
+  }
+  return result.error ? 1 : null;
 }
 
 function sleep(ms: number): Promise<void> {

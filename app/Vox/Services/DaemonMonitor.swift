@@ -59,16 +59,14 @@ final class DaemonMonitor: ObservableObject {
 
     private let monitorQueue = DispatchQueue(label: "dev.vox.daemon-monitor")
     private let proxy = DaemonProxy()
-    private var runtimeDirectorySource: DispatchSourceFileSystemObject?
-    private var runtimeDirectoryFileDescriptor: CInt = -1
     private var processSource: DispatchSourceProcess?
     private var observedPID: Int32?
     private var pendingRefreshTask: Task<Void, Never>?
+    private var runtimePollTask: Task<Void, Never>?
     private var liveSessionPollTask: Task<Void, Never>?
 
     func start() {
-        guard runtimeDirectorySource == nil else { return }
-        startWatchingRuntimeDirectory()
+        startRuntimePolling()
         startLiveSessionPolling()
         checkNow()
     }
@@ -76,12 +74,10 @@ final class DaemonMonitor: ObservableObject {
     func stop() {
         pendingRefreshTask?.cancel()
         pendingRefreshTask = nil
+        runtimePollTask?.cancel()
+        runtimePollTask = nil
         liveSessionPollTask?.cancel()
         liveSessionPollTask = nil
-
-        runtimeDirectorySource?.cancel()
-        runtimeDirectorySource = nil
-        runtimeDirectoryFileDescriptor = -1
 
         processSource?.cancel()
         processSource = nil
@@ -139,32 +135,16 @@ final class DaemonMonitor: ObservableObject {
         state = newState
     }
 
-    private func startWatchingRuntimeDirectory() {
+    private func startRuntimePolling() {
+        guard runtimePollTask == nil else { return }
         try? RuntimePaths.ensureDirectories()
-
-        let directoryURL = RuntimePaths.runtimeFileURL().deletingLastPathComponent()
-        let fileDescriptor = open(directoryURL.path, O_EVTONLY)
-        guard fileDescriptor >= 0 else { return }
-
-        runtimeDirectoryFileDescriptor = fileDescriptor
-
-        let source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fileDescriptor,
-            eventMask: [.write, .rename, .delete, .attrib, .extend, .link, .revoke],
-            queue: monitorQueue
-        )
-
-        source.setEventHandler { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.scheduleRefresh()
+        runtimePollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+                self?.checkNow()
             }
         }
-        source.setCancelHandler { [fileDescriptor] in
-            close(fileDescriptor)
-        }
-
-        runtimeDirectorySource = source
-        source.resume()
     }
 
     private func reconfigureProcessWatcher(for pid: Int32?) {
@@ -182,7 +162,7 @@ final class DaemonMonitor: ObservableObject {
             queue: monitorQueue
         )
 
-        source.setEventHandler { [weak self] in
+        source.setEventHandler { @Sendable [weak self] in
             Task { @MainActor [weak self] in
                 self?.scheduleRefresh()
             }

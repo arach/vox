@@ -1,9 +1,9 @@
 name: Release DMG
 
 on:
-  release:
-    types:
-      - published
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
 
 permissions:
@@ -32,18 +32,54 @@ jobs:
       - name: Resolve release version
         id: version
         run: |
-          VERSION=""
-          if [ "${{ github.event_name }}" = "release" ]; then
-            VERSION="${{ github.event.release.tag_name }}"
-            VERSION="${VERSION#v}"
-          fi
-          if [ -z "$VERSION" ]; then
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${TAG#v}"
+          else
+            TAG=""
             VERSION="$(sed -n 's/  "version": "\(.*\)",/\1/p' packages/cli/package.json | head -n 1)"
           fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Validate tag version
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          CLI_VERSION="$(node -p "require('./packages/cli/package.json').version")"
+          SDK_VERSION="$(node -p "require('./packages/client/package.json').version")"
+          WEB_CLIENT_VERSION="$(node -p "require('./packages/web-client/package.json').version")"
+          SWIFT_VERSION="$(sed -n 's/    public static let current = "\(.*\)"/\1/p' swift/Sources/VoxCore/RuntimePaths.swift)"
+
+          for value in "$CLI_VERSION" "$SDK_VERSION" "$WEB_CLIENT_VERSION" "$SWIFT_VERSION"; do
+            if [ "$value" != "$VERSION" ]; then
+              echo "::error::Tag v$VERSION does not match package/Swift version $value"
+              exit 1
+            fi
+          done
+
       - name: Validate release signing config
-        if: ${{ github.event_name == 'release' }}
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          missing=0
+          for name in \
+            APPLE_SIGNING_CERT_BASE64 \
+            APPLE_SIGNING_CERT_PASSWORD \
+            APPLE_SIGN_IDENTITY \
+            APPLE_ID \
+            APPLE_APP_PASSWORD \
+            APPLE_TEAM_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing required release secret: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Validate release signing config for manual run
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           missing=0
           for name in \
@@ -92,7 +128,7 @@ jobs:
           VOX_VERSION: ${{ steps.version.outputs.version }}
           VOX_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
           VOX_NOTARY_PROFILE: ${{ steps.notary.outputs.profile }}
-          VOX_REQUIRE_SIGNED_RELEASE: ${{ github.event_name == 'release' && '1' || '' }}
+          VOX_REQUIRE_SIGNED_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') && '1' || '' }}
         run: ./scripts/build-dmg.sh
 
       - name: Upload DMG artifact
@@ -101,8 +137,15 @@ jobs:
           name: Vox-dmg
           path: dist/Vox.dmg
 
-      - name: Attach DMG to GitHub release
-        if: ${{ github.event_name == 'release' }}
+      - name: Create GitHub release and attach DMG
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" dist/Vox.dmg --clobber
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --generate-notes
+          fi
+          gh release upload "$TAG" dist/Vox.dmg --clobber

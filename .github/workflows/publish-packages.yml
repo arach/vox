@@ -1,9 +1,9 @@
 name: Publish Packages
 
 on:
-  release:
-    types:
-      - published
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
 
 permissions:
@@ -29,11 +29,36 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
+      - name: Validate tag version
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          CLI_VERSION="$(node -p "require('./packages/cli/package.json').version")"
+          SDK_VERSION="$(node -p "require('./packages/client/package.json').version")"
+          WEB_CLIENT_VERSION="$(node -p "require('./packages/web-client/package.json').version")"
+          SWIFT_VERSION="$(sed -n 's/    public static let current = "\(.*\)"/\1/p' swift/Sources/VoxCore/RuntimePaths.swift)"
+
+          for value in "$CLI_VERSION" "$SDK_VERSION" "$WEB_CLIENT_VERSION" "$SWIFT_VERSION"; do
+            if [ "$value" != "$VERSION" ]; then
+              echo "::error::Tag v$VERSION does not match package/Swift version $value"
+              exit 1
+            fi
+          done
+
+      - name: Validate npm publishing config
+        run: |
+          if [ -z "${NPM_TOKEN}" ]; then
+            echo "::error::Missing required release secret: NPM_TOKEN"
+            exit 1
+          fi
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
       - name: Build packages
-        run: bun run --cwd packages/client build && bun run --cwd packages/cli build
+        run: bun run --cwd packages/client build && bun run --cwd packages/cli build && bun run --cwd packages/web-client build
 
       - name: Publish @voxd/sdk if needed
         working-directory: packages/client
@@ -43,6 +68,18 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           if npm view "@voxd/sdk@$VERSION" version >/dev/null 2>&1; then
             echo "@voxd/sdk@$VERSION already exists on npm"
+            exit 0
+          fi
+          npm publish --access public --provenance
+
+      - name: Publish @voxd/client if needed
+        working-directory: packages/web-client
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "@voxd/client@$VERSION" version >/dev/null 2>&1; then
+            echo "@voxd/client@$VERSION already exists on npm"
             exit 0
           fi
           npm publish --access public --provenance

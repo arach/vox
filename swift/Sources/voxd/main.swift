@@ -74,13 +74,15 @@ func bundledTTSCommand() -> [String]? {
     return [resolvedPath]
 }
 
-func loadEngines() -> (EngineManager, TTSEngineManager) {
+func loadEngines() -> (EngineManager, TTSEngineManager, String) {
     let configURL = RuntimePaths.providersConfigURL()
     guard FileManager.default.fileExists(atPath: configURL.path) else {
         log.info("No providers.json found, using default Vox ASR and TTS providers")
+        let ttsConfig = defaultTTSConfig()
         return (
             EngineManager(provider: ProviderRegistry(config: defaultASRConfig())),
-            TTSEngineManager(provider: TTSProviderRegistry(config: defaultTTSConfig()))
+            TTSEngineManager(provider: TTSProviderRegistry(config: ttsConfig)),
+            TTSDefaultModelSelector.defaultModelId(for: ttsConfig)
         )
     }
 
@@ -96,21 +98,30 @@ func loadEngines() -> (EngineManager, TTSEngineManager) {
 
         return (
             EngineManager(provider: ProviderRegistry(config: asrConfig)),
-            TTSEngineManager(provider: TTSProviderRegistry(config: ttsConfig))
+            TTSEngineManager(provider: TTSProviderRegistry(config: ttsConfig)),
+            TTSDefaultModelSelector.defaultModelId(for: ttsConfig)
         )
     } catch {
         log.error("Failed to parse providers.json: \(error.localizedDescription) — falling back to default")
+        let ttsConfig = defaultTTSConfig()
         return (
             EngineManager(provider: ProviderRegistry(config: defaultASRConfig())),
-            TTSEngineManager(provider: TTSProviderRegistry(config: defaultTTSConfig()))
+            TTSEngineManager(provider: TTSProviderRegistry(config: ttsConfig)),
+            TTSDefaultModelSelector.defaultModelId(for: ttsConfig)
         )
     }
 }
 
 let port = parsePort()
 let host = VoxDefaults.resolvedHost()
-let (engine, ttsEngine) = loadEngines()
-let service = VoxRuntimeService(port: port, bindAddress: host, engine: engine, ttsEngine: ttsEngine)
+let (engine, ttsEngine, defaultSynthesisModelId) = loadEngines()
+let service = VoxRuntimeService(
+    port: port,
+    bindAddress: host,
+    engine: engine,
+    ttsEngine: ttsEngine,
+    defaultSynthesisModelId: defaultSynthesisModelId
+)
 
 do {
     try service.start()

@@ -85,6 +85,14 @@ public actor ProviderRegistry: ASRProvider {
         return try await provider.transcribe(url: url, modelId: modelId)
     }
 
+    public func shutdown() async {
+        for (_, provider) in providers {
+            if let externalProvider = provider as? ExternalProvider {
+                await externalProvider.shutdown()
+            }
+        }
+    }
+
     private func resolveProvider(for modelId: String) async throws -> any ASRProvider {
         if let provider = modelRouting[modelId] {
             return provider

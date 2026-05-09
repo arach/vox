@@ -6,11 +6,40 @@ import VoxCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMenuDelegate {
+    private enum LaunchPresentation {
+        case settings
+        case gettingStarted
+    }
+
     private struct BridgeHealthResponse: Decodable, Sendable {
         let ok: Bool
         let port: UInt16?
         let service: String?
         let version: String?
+    }
+
+    private struct LaunchRequest {
+        let source: String?
+        let returnTo: String?
+        let context: LaunchContextPayload?
+    }
+
+    private struct LaunchContextPayload: Decodable {
+        let requesterName: String?
+        let productName: String?
+        let headline: String?
+        let body: String?
+        let actionLabel: String?
+        let logo: LaunchLogoPayload?
+        let logoURL: String?
+        let logoUrl: String?
+        let logoPath: String?
+    }
+
+    private struct LaunchLogoPayload: Decodable {
+        let url: String?
+        let path: String?
+        let symbolName: String?
     }
 
     private var statusItem: NSStatusItem!
@@ -19,6 +48,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
     private var proxy: DaemonProxy?
     private var bridge: HTTPBridgeServer?
     private var allowlist: OriginAllowlist?
+    private var settingsWindow: NSWindow?
+    private var gettingStartedWindow: NSWindow?
     private var monitorObserver: AnyCancellable?
     private let processInfo = ProcessInfo.processInfo
 
@@ -33,9 +64,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
 
         monitor.start()
 
-        // Show settings on first launch or when explicitly requested for demos/tests.
-        if shouldShowSettingsOnLaunch() {
-            showSettings()
+        // Show the app on first launch or when explicitly requested for demos/tests.
+        if let launchPresentation = launchPresentationOnLaunch() {
+            switch launchPresentation {
+            case .settings:
+                showSettings()
+            case .gettingStarted:
+                showGettingStarted(source: nil)
+            }
+
             if !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
                 UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
             }
@@ -117,9 +154,85 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
     @objc func showSettings() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first(where: { $0.title == "Vox" }) {
+
+        if let window = settingsWindow {
             window.makeKeyAndOrderFront(nil)
+            return
         }
+
+        let rootView = VoxRootView()
+            .environmentObject(monitor)
+            .environmentObject(bridgeState)
+            .frame(minWidth: 920, minHeight: 640)
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 960, height: 680),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Vox"
+        window.isReleasedWhenClosed = false
+        window.contentViewController = NSHostingController(rootView: rootView)
+        window.center()
+        settingsWindow = window
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    func showGettingStarted(source: String?) {
+        showGettingStarted(context: .generic(sourceName: displayName(forSource: source)))
+    }
+
+    private func showGettingStarted(request: LaunchRequest) {
+        let fallbackSourceName = displayName(forSource: request.source)
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let isTrusted = await self.isTrustedLaunchRequest(returnTo: request.returnTo)
+            let context = self.gettingStartedContext(
+                sourceName: fallbackSourceName,
+                payload: isTrusted ? request.context : nil
+            )
+            self.showGettingStarted(context: context)
+        }
+    }
+
+    private func showGettingStarted(context: GettingStartedContext) {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+
+        let rootView = GettingStartedView(
+            context: context,
+            onOpenSettings: { [weak self] in
+                self?.showSettings()
+            },
+            onRestartDaemon: { [weak self] in
+                LaunchAgentManager.restart()
+                self?.monitor.checkNow()
+            }
+        )
+        .environmentObject(monitor)
+        .environmentObject(bridgeState)
+
+        if let window = gettingStartedWindow {
+            window.title = gettingStartedTitle(context: context)
+            window.contentViewController = NSHostingController(rootView: rootView)
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 430),
+            styleMask: [.titled, .closable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = gettingStartedTitle(context: context)
+        window.isReleasedWhenClosed = false
+        window.contentViewController = NSHostingController(rootView: rootView)
+        window.center()
+        gettingStartedWindow = window
+        window.makeKeyAndOrderFront(nil)
     }
 
     @objc func restartDaemon() {
@@ -224,9 +337,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         return nil
     }
 
-    private func shouldShowSettingsOnLaunch() -> Bool {
+    private func launchPresentationOnLaunch() -> LaunchPresentation? {
         if processInfo.arguments.contains("--show-settings") {
-            return true
+            return .settings
         }
 
         if let rawValue = processInfo.environment["VOX_SHOW_SETTINGS_ON_LAUNCH"]?
@@ -234,11 +347,106 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
             .lowercased()
         {
             if ["1", "true", "yes", "on"].contains(rawValue) {
-                return true
+                return .settings
             }
         }
 
-        return !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
+        return !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") ? .gettingStarted : nil
+    }
+
+    private func displayName(forSource source: String?) -> String? {
+        switch source?.lowercased() {
+        case "openscout":
+            return "OpenScout"
+        case let source? where !source.isEmpty:
+            return source
+        default:
+            return nil
+        }
+    }
+
+    private func gettingStartedTitle(context: GettingStartedContext) -> String {
+        if let productName = context.productName {
+            return "\(productName) powered by Vox"
+        }
+        return context.sourceName.map { "Vox for \($0)" } ?? "Vox Getting Started"
+    }
+
+    private func launchRequest(from url: URL) -> LaunchRequest {
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let queryItems = components?.queryItems ?? []
+        let source = queryItems.first(where: { $0.name == "source" })?.value
+        let returnTo = queryItems.first(where: { $0.name == "returnTo" })?.value
+        let rawContext = queryItems.first(where: { $0.name == "context" })?.value
+        let context = rawContext.flatMap { Self.decodeLaunchContext($0) }
+        return LaunchRequest(source: source, returnTo: returnTo, context: context)
+    }
+
+    private nonisolated static func decodeLaunchContext(_ rawContext: String) -> LaunchContextPayload? {
+        let decodedContext = rawContext.replacingOccurrences(of: "+", with: " ")
+        guard let data = decodedContext.data(using: .utf8), data.count <= 4096 else {
+            return nil
+        }
+        return try? JSONDecoder().decode(LaunchContextPayload.self, from: data)
+    }
+
+    private func isTrustedLaunchRequest(returnTo: String?) async -> Bool {
+        guard let returnTo, !returnTo.isEmpty, let allowlist else {
+            return false
+        }
+        return await allowlist.check(returnTo)
+    }
+
+    private func gettingStartedContext(
+        sourceName: String?,
+        payload: LaunchContextPayload?
+    ) -> GettingStartedContext {
+        guard let payload else {
+            return .generic(sourceName: sourceName)
+        }
+
+        let requesterName = cleanLaunchText(payload.requesterName, maxLength: 40) ?? sourceName
+        let productName = cleanLaunchText(payload.productName, maxLength: 48) ?? requesterName
+        return GettingStartedContext(
+            sourceName: requesterName,
+            productName: productName,
+            headline: cleanLaunchText(payload.headline, maxLength: 72) ?? "Local speech for \(productName ?? "your app")",
+            detail: cleanLaunchText(payload.body, maxLength: 180)
+                ?? "Vox runs local speech capture and speech synthesis for this integration.",
+            actionLabel: cleanLaunchText(payload.actionLabel, maxLength: 36) ?? requesterName.map { "Return to \($0)" } ?? "Return to your app",
+            logo: launchLogo(from: payload)
+        )
+    }
+
+    private func launchLogo(from payload: LaunchContextPayload) -> GettingStartedLogo? {
+        let rawPath = cleanLaunchText(payload.logo?.path ?? payload.logoPath, maxLength: 512)
+        let rawURL = cleanLaunchText(payload.logo?.url ?? payload.logoURL ?? payload.logoUrl, maxLength: 512)
+        let symbolName = cleanLaunchText(payload.logo?.symbolName, maxLength: 64)
+
+        if let rawPath {
+            return GettingStartedLogo(url: URL(fileURLWithPath: rawPath), symbolName: symbolName)
+        }
+
+        if let rawURL,
+           let url = URL(string: rawURL),
+           let scheme = url.scheme?.lowercased(),
+           ["file", "http", "https"].contains(scheme)
+        {
+            return GettingStartedLogo(url: url, symbolName: symbolName)
+        }
+
+        if let symbolName {
+            return GettingStartedLogo(url: nil, symbolName: symbolName)
+        }
+
+        return nil
+    }
+
+    private func cleanLaunchText(_ value: String?, maxLength: Int) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(maxLength))
     }
 
     // MARK: - URL Scheme
@@ -247,6 +455,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         for url in urls {
             guard url.scheme == "vox" else { continue }
             switch url.host {
+            case "launch":
+                showGettingStarted(request: launchRequest(from: url))
             case "settings":
                 showSettings()
             case "restart":

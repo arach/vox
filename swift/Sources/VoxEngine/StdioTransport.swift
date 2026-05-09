@@ -22,11 +22,11 @@ public final class StdioTransport: @unchecked Sendable {
     public init(
         command: [String],
         env: [String: String]? = nil,
-        callTimeoutSeconds: TimeInterval = 30
+        callTimeoutSeconds: TimeInterval? = nil
     ) {
         self.command = command
         self.env = env
-        self.callTimeoutSeconds = callTimeoutSeconds
+        self.callTimeoutSeconds = callTimeoutSeconds ?? Self.resolveCallTimeoutSeconds(env: env)
     }
 
     public func start() throws {
@@ -79,6 +79,7 @@ public final class StdioTransport: @unchecked Sendable {
         readTask = nil
         queue.sync {
             if let process, process.isRunning {
+                try? stdinPipe?.fileHandleForWriting.close()
                 process.terminate()
             }
             _isRunning = false
@@ -128,12 +129,12 @@ public final class StdioTransport: @unchecked Sendable {
             throw StdioTransportError.notRunning
         }
 
-        pipe.fileHandleForWriting.write(lineData)
-
         return try await withCheckedThrowingContinuation { continuation in
             queue.sync {
                 pending[id] = continuation
             }
+
+            pipe.fileHandleForWriting.write(lineData)
 
             // Schedule timeout
             queue.asyncAfter(deadline: .now() + self.callTimeoutSeconds) { [weak self] in
@@ -142,6 +143,10 @@ public final class StdioTransport: @unchecked Sendable {
                 cont?.resume(throwing: StdioTransportError.timeout(method: method))
             }
         }
+    }
+
+    deinit {
+        stop()
     }
 
     public var processIsRunning: Bool {
@@ -153,6 +158,29 @@ public final class StdioTransport: @unchecked Sendable {
     }
 
     // MARK: - Private
+
+    private static func resolveCallTimeoutSeconds(env: [String: String]?) -> TimeInterval {
+        let environment = ProcessInfo.processInfo.environment
+        let secondsRaw = env?["VOX_PROVIDER_CALL_TIMEOUT_SECONDS"]
+            ?? environment["VOX_PROVIDER_CALL_TIMEOUT_SECONDS"]
+        if let secondsRaw,
+           let seconds = TimeInterval(secondsRaw),
+           seconds > 0
+        {
+            return seconds
+        }
+
+        let millisecondsRaw = env?["VOX_PROVIDER_CALL_TIMEOUT_MS"]
+            ?? environment["VOX_PROVIDER_CALL_TIMEOUT_MS"]
+        if let millisecondsRaw,
+           let milliseconds = TimeInterval(millisecondsRaw),
+           milliseconds > 0
+        {
+            return milliseconds / 1000
+        }
+
+        return 30
+    }
 
     private func startReadingStdout(_ pipe: Pipe) {
         let handle = pipe.fileHandleForReading

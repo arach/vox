@@ -139,4 +139,25 @@ struct SynthesisRouteTests {
         #expect(output.modelId == "mock-tts:v2")
         #expect(output.voiceId == "voice-preferred")
     }
+
+    @Test("synthesize.generate uses configured default model when preferences are omitted")
+    func synthesizeGenerateUsesConfiguredDefaultModel() async throws {
+        let service = VoxRuntimeService(
+            ttsEngine: TTSEngineManager(provider: MockTTSProvider(
+                modelId: "mock-tts:local",
+                voiceId: "voice-local"
+            )),
+            defaultSynthesisModelId: "mock-tts:local",
+            preferencesLoader: {
+                VoxPreferences()
+            }
+        )
+
+        let output = try await service.performSynthesizeGenerate(params: [
+            "text": "hello world"
+        ])
+
+        #expect(output.modelId == "mock-tts:local")
+        #expect(output.voiceId == "voice-local")
+    }
 }
