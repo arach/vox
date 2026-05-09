@@ -29,6 +29,7 @@ const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const DEV_REPO_ROOT = resolve(MODULE_DIR, "../../..");
 const DEV_SWIFT_ROOT = join(DEV_REPO_ROOT, "swift");
 const DEV_DAEMON_BINARY = join(DEV_SWIFT_ROOT, ".build", "debug", "voxd");
+const DEV_TTS_BINARY = join(DEV_SWIFT_ROOT, ".build", "debug", "voxttsd");
 
 const LAUNCH_AGENT_LABEL = "com.vox.daemon";
 const PLIST_PATH = join(homedir(), "Library", "LaunchAgents", `${LAUNCH_AGENT_LABEL}.plist`);
@@ -1093,18 +1094,27 @@ function resolveOrBuildVoxdBinary(): string {
 }
 
 function buildDaemon(repoRoot: string): void {
-  if (existsSync(DEV_DAEMON_BINARY)) {
+  if (existsSync(DEV_DAEMON_BINARY) && existsSync(DEV_TTS_BINARY)) {
     return;
   }
 
   const swiftRoot = join(repoRoot, "swift");
-  const result = spawnSync("swift", ["build", "--package-path", swiftRoot, "--product", "voxd"], {
-    cwd: repoRoot,
-    stdio: "inherit",
-  });
+  for (const product of ["voxd", "voxttsd"]) {
+    if (product === "voxd" && existsSync(DEV_DAEMON_BINARY)) {
+      continue;
+    }
+    if (product === "voxttsd" && existsSync(DEV_TTS_BINARY)) {
+      continue;
+    }
 
-  if (spawnSyncStatus(result) !== 0) {
-    throw new Error("Failed to build voxd.");
+    const result = spawnSync("swift", ["build", "--package-path", swiftRoot, "--product", product], {
+      cwd: repoRoot,
+      stdio: "inherit",
+    });
+
+    if (spawnSyncStatus(result) !== 0) {
+      throw new Error(`Failed to build ${product}.`);
+    }
   }
 }
 

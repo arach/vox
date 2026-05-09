@@ -39,6 +39,7 @@ swift build -c release 2>&1 | tee "$APP_BUILD_LOG"
 echo "==> Building voxd release binary..."
 cd "$ROOT/swift"
 swift build -c release --product voxd 2>&1 | tee "$VOXD_BUILD_LOG"
+swift build -c release --product voxttsd 2>&1 | tee -a "$VOXD_BUILD_LOG"
 
 echo "==> Creating app bundle..."
 rm -rf "$BUILD_DIR"
@@ -53,6 +54,12 @@ VOXD_PATH="$ROOT/swift/.build/release/voxd"
 if [ -f "$VOXD_PATH" ]; then
     cp "$VOXD_PATH" "$BUNDLE/Contents/Resources/voxd"
     echo "    Bundled voxd daemon"
+fi
+
+VOXTTS_PATH="$ROOT/swift/.build/release/voxttsd"
+if [ -f "$VOXTTS_PATH" ]; then
+    cp "$VOXTTS_PATH" "$BUNDLE/Contents/Resources/voxttsd"
+    echo "    Bundled voxttsd daemon"
 fi
 
 # Generate .icns from iconset
@@ -153,6 +160,13 @@ if [ -n "$SIGN_IDENTITY" ]; then
             --sign "$SIGN_IDENTITY" \
             "$BUNDLE/Contents/Resources/voxd"
         echo "    Signed voxd"
+    fi
+
+    if [ -f "$BUNDLE/Contents/Resources/voxttsd" ]; then
+        codesign --force --options runtime --timestamp \
+            --sign "$SIGN_IDENTITY" \
+            "$BUNDLE/Contents/Resources/voxttsd"
+        echo "    Signed voxttsd"
     fi
 
     # Sign the main app bundle

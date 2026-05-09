@@ -1,12 +1,13 @@
 # Vox
 
-Vox is a local-first voice stack for Apple platforms. This repo brings together the Swift runtime, the companion daemon, the TypeScript clients, and the CLI.
+Vox is a local-first voice stack for Apple platforms. This repo brings together the Hudson-powered menu bar app, the Swift runtime, the companion daemon, the TypeScript clients, and the CLI.
 
 - `VoxCore`, `VoxEngine`, `VoxService`, and `VoxBridge`: embeddable Swift packages for macOS and iOS apps.
 - `voxd`: Vox Companion, the Swift daemon for web-facing, shared-process, and operator integrations.
 - `@voxd/sdk`: TypeScript SDK. Typed JSON-RPC client for Vox Companion integrations.
 - `@voxd/client`: Browser SDK. HTTP bridge client for local web integrations.
 - `vox`: Node CLI. Health checks, benchmarks, warm-up scheduling, dashboards.
+- `Vox.app`: Hudson-based macOS menu bar app, packaged as a signed and notarized DMG by release automation.
 
 Apple apps can embed Vox directly. Bun and Node tools can connect to `voxd` over local WebSocket JSON-RPC. Browser clients can connect through the companion HTTP bridge with `@voxd/client`.
 
@@ -155,6 +156,8 @@ vox transcribe live --timestamps
 
 `voxd` is Vox Companion: the shared-process and web-facing transport for Vox. `bun run test:e2e` is an opt-in macOS integration suite that boots `voxd`, preloads the model, synthesizes speech with `say`, and checks `transcribe file` output against keyword expectations.
 
+Speech synthesis supports Apple system voices locally and OpenAI TTS (`gpt-4o-mini-tts`, `tts-1`, and `tts-1-hd`) when `OPENAI_API_KEY` is configured. The packaged app bundles `voxd` and `voxttsd` so the menu bar app and CLI share the same companion runtime.
+
 ## Docs and site
 
 - Dewey source docs: `docs/`
@@ -165,6 +168,16 @@ vox transcribe live --timestamps
 ## Release automation
 
 - GitHub Pages deploys from `.github/workflows/deploy-pages.yml` to `https://voxd.cc`
-- npm publishing runs from `.github/workflows/publish-packages.yml`, publishes `@voxd/sdk` before `@voxd/cli`
-- DMG builds and GitHub release asset uploads run from `.github/workflows/release-dmg.yml`
-  Requires Apple signing and notarization secrets if you want the uploaded `Vox.dmg` to be signed and stapled for Gatekeeper.
+- npm publishing runs from `.github/workflows/publish-packages.yml` on `v*` tags and publishes `@voxd/sdk`, `@voxd/client`, and `@voxd/cli`
+- DMG builds run from `.github/workflows/release-dmg.yml`. Tag builds create or update the matching GitHub Release and upload `Vox.dmg`.
+- Manual DMG releases can be started from the workflow page with a version. The workflow validates the repo versions, builds the DMG, signs and notarizes it, creates `v<version>` when needed, creates the GitHub Release, and uploads the installer.
+
+Required release secrets:
+
+- `APPLE_SIGNING_CERT_BASE64`
+- `APPLE_SIGNING_CERT_PASSWORD`
+- `APPLE_SIGN_IDENTITY`
+- `APPLE_ID`
+- `APPLE_APP_PASSWORD`
+- `APPLE_TEAM_ID`
+- `NPM_TOKEN` for package publishing

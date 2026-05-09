@@ -146,7 +146,7 @@ If `probe()` returns false, you can prompt the user to install:
 ```ts
 if (!await client.probe()) {
   // Show install prompt in your UI
-  // Link to: https://github.com/arach/vox/releases/latest/download/Vox.dmg
+  // Link to: https://voxd.cc/download
 }
 ```
 

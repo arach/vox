@@ -13,6 +13,7 @@ let package = Package(
         .library(name: "VoxService", targets: ["VoxService"]),
         .library(name: "VoxBridge", targets: ["VoxBridge"]),
         .executable(name: "voxbridge", targets: ["VoxBridgeRunner"]),
+        .executable(name: "voxttsd", targets: ["VoxTTSRunner"]),
         .executable(name: "voxd", targets: ["voxd"])
     ],
     dependencies: [],
@@ -40,8 +41,12 @@ let package = Package(
             dependencies: ["VoxCore", "VoxBridge"]
         ),
         .executableTarget(
+            name: "VoxTTSRunner",
+            dependencies: ["VoxCore", "VoxEngine"]
+        ),
+        .executableTarget(
             name: "voxd",
-            dependencies: ["VoxCore", "VoxService"]
+            dependencies: ["VoxCore", "VoxEngine", "VoxService"]
         ),
         .testTarget(
             name: "VoxCoreTests",
