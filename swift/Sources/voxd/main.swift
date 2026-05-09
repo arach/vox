@@ -47,14 +47,6 @@ func defaultTTSConfig() -> ProvidersConfig {
     ])
 }
 
-func defaultSynthesisModelId(for config: ProvidersConfig) -> String {
-    let ttsEntries = config.providers.filter { $0.resolvedKind == .tts }
-    let configuredModels = ttsEntries.flatMap { $0.models ?? [] }
-    return configuredModels.first { $0 != TTSDefaults.modelId }
-        ?? configuredModels.first
-        ?? TTSDefaults.modelId
-}
-
 func loadEngines() -> (EngineManager, TTSEngineManager, String) {
     let configURL = RuntimePaths.providersConfigURL()
     guard FileManager.default.fileExists(atPath: configURL.path) else {
@@ -63,7 +55,7 @@ func loadEngines() -> (EngineManager, TTSEngineManager, String) {
         return (
             EngineManager(provider: ProviderRegistry(config: defaultASRConfig())),
             TTSEngineManager(provider: TTSProviderRegistry(config: ttsConfig)),
-            defaultSynthesisModelId(for: ttsConfig)
+            TTSDefaultModelSelector.defaultModelId(for: ttsConfig)
         )
     }
 
@@ -80,7 +72,7 @@ func loadEngines() -> (EngineManager, TTSEngineManager, String) {
         return (
             EngineManager(provider: ProviderRegistry(config: asrConfig)),
             TTSEngineManager(provider: TTSProviderRegistry(config: ttsConfig)),
-            defaultSynthesisModelId(for: ttsConfig)
+            TTSDefaultModelSelector.defaultModelId(for: ttsConfig)
         )
     } catch {
         log.error("Failed to parse providers.json: \(error.localizedDescription) — falling back to default")
@@ -88,7 +80,7 @@ func loadEngines() -> (EngineManager, TTSEngineManager, String) {
         return (
             EngineManager(provider: ProviderRegistry(config: defaultASRConfig())),
             TTSEngineManager(provider: TTSProviderRegistry(config: ttsConfig)),
-            defaultSynthesisModelId(for: ttsConfig)
+            TTSDefaultModelSelector.defaultModelId(for: ttsConfig)
         )
     }
 }
