@@ -5,9 +5,20 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version. Defaults to packages/cli/package.json."
+        required: false
+        type: string
+      create_release:
+        description: "Create the git tag and GitHub Release after the DMG builds."
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   build-dmg:
@@ -23,6 +34,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -31,19 +44,25 @@ jobs:
 
       - name: Resolve release version
         id: version
+        env:
+          REQUESTED_VERSION: ${{ github.event.inputs.version }}
+          CREATE_RELEASE: ${{ github.event.inputs.create_release }}
         run: |
+          PACKAGE_VERSION="$(sed -n 's/  "version": "\(.*\)",/\1/p' packages/cli/package.json | head -n 1)"
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             TAG="${GITHUB_REF_NAME}"
             VERSION="${TAG#v}"
+            RELEASE_REQUESTED="true"
           else
-            TAG=""
-            VERSION="$(sed -n 's/  "version": "\(.*\)",/\1/p' packages/cli/package.json | head -n 1)"
+            VERSION="${REQUESTED_VERSION:-$PACKAGE_VERSION}"
+            TAG="v$VERSION"
+            RELEASE_REQUESTED="${CREATE_RELEASE:-true}"
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "release_requested=$RELEASE_REQUESTED" >> "$GITHUB_OUTPUT"
 
-      - name: Validate tag version
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+      - name: Validate release version
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           CLI_VERSION="$(node -p "require('./packages/cli/package.json').version")"
@@ -59,27 +78,7 @@ jobs:
           done
 
       - name: Validate release signing config
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        run: |
-          missing=0
-          for name in \
-            APPLE_SIGNING_CERT_BASE64 \
-            APPLE_SIGNING_CERT_PASSWORD \
-            APPLE_SIGN_IDENTITY \
-            APPLE_ID \
-            APPLE_APP_PASSWORD \
-            APPLE_TEAM_ID; do
-            if [ -z "${!name}" ]; then
-              echo "::error::Missing required release secret: $name"
-              missing=1
-            fi
-          done
-          if [ "$missing" -ne 0 ]; then
-            exit 1
-          fi
-
-      - name: Validate release signing config for manual run
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
         run: |
           missing=0
           for name in \
@@ -128,7 +127,7 @@ jobs:
           VOX_VERSION: ${{ steps.version.outputs.version }}
           VOX_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
           VOX_NOTARY_PROFILE: ${{ steps.notary.outputs.profile }}
-          VOX_REQUIRE_SIGNED_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') && '1' || '' }}
+          VOX_REQUIRE_SIGNED_RELEASE: ${{ (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch') && '1' || '' }}
         run: ./scripts/build-dmg.sh
 
       - name: Upload DMG artifact
@@ -138,14 +137,25 @@ jobs:
           path: dist/Vox.dmg
 
       - name: Create GitHub release and attach DMG
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ steps.version.outputs.release_requested == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ steps.version.outputs.tag }}"
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            git tag "$TAG" "$GITHUB_SHA"
+            git push origin "refs/tags/$TAG"
+          fi
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" \
               --title "$TAG" \
               --generate-notes
           fi
           gh release upload "$TAG" dist/Vox.dmg --clobber
+
+      - name: Dispatch package publishing workflow
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.version.outputs.release_requested == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run publish-packages.yml --ref "${{ steps.version.outputs.tag }}"

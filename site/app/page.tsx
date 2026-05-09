@@ -48,6 +48,7 @@ export default function Home() {
           </Link>
           <nav className="flex flex-wrap items-center gap-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
             <Link href="/docs/overview" className="px-2.5 py-1.5 transition-colors hover:text-accent">Docs</Link>
+            <Link href="/download" className="px-2.5 py-1.5 transition-colors hover:text-accent">Download</Link>
             <Link href="/blog" className="px-2.5 py-1.5 transition-colors hover:text-accent">Blog</Link>
             <Link href="#packages" className="px-2.5 py-1.5 transition-colors hover:text-accent">Packages</Link>
             <Link href="#runtime" className="px-2.5 py-1.5 transition-colors hover:text-accent">Runtime</Link>
@@ -71,7 +72,7 @@ export default function Home() {
 
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
-                href="https://github.com/arach/vox/releases/latest/download/Vox.dmg"
+                href="/download"
                 className="inline-flex h-10 items-center gap-2 rounded-sm border border-accent bg-accent px-5 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-canvas"
               >
                 <Download className="h-3.5 w-3.5" />
@@ -265,7 +266,7 @@ export default function Home() {
                 Drag Vox to Applications. The companion starts automatically on login, so web and tooling integrations have a local bridge ready on the machine.
               </p>
               <Link
-                href="https://github.com/arach/vox/releases/latest/download/Vox.dmg"
+                href="/download"
                 className="mt-5 inline-flex h-9 items-center gap-2 rounded-sm border border-line-strong bg-panel px-4 font-mono text-[11px] uppercase tracking-[0.06em] text-ink transition-colors hover:text-accent"
               >
                 <Download className="h-3 w-3" />
@@ -297,6 +298,7 @@ export default function Home() {
           </div>
           <div className="flex gap-5">
             <Link href="/docs/overview" className="transition-colors hover:text-accent">/docs</Link>
+            <Link href="/download" className="transition-colors hover:text-accent">/download</Link>
             <Link href="/blog" className="transition-colors hover:text-accent">/blog</Link>
             <Link href="https://github.com/arach/vox" target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-2 transition-colors hover:text-accent">
               <Github className="h-3 w-3" />

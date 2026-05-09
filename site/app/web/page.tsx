@@ -67,6 +67,9 @@ export default function WebSdkPage() {
             <Link href="/docs/web-integration" className="rounded-md px-3 py-2 transition-colors hover:bg-wave hover:text-ink">
               Docs
             </Link>
+            <Link href="/download" className="rounded-md px-3 py-2 transition-colors hover:bg-wave hover:text-ink">
+              Download
+            </Link>
             <Link href="/blog" className="rounded-md px-3 py-2 transition-colors hover:bg-wave hover:text-ink">
               Blog
             </Link>
@@ -213,7 +216,7 @@ export default function WebSdkPage() {
               </Link>
 
               <Link
-                href="https://github.com/arach/vox/releases/latest/download/Vox.dmg"
+                href="/download"
                 className="group rounded-lg border border-line bg-panel px-5 py-4 transition-all hover:border-accent/50 hover:bg-wave"
               >
                 <div className="flex items-center justify-between">
