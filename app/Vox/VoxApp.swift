@@ -6,11 +6,12 @@ struct VoxApp: App {
 
     var body: some Scene {
         Window("Vox", id: "settings") {
-            SettingsView()
+            VoxRootView()
                 .environmentObject(delegate.monitor)
                 .environmentObject(delegate.bridgeState)
+                .frame(minWidth: 920, minHeight: 640)
         }
         .windowStyle(.titleBar)
-        .defaultSize(width: 520, height: 480)
+        .defaultSize(width: 960, height: 680)
     }
 }

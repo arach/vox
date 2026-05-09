@@ -7,7 +7,8 @@ let package = Package(
         .macOS(.v26)
     ],
     dependencies: [
-        .package(path: "../swift")
+        .package(path: "../swift"),
+        .package(path: "../../hudson"),
     ],
     targets: [
         .executableTarget(
@@ -16,6 +17,8 @@ let package = Package(
                 .product(name: "VoxCore", package: "swift"),
                 .product(name: "VoxBridge", package: "swift"),
                 .product(name: "VoxEngine", package: "swift"),
+                .product(name: "HudsonUI", package: "hudson"),
+                .product(name: "HudsonShell", package: "hudson"),
             ],
             path: "Vox",
             resources: [

@@ -1,4 +1,5 @@
 import SwiftUI
+import HudsonUI
 import VoxCore
 import VoxEngine
 
@@ -29,176 +30,224 @@ struct GeneralTab: View {
     @StateObject private var speechPreferences = SpeechPreferencesState()
 
     var body: some View {
-        Form {
-            Section {
-                LabeledContent("Status") {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(monitor.isRunning ? .green : .red)
-                            .frame(width: 8, height: 8)
-                        Text(monitor.isRunning ? "Running" : "Stopped")
-                            .foregroundStyle(monitor.isRunning ? .primary : .secondary)
-                    }
-                }
-
-                if let port = monitor.port {
-                    LabeledContent("Daemon Port") {
-                        Text("\(port)")
-                            .monospacedDigit()
-                    }
-                }
-
-                if let pid = monitor.pid {
-                    LabeledContent("PID") {
-                        Text("\(pid)")
-                            .monospacedDigit()
-                    }
-                }
-
-                if let startedAt = monitor.startedAt {
-                    LabeledContent("Uptime") {
-                        UptimeText(startedAt: startedAt)
-                    }
-                }
-
-                LabeledContent("Live Capture") {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(monitor.isRecording ? .red : Color.secondary.opacity(0.28))
-                            .frame(width: 8, height: 8)
-                        Text(monitor.isRecording ? "Recording" : "Idle")
-                            .foregroundStyle(monitor.isRecording ? .primary : .secondary)
-                    }
-                }
-
-                if monitor.isRecording, let clientId = monitor.liveSessionClientId {
-                    LabeledContent("Recording Client") {
-                        Text(clientId)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                }
-
-                if monitor.isRecording, let modelId = monitor.liveSessionModelId {
-                    LabeledContent("Recording Model") {
-                        Text(modelId)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                }
-            } header: {
-                Text("Daemon")
+        VoxScreen(
+            title: "Runtime",
+            badge: "LOCAL FIRST",
+            summary: "Manage the local daemon, inspect live capture state, and set user-level speech defaults without hiding model lifecycle."
+        ) {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 220), spacing: HudSpacing.xl)],
+                alignment: .leading,
+                spacing: HudSpacing.xl
+            ) {
+                VoxMetricCard(
+                    label: "Daemon",
+                    value: monitor.isRunning ? "Running" : "Stopped",
+                    detail: daemonDetail,
+                    tint: monitor.isRunning ? HudPalette.statusOk : HudPalette.statusError,
+                    pulses: monitor.isRunning
+                )
+                VoxMetricCard(
+                    label: "Live Capture",
+                    value: monitor.isRecording ? "Recording" : "Idle",
+                    detail: monitor.liveSessionClientId ?? "No active session",
+                    tint: monitor.isRecording ? HudPalette.statusError : HudPalette.dim,
+                    pulses: monitor.isRecording
+                )
+                VoxMetricCard(
+                    label: "Default ASR",
+                    value: selectedTranscriptionModelLabel,
+                    detail: "Explicit warm-up surface",
+                    tint: HudPalette.statusInfo
+                )
             }
 
-            Section {
-                LabeledContent("Model") {
-                    Text("Parakeet TDT v3")
-                }
-
-                LabeledContent("Backend") {
-                    Text("Parakeet (CoreML)")
-                }
-            } header: {
-                Text("Model")
-            }
-
-            Section {
-                Picker(
-                    "Transcription Default",
-                    selection: Binding(
-                        get: { speechPreferences.preferredTranscriptionModelId },
-                        set: { newValue in
-                            speechPreferences.updatePreferredTranscriptionModelId(newValue)
-                        }
-                    )
-                ) {
-                    Text("Vox Default (parakeet:v3)")
-                        .tag("")
-                    ForEach(speechPreferences.asrModels, id: \.id) { model in
-                        Text(model.id)
-                            .tag(model.id)
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HStack {
+                        HudSectionLabel("Daemon")
+                        Spacer()
+                        HudBadge(
+                            monitor.isRunning ? "RUNNING" : "STOPPED",
+                            tint: monitor.isRunning ? HudPalette.statusOk : HudPalette.statusError,
+                            dot: true
+                        )
                     }
-                }
 
-                Picker(
-                    "Synthesis Default",
-                    selection: Binding(
-                        get: { speechPreferences.preferredSynthesisModelId },
-                        set: { newValue in
-                            Task {
-                                await speechPreferences.updatePreferredSynthesisModelId(newValue)
+                    HudInset {
+                        VStack(alignment: .leading, spacing: HudSpacing.md) {
+                            HudKVRow(
+                                "Status",
+                                value: monitor.isRunning ? "Running" : "Stopped",
+                                valueColor: monitor.isRunning ? HudPalette.statusOk : HudPalette.statusError
+                            )
+                            if let port = monitor.port {
+                                HudKVRow("Daemon Port", value: voxPortString(port))
+                            }
+                            if let pid = monitor.pid {
+                                HudKVRow("PID", value: voxProcessIDString(pid))
+                            }
+                            if let startedAt = monitor.startedAt {
+                                HStack {
+                                    Text("UPTIME")
+                                        .font(HudFont.mono(9))
+                                        .tracking(0.8)
+                                        .foregroundStyle(HudPalette.dim)
+                                    Spacer()
+                                    UptimeText(startedAt: startedAt)
+                                        .font(HudFont.mono(11))
+                                        .foregroundStyle(HudPalette.ink)
+                                }
+                            }
+                            HudKVRow(
+                                "Live Capture",
+                                value: monitor.isRecording ? "Recording" : "Idle",
+                                valueColor: monitor.isRecording ? HudPalette.statusError : HudPalette.muted
+                            )
+                            if monitor.isRecording, let clientId = monitor.liveSessionClientId {
+                                HudKVRow("Recording Client", value: clientId)
+                            }
+                            if monitor.isRecording, let modelId = monitor.liveSessionModelId {
+                                HudKVRow("Recording Model", value: modelId)
                             }
                         }
-                    )
-                ) {
-                    Text("Vox Default (\(TTSDefaults.modelId))")
-                        .tag("")
-                    ForEach(speechPreferences.ttsModels, id: \.id) { model in
-                        Text(model.id)
-                            .tag(model.id)
                     }
-                }
 
-                Picker(
-                    "Voice Default",
-                    selection: Binding(
-                        get: { speechPreferences.preferredSynthesisVoiceId },
-                        set: { newValue in
-                            speechPreferences.updatePreferredSynthesisVoiceId(newValue)
+                    HStack(spacing: HudSpacing.md) {
+                        HudButton("Restart", icon: "arrow.clockwise", style: .secondary) {
+                            LaunchAgentManager.restart()
                         }
-                    )
-                ) {
-                    Text("Provider Default")
-                        .tag("")
-                    ForEach(speechPreferences.voices, id: \.id) { voice in
-                        Text(voiceLabel(voice))
-                            .tag(voice.id)
+
+                        if !launchAgentInstalled {
+                            HudButton("Install LaunchAgent", icon: "plus", style: .primary(.cyan)) {
+                                LaunchAgentManager.install()
+                                launchAgentInstalled = LaunchAgentManager.isInstalled()
+                            }
+                        }
+
+                        Spacer()
+
+                        HudBadge(
+                            launchAgentInstalled ? "STARTS AT LOGIN" : "MANUAL START",
+                            tint: launchAgentInstalled ? HudPalette.statusOk : HudPalette.muted
+                        )
                     }
                 }
-                .disabled(speechPreferences.voices.isEmpty)
-
-                if let statusMessage = speechPreferences.statusMessage, !statusMessage.isEmpty {
-                    Text(statusMessage)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            } header: {
-                Text("Speech Defaults")
-            } footer: {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("These are user-level Vox defaults. Apps can override them when they choose an explicit model or voice.")
-                    Text("Input device defaults are not exposed yet. Live capture currently follows the system default input device.")
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
 
-            Section {
-                HStack {
-                    Button("Restart Daemon") {
-                        LaunchAgentManager.restart()
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HudSectionLabel("Speech Defaults")
+                    VoxBodyText("These defaults are stored at the Vox user level. Apps can still override model and voice choices per request.")
+
+                    VStack(alignment: .leading, spacing: HudSpacing.md) {
+                        Picker(
+                            "Transcription Default",
+                            selection: Binding(
+                                get: { speechPreferences.preferredTranscriptionModelId },
+                                set: { newValue in
+                                    speechPreferences.updatePreferredTranscriptionModelId(newValue)
+                                }
+                            )
+                        ) {
+                            Text("Vox Default (parakeet:v3)")
+                                .tag("")
+                            ForEach(speechPreferences.asrModels, id: \.id) { model in
+                                Text(model.id)
+                                    .tag(model.id)
+                            }
+                        }
+
+                        Picker(
+                            "Synthesis Default",
+                            selection: Binding(
+                                get: { speechPreferences.preferredSynthesisModelId },
+                                set: { newValue in
+                                    Task {
+                                        await speechPreferences.updatePreferredSynthesisModelId(newValue)
+                                    }
+                                }
+                            )
+                        ) {
+                            Text("Vox Default (\(TTSDefaults.modelId))")
+                                .tag("")
+                            ForEach(speechPreferences.ttsModels, id: \.id) { model in
+                                Text(model.id)
+                                    .tag(model.id)
+                            }
+                        }
+
+                        Picker(
+                            "Voice Default",
+                            selection: Binding(
+                                get: { speechPreferences.preferredSynthesisVoiceId },
+                                set: { newValue in
+                                    speechPreferences.updatePreferredSynthesisVoiceId(newValue)
+                                }
+                            )
+                        ) {
+                            Text("Provider Default")
+                                .tag("")
+                            ForEach(speechPreferences.voices, id: \.id) { voice in
+                                Text(voiceLabel(voice))
+                                    .tag(voice.id)
+                            }
+                        }
+                        .disabled(speechPreferences.voices.isEmpty)
+                    }
+                    .pickerStyle(.menu)
+
+                    if let statusMessage = speechPreferences.statusMessage, !statusMessage.isEmpty {
+                        HudInset {
+                            VoxBodyText(statusMessage)
+                        }
                     }
 
-                    if !launchAgentInstalled {
-                        Button("Install LaunchAgent") {
-                            LaunchAgentManager.install()
-                            launchAgentInstalled = LaunchAgentManager.isInstalled()
+                    HudInset {
+                        VStack(alignment: .leading, spacing: HudSpacing.md) {
+                            HudKVRow("ASR", value: selectedTranscriptionModelLabel)
+                            HudKVRow("TTS", value: selectedSynthesisModelLabel)
+                            HudKVRow("Voice", value: selectedVoiceLabel)
+                            HudKVRow("Input Device", value: "System default", valueColor: HudPalette.muted)
                         }
-                        .tint(.accentColor)
                     }
                 }
-
-                Toggle("Start at login", isOn: .constant(launchAgentInstalled))
-                    .disabled(true)
-            } header: {
-                Text("Actions")
             }
         }
-        .formStyle(.grouped)
         .onAppear {
             launchAgentInstalled = LaunchAgentManager.isInstalled()
         }
         .task(id: monitor.isRunning) {
             await speechPreferences.load()
         }
+    }
+
+    private var daemonDetail: String {
+        if let port = monitor.port, let pid = monitor.pid {
+            return "port \(voxPortString(port)) · pid \(voxProcessIDString(pid))"
+        }
+        if let port = monitor.port {
+            return "port \(voxPortString(port))"
+        }
+        return "Runtime file unavailable"
+    }
+
+    private var selectedTranscriptionModelLabel: String {
+        speechPreferences.preferredTranscriptionModelId.isEmpty
+            ? "parakeet:v3"
+            : speechPreferences.preferredTranscriptionModelId
+    }
+
+    private var selectedSynthesisModelLabel: String {
+        speechPreferences.preferredSynthesisModelId.isEmpty
+            ? TTSDefaults.modelId
+            : speechPreferences.preferredSynthesisModelId
+    }
+
+    private var selectedVoiceLabel: String {
+        speechPreferences.preferredSynthesisVoiceId.isEmpty
+            ? "Provider default"
+            : speechPreferences.preferredSynthesisVoiceId
     }
 
     private func voiceLabel(_ voice: TTSVoiceInfo) -> String {
@@ -215,138 +264,198 @@ struct BridgeTab: View {
     @EnvironmentObject var bridgeState: BridgeState
 
     var body: some View {
-        Form {
-            Section {
-                LabeledContent("Status") {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(bridgeState.isRunning ? .green : .red)
-                            .frame(width: 8, height: 8)
-                        Text(bridgeState.isRunning ? "Listening" : "Stopped")
-                    }
-                }
-
-                LabeledContent("Port") {
-                    Text("\(bridgeState.port)")
-                        .monospacedDigit()
-                }
-
-                LabeledContent("Address") {
-                    Text("http://127.0.0.1:\(bridgeState.port)")
-                        .font(.system(.body, design: .monospaced))
-                        .textSelection(.enabled)
-                }
-
-                if let statusDetail = bridgeState.statusDetail, !statusDetail.isEmpty {
-                    Text(statusDetail)
-                        .font(.caption)
-                        .foregroundStyle(bridgeState.isRunning ? Color.secondary : Color.red)
-                }
-            } header: {
-                Text("HTTP Bridge")
+        VoxScreen(
+            title: "Bridge",
+            badge: "COMPANION",
+            summary: "Control the localhost HTTP bridge and its origin allowlist. Built-in, user-managed, and integration origins stay visible."
+        ) {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 220), spacing: HudSpacing.xl)],
+                alignment: .leading,
+                spacing: HudSpacing.xl
+            ) {
+                VoxMetricCard(
+                    label: "HTTP Bridge",
+                    value: bridgeState.isRunning ? "Listening" : "Stopped",
+                    detail: "127.0.0.1:\(voxPortString(bridgeState.port))",
+                    tint: bridgeState.isRunning ? HudPalette.statusInfo : HudPalette.statusError,
+                    pulses: bridgeState.isRunning
+                )
+                VoxMetricCard(
+                    label: "User Origins",
+                    value: "\(bridgeState.userOrigins.count)",
+                    detail: "~/.vox/origins.json",
+                    tint: HudPalette.statusOk
+                )
+                VoxMetricCard(
+                    label: "Integrations",
+                    value: "\(bridgeState.integrationOrigins.count)",
+                    detail: "~/.vox/origins.d/",
+                    tint: HudPalette.statusWarn
+                )
             }
 
-            Section {
-                Text("Web apps from allowed origins can connect to the local bridge for transcription and alignment.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-
-                HStack(spacing: 8) {
-                    TextField(
-                        "https://app.example.com or http://localhost:*",
-                        text: Binding(
-                            get: { bridgeState.draftOrigin },
-                            set: { newValue in
-                                bridgeState.draftOrigin = newValue
-                                bridgeState.clearOriginError()
-                            }
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HStack {
+                        HudSectionLabel("HTTP Bridge")
+                        Spacer()
+                        HudBadge(
+                            bridgeState.isRunning ? "LISTENING" : "STOPPED",
+                            tint: bridgeState.isRunning ? HudPalette.statusInfo : HudPalette.statusError,
+                            dot: true
                         )
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
-
-                    Button("Add") {
-                        bridgeState.addDraftOrigin()
                     }
-                    .disabled(!bridgeState.canAddOrigin)
-                }
 
-                if let message = bridgeState.originsErrorMessage, !message.isEmpty {
-                    Text(message)
-                        .font(.caption)
-                        .foregroundStyle(.red)
+                    HudInset {
+                        VStack(alignment: .leading, spacing: HudSpacing.md) {
+                            HudKVRow(
+                                "Status",
+                                value: bridgeState.isRunning ? "Listening" : "Stopped",
+                                valueColor: bridgeState.isRunning ? HudPalette.statusInfo : HudPalette.statusError
+                            )
+                            HudKVRow("Port", value: voxPortString(bridgeState.port))
+                            HudKVRow("Address", value: "http://127.0.0.1:\(voxPortString(bridgeState.port))", valueLineLimit: 1)
+                        }
+                    }
+
+                    if let statusDetail = bridgeState.statusDetail, !statusDetail.isEmpty {
+                        VoxBodyText(
+                            statusDetail,
+                            tint: bridgeState.isRunning ? HudPalette.muted : HudPalette.statusError
+                        )
+                    }
                 }
-            } header: {
-                Text("Allowed Origins")
-            } footer: {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Origins must be full browser origins. Paths are not allowed.")
-                    Text("Wildcard ports are only supported for localhost, 127.0.0.1, and ::1. Example: http://localhost:*")
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
 
-            if !bridgeState.userOrigins.isEmpty {
-                Section {
-                    ForEach(bridgeState.userOrigins, id: \.self) { origin in
-                        HStack {
-                            Text(origin)
-                                .font(.system(.body, design: .monospaced))
-                            Spacer()
-                            Button("Remove") {
-                                bridgeState.removeOrigin(origin)
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HudSectionLabel("Allowed Origins")
+                    VoxBodyText("Origins must be full browser origins. Wildcard ports are only supported for localhost, 127.0.0.1, and ::1.")
+
+                    HStack(spacing: HudSpacing.md) {
+                        HudField(
+                            "https://app.example.com or http://localhost:*",
+                            text: Binding(
+                                get: { bridgeState.draftOrigin },
+                                set: { newValue in
+                                    bridgeState.draftOrigin = newValue
+                                    bridgeState.clearOriginError()
+                                }
+                            ),
+                            icon: "link"
+                        )
+
+                        HudButton("Add", icon: "plus", style: .primary(.cyan)) {
+                            bridgeState.addDraftOrigin()
+                        }
+                        .disabled(!bridgeState.canAddOrigin)
+                    }
+
+                    if let message = bridgeState.originsErrorMessage, !message.isEmpty {
+                        HudInset {
+                            VoxBodyText(message, tint: HudPalette.statusError)
+                        }
+                    }
+                }
+            }
+
+            OriginListCard(
+                title: "Added In Vox",
+                origins: bridgeState.userOrigins,
+                emptyTitle: "No user origins",
+                emptySubtitle: "Add an origin above to allow a browser app to use the local bridge.",
+                icon: "person.crop.circle.badge.plus",
+                removable: true
+            ) { origin in
+                bridgeState.removeOrigin(origin)
+            }
+
+            OriginListCard(
+                title: "Integration Registrations",
+                origins: bridgeState.integrationOrigins,
+                emptyTitle: "No integration registrations",
+                emptySubtitle: "Apps can drop JSON origin files into ~/.vox/origins.d/.",
+                icon: "square.stack.3d.up"
+            )
+
+            OriginListCard(
+                title: "Built-In Origins",
+                origins: bridgeState.builtinOrigins,
+                emptyTitle: "No built-in origins",
+                emptySubtitle: "Bridge startup will populate the built-in allowlist.",
+                icon: "checkmark.seal"
+            )
+
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HudSectionLabel("Configuration")
+                    HudInset {
+                        VStack(alignment: .leading, spacing: HudSpacing.md) {
+                            HudKVRow("User File", value: "~/.vox/origins.json")
+                            HudKVRow("Integration Drop-Ins", value: "~/.vox/origins.d/")
+                        }
+                    }
+                    VoxBodyText("Integrations register origins by writing JSON such as {\"origins\":[\"https://app.example.com\"]}. Vox merges those entries with built-in and user-managed origins.")
+                }
+            }
+        }
+        .task {
+            await bridgeState.refreshOrigins()
+        }
+    }
+}
+
+private struct OriginListCard: View {
+    let title: String
+    let origins: [String]
+    let emptyTitle: String
+    let emptySubtitle: String
+    let icon: String
+    var removable = false
+    var onRemove: (String) -> Void = { _ in }
+
+    var body: some View {
+        HudCard(padding: HudSpacing.md) {
+            VStack(alignment: .leading, spacing: HudSpacing.md) {
+                HStack {
+                    HudSectionLabel(title)
+                        .padding(.horizontal, HudSpacing.md)
+                    Spacer()
+                    HudBadge("\(origins.count)", tint: origins.isEmpty ? HudPalette.muted : HudPalette.statusInfo)
+                        .padding(.horizontal, HudSpacing.md)
+                }
+
+                if origins.isEmpty {
+                    VoxEmptyList(title: emptyTitle, subtitle: emptySubtitle, icon: icon)
+                } else {
+                    if removable {
+                        ForEach(origins, id: \.self) { origin in
+                            HudListRow(
+                                title: origin,
+                                subtitle: "User managed",
+                                icon: icon,
+                                iconTint: .cyan
+                            ) {
+                                HudButton("Remove", icon: "minus", style: .ghost) {
+                                    onRemove(origin)
+                                }
+                            }
+                        }
+                    } else {
+                        HudInset {
+                            VStack(alignment: .leading, spacing: HudSpacing.md) {
+                                ForEach(origins, id: \.self) { origin in
+                                    HudKVRow("Origin", value: origin, valueColor: HudPalette.muted)
+                                    if origin != origins.last {
+                                        HudDivider()
+                                    }
+                                }
                             }
                         }
                     }
-                } header: {
-                    Text("Added In Vox")
                 }
             }
-
-            if !bridgeState.integrationOrigins.isEmpty {
-                Section {
-                    ForEach(bridgeState.integrationOrigins, id: \.self) { origin in
-                        Text(origin)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                } header: {
-                    Text("Integration Registrations")
-                }
-            }
-
-            Section {
-                ForEach(bridgeState.builtinOrigins, id: \.self) { origin in
-                    Text(origin)
-                        .font(.system(.body, design: .monospaced))
-                }
-            } header: {
-                Text("Built-In Origins")
-            }
-
-            Section {
-                LabeledContent("User File") {
-                    Text("~/.vox/origins.json")
-                        .font(.system(.body, design: .monospaced))
-                        .textSelection(.enabled)
-                }
-
-                LabeledContent("Integration Drop-Ins") {
-                    Text("~/.vox/origins.d/")
-                        .font(.system(.body, design: .monospaced))
-                        .textSelection(.enabled)
-                }
-
-                Text("Integrations can register origins by writing a JSON file such as {\"origins\":[\"https://app.example.com\"]} into ~/.vox/origins.d/. Vox merges those entries with the built-in and user-managed lists.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            } header: {
-                Text("Configuration")
-            }
-        }
-        .formStyle(.grouped)
-        .task {
-            await bridgeState.refreshOrigins()
         }
     }
 }
@@ -357,7 +466,6 @@ private struct UptimeText: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
             Text(formatUptime(context.date.timeIntervalSince(startedAt)))
-                .monospacedDigit()
         }
     }
 
@@ -375,32 +483,40 @@ private struct UptimeText: View {
 
 struct AboutTab: View {
     var body: some View {
-        Form {
-            Section {
-                LabeledContent("Version") {
-                    Text(VoxVersion.current)
-                }
+        VoxScreen(
+            title: "About",
+            badge: "COMPANION",
+            summary: "Vox is a local-first voice runtime for Apple apps, web companions, and developer tools."
+        ) {
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HStack {
+                        HudSectionLabel("Vox Companion")
+                        Spacer()
+                        HudBadge("LOCAL", tint: HudPalette.statusOk, dot: true)
+                    }
 
-                LabeledContent("Runtime") {
-                    Text("macOS \(ProcessInfo.processInfo.operatingSystemVersionString)")
+                    HudInset {
+                        VStack(alignment: .leading, spacing: HudSpacing.md) {
+                            HudKVRow("Version", value: VoxVersion.current)
+                            HudKVRow("Runtime", value: "macOS \(ProcessInfo.processInfo.operatingSystemVersionString)")
+                            HudKVRow("Data", value: "~/.vox/")
+                        }
+                    }
                 }
-
-                LabeledContent("Data") {
-                    Text("~/.vox/")
-                        .font(.system(.body, design: .monospaced))
-                }
-            } header: {
-                Text("Vox Companion")
             }
 
-            Section {
-                Text("Vox is a local-first transcription runtime for macOS. It runs an on-device ASR model and exposes it to web apps and developer tools via a localhost bridge.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            } header: {
-                Text("About")
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HudSectionLabel("Runtime Contract")
+                    VoxBodyText("Vox keeps speech local by default, exposes warm-up as a public capability, and records latency with client, route, and model dimensions.")
+                    HStack(spacing: HudSpacing.md) {
+                        HudBadge("LOCAL MODELS", tint: HudPalette.statusOk, dot: true)
+                        HudBadge("WARM-UP", tint: HudPalette.statusInfo, dot: true)
+                        HudBadge("TELEMETRY", tint: HudPalette.statusWarn, dot: true)
+                    }
+                }
             }
         }
-        .formStyle(.grouped)
     }
 }

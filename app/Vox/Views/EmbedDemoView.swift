@@ -1,133 +1,178 @@
 import SwiftUI
+import HudsonUI
 import VoxCore
 
 struct EmbedDemoTab: View {
     @StateObject private var state = EmbedDemoState()
 
     var body: some View {
-        Form {
-            Section {
-                Text("This tab uses VoxEngine directly inside the macOS app. No local daemon is required for the actions below.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            } header: {
-                Text("Embed Demo")
+        VoxScreen(
+            title: "Embed Demo",
+            badge: "IN PROCESS",
+            summary: "Exercise VoxEngine directly inside the macOS app. These controls bypass the companion daemon and keep warm-up cost visible.",
+            showGrid: true
+        ) {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 220), spacing: HudSpacing.xl)],
+                alignment: .leading,
+                spacing: HudSpacing.xl
+            ) {
+                VoxMetricCard(
+                    label: "TTS",
+                    value: state.voiceModel?.name ?? "Loading",
+                    detail: state.voiceModel?.backend ?? "mlx-audio",
+                    tint: HudPalette.statusInfo
+                )
+                VoxMetricCard(
+                    label: "ASR",
+                    value: state.asrModel?.name ?? "Loading",
+                    detail: state.asrModel?.backend ?? "parakeet",
+                    tint: HudPalette.statusOk
+                )
+                VoxMetricCard(
+                    label: "State",
+                    value: state.isBusy ? "Working" : "Ready",
+                    detail: state.selectedAudioFileURL?.lastPathComponent ?? "No audio selected",
+                    tint: state.isBusy ? HudPalette.statusWarn : HudPalette.muted,
+                    pulses: state.isBusy
+                )
             }
 
-            Section {
-                LabeledContent("Model") {
-                    Text(state.voiceModel?.name ?? "Loading...")
-                }
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HStack {
+                        HudSectionLabel("Speech")
+                        Spacer()
+                        HudBadge("MLX TTS", tint: HudPalette.statusInfo, dot: true)
+                    }
 
-                LabeledContent("Backend") {
-                    Text(state.voiceModel?.backend ?? "mlx-audio")
-                }
+                    HudInset {
+                        VStack(alignment: .leading, spacing: HudSpacing.md) {
+                            HudKVRow("Model", value: state.voiceModel?.name ?? "Loading...")
+                            HudKVRow("Backend", value: state.voiceModel?.backend ?? "mlx-audio")
+                            HudKVRow("Voice", value: state.selectedVoiceID ?? "Provider default")
+                        }
+                    }
 
-                Picker("Voice", selection: Binding(
-                    get: { state.selectedVoiceID ?? "" },
-                    set: { state.selectedVoiceID = $0.isEmpty ? nil : $0 }
-                )) {
-                    ForEach(state.voices, id: \.id) { voice in
-                        Text(voiceLabel(voice))
-                            .tag(voice.id)
+                    Picker("Voice", selection: Binding(
+                        get: { state.selectedVoiceID ?? "" },
+                        set: { state.selectedVoiceID = $0.isEmpty ? nil : $0 }
+                    )) {
+                        ForEach(state.voices, id: \.id) { voice in
+                            Text(voiceLabel(voice))
+                                .tag(voice.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .disabled(state.voices.isEmpty)
+
+                    TextEditor(text: $state.speechText)
+                        .font(HudFont.ui(13))
+                        .foregroundStyle(HudPalette.ink)
+                        .scrollContentBackground(.hidden)
+                        .frame(minHeight: 120)
+                        .padding(HudSpacing.md)
+                        .background(RoundedRectangle(cornerRadius: HudRadius.standard).fill(HudSurface.inset))
+                        .overlay(RoundedRectangle(cornerRadius: HudRadius.standard).stroke(HudHairline.subtle, lineWidth: 1))
+
+                    HStack(spacing: HudSpacing.md) {
+                        HudButton("Warm Speech", icon: "flame", style: .secondary) {
+                            state.preloadSpeech()
+                        }
+                        .disabled(state.isBusy)
+
+                        HudButton("Speak", icon: "speaker.wave.2", style: .primary(.cyan)) {
+                            state.synthesizeAndPlay()
+                        }
+                        .disabled(state.isBusy)
+
+                        Spacer()
+                    }
+
+                    HudInset {
+                        VoxBodyText(state.speechStatus)
+                    }
+
+                    if let metrics = state.lastSynthesisMetrics {
+                        MetricsPanel(title: "Synthesis Metrics") {
+                            HudKVRow("Load", value: "\(metrics.modelLoadMs)ms")
+                            HudKVRow("Voice", value: "\(metrics.voiceResolveMs)ms")
+                            HudKVRow("Synthesis", value: "\(metrics.synthesisMs)ms")
+                            HudKVRow("Total", value: "\(metrics.totalMs)ms", valueColor: HudPalette.statusInfo)
+                        }
                     }
                 }
-
-                TextEditor(text: $state.speechText)
-                    .font(.system(.body, design: .default))
-                    .frame(minHeight: 110)
-
-                HStack {
-                    Button("Warm Speech") {
-                        state.preloadSpeech()
-                    }
-                    .disabled(state.isBusy)
-
-                    Button("Speak") {
-                        state.synthesizeAndPlay()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(state.isBusy)
-                }
-
-                Text(state.speechStatus)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                if let metrics = state.lastSynthesisMetrics {
-                    MetricsGrid {
-                        MetricCell(label: "Load", value: "\(metrics.modelLoadMs)ms")
-                        MetricCell(label: "Voice", value: "\(metrics.voiceResolveMs)ms")
-                        MetricCell(label: "Synthesis", value: "\(metrics.synthesisMs)ms")
-                        MetricCell(label: "Total", value: "\(metrics.totalMs)ms")
-                    }
-                }
-            } header: {
-                Text("Speech")
-            } footer: {
-                Text("The app synthesizes audio in process with VoxEngine and the MLX TTS provider.")
             }
 
-            Section {
-                LabeledContent("Model") {
-                    Text(state.asrModel?.name ?? "Loading...")
-                }
-
-                LabeledContent("Backend") {
-                    Text(state.asrModel?.backend ?? "parakeet")
-                }
-
-                LabeledContent("Audio File") {
-                    Text(state.selectedAudioFileURL?.lastPathComponent ?? "None")
-                        .font(.system(.body, design: .monospaced))
-                }
-
-                HStack {
-                    Button("Choose Audio") {
-                        state.chooseAudioFile()
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HStack {
+                        HudSectionLabel("Transcription")
+                        Spacer()
+                        HudBadge("PARAKEET", tint: HudPalette.statusOk, dot: true)
                     }
-                    .disabled(state.isBusy)
 
-                    Button("Warm ASR") {
-                        state.preloadASR()
+                    HudInset {
+                        VStack(alignment: .leading, spacing: HudSpacing.md) {
+                            HudKVRow("Model", value: state.asrModel?.name ?? "Loading...")
+                            HudKVRow("Backend", value: state.asrModel?.backend ?? "parakeet")
+                            HudKVRow("Audio File", value: state.selectedAudioFileURL?.lastPathComponent ?? "None")
+                        }
                     }
-                    .disabled(state.isBusy)
 
-                    Button("Transcribe") {
-                        state.transcribeSelectedFile()
+                    HStack(spacing: HudSpacing.md) {
+                        HudButton("Choose Audio", icon: "waveform", style: .secondary) {
+                            state.chooseAudioFile()
+                        }
+                        .disabled(state.isBusy)
+
+                        HudButton("Warm ASR", icon: "flame", style: .secondary) {
+                            state.preloadASR()
+                        }
+                        .disabled(state.isBusy)
+
+                        HudButton("Transcribe", icon: "text.bubble", style: .primary(.cyan)) {
+                            state.transcribeSelectedFile()
+                        }
+                        .disabled(state.isBusy || state.selectedAudioFileURL == nil)
+
+                        Spacer()
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(state.isBusy || state.selectedAudioFileURL == nil)
+
+                    HudInset {
+                        VoxBodyText(state.transcriptionStatus)
+                    }
+
+                    if let metrics = state.lastTranscriptionMetrics {
+                        MetricsPanel(title: "Transcription Metrics") {
+                            HudKVRow("Load", value: "\(metrics.modelLoadMs)ms")
+                            HudKVRow("Audio", value: "\(metrics.audioLoadMs)ms")
+                            HudKVRow("Infer", value: "\(metrics.inferenceMs)ms")
+                            HudKVRow("Total", value: "\(metrics.totalMs)ms", valueColor: HudPalette.statusOk)
+                        }
+                    }
+
+                    if state.transcriptText.isEmpty {
+                        VoxEmptyList(
+                            title: "No transcript yet",
+                            subtitle: "Choose an audio file and run transcription to inspect the local ASR result.",
+                            icon: "text.alignleft"
+                        )
+                    } else {
+                        HudInset {
+                            ScrollView {
+                                Text(state.transcriptText)
+                                    .font(HudFont.ui(13))
+                                    .foregroundStyle(HudPalette.ink)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .textSelection(.enabled)
+                            }
+                            .frame(minHeight: 130)
+                        }
+                    }
                 }
-
-                Text(state.transcriptionStatus)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                if let metrics = state.lastTranscriptionMetrics {
-                    MetricsGrid {
-                        MetricCell(label: "Load", value: "\(metrics.modelLoadMs)ms")
-                        MetricCell(label: "Audio", value: "\(metrics.audioLoadMs)ms")
-                        MetricCell(label: "Infer", value: "\(metrics.inferenceMs)ms")
-                        MetricCell(label: "Total", value: "\(metrics.totalMs)ms")
-                    }
-                }
-
-                if !state.transcriptText.isEmpty {
-                    ScrollView {
-                        Text(state.transcriptText)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .textSelection(.enabled)
-                    }
-                    .frame(minHeight: 130)
-                }
-            } header: {
-                Text("Transcription")
-            } footer: {
-                Text("The first transcription may download and load the local Parakeet model.")
             }
         }
-        .formStyle(.grouped)
         .task {
             state.loadIfNeeded()
         }
@@ -141,28 +186,16 @@ struct EmbedDemoTab: View {
     }
 }
 
-private struct MetricsGrid<Content: View>: View {
+private struct MetricsPanel<Content: View>: View {
+    let title: String
     @ViewBuilder var content: Content
 
     var body: some View {
-        Grid(horizontalSpacing: 12, verticalSpacing: 12) {
-            content
-        }
-        .padding(.vertical, 4)
-    }
-}
-
-private struct MetricCell: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        GridRow {
-            Text(label)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(value)
-                .font(.system(.body, design: .monospaced))
+        HudInset {
+            VStack(alignment: .leading, spacing: HudSpacing.md) {
+                HudSectionLabel(title, tint: HudPalette.muted)
+                content
+            }
         }
     }
 }
