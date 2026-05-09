@@ -108,6 +108,14 @@ public actor TTSProviderRegistry: TTSProvider {
         return try await provider.synthesize(request)
     }
 
+    public func shutdown() async {
+        for (_, provider) in providers {
+            if let externalProvider = provider as? ExternalTTSProvider {
+                await externalProvider.shutdown()
+            }
+        }
+    }
+
     private func resolveProvider(for modelId: String) async throws -> any TTSProvider {
         if let provider = modelRouting[modelId] {
             return provider

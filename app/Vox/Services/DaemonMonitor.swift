@@ -154,12 +154,12 @@ final class DaemonMonitor: ObservableObject {
             queue: monitorQueue
         )
 
-        source.setEventHandler { [weak self] in
+        source.setEventHandler { @Sendable [weak self] in
             Task { @MainActor [weak self] in
                 self?.scheduleRefresh()
             }
         }
-        source.setCancelHandler { [fileDescriptor] in
+        source.setCancelHandler { @Sendable [fileDescriptor] in
             close(fileDescriptor)
         }
 
@@ -182,7 +182,7 @@ final class DaemonMonitor: ObservableObject {
             queue: monitorQueue
         )
 
-        source.setEventHandler { [weak self] in
+        source.setEventHandler { @Sendable [weak self] in
             Task { @MainActor [weak self] in
                 self?.scheduleRefresh()
             }

@@ -19,6 +19,15 @@ public actor ExternalTTSProvider: TTSProvider {
         self.env = env
     }
 
+    deinit {
+        transport?.stop()
+    }
+
+    public func shutdown() {
+        transport?.stop()
+        transport = nil
+    }
+
     public func models() async -> [TTSModelInfo] {
         do {
             let transport = try ensureRunning()

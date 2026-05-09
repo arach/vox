@@ -12,6 +12,12 @@ APP_BUILD_LOG="$(mktemp -t vox-app-build.XXXXXX.log)"
 VOXD_BUILD_LOG="$(mktemp -t vox-voxd-build.XXXXXX.log)"
 DEFAULT_VERSION="$(sed -n 's/  "version": "\(.*\)",/\1/p' "$ROOT/packages/cli/package.json" | head -n 1)"
 VERSION="${VOX_VERSION:-$DEFAULT_VERSION}"
+SWIFT_VERSION="$(sed -n 's/.*public static let current = "\(.*\)".*/\1/p' "$ROOT/swift/Sources/VoxCore/RuntimePaths.swift" | head -n 1)"
+
+if [ "$VERSION" != "$SWIFT_VERSION" ]; then
+    echo "Version mismatch: package/tag version is $VERSION but VoxVersion.current is $SWIFT_VERSION." >&2
+    exit 1
+fi
 
 # Signing and notarization are optional for local/dev builds, but release automation
 # should provide them so the published DMG is ready for Gatekeeper.
@@ -58,11 +64,17 @@ if [ -d "$ICNS" ]; then
     iconutil -c icns "$ICONSET_DIR" -o "$BUNDLE/Contents/Resources/AppIcon.icns" 2>/dev/null || true
 fi
 
-# Copy bundled resources from SPM build
-RESOURCES="$APP_DIR/.build/release/Vox_Vox.bundle"
-if [ -d "$RESOURCES" ]; then
+# Copy bundled resources from SPM builds. VoxEngine's bundle contains the
+# built-in MLX provider script used by the packaged daemon.
+while IFS= read -r -d '' RESOURCES; do
+    rm -rf "$BUNDLE/Contents/Resources/$(basename "$RESOURCES")"
     cp -R "$RESOURCES" "$BUNDLE/Contents/Resources/"
-fi
+    echo "    Bundled $(basename "$RESOURCES")"
+done < <(find "$APP_DIR/.build/release/" "$ROOT/swift/.build/release/" \
+    -maxdepth 1 \
+    -type d \
+    -name "*.bundle" \
+    -print0)
 
 # Entitlements
 cat > "$BUILD_DIR/Vox.entitlements" << 'ENT'
