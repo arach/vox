@@ -102,10 +102,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
 
         if monitor.isRecording, let clientId = monitor.liveSessionClientId {
             button.toolTip = "Vox is recording for \(clientId)"
-            statusMenuItem.title = "Daemon: Recording for \(clientId) (port \(monitor.port ?? 0))"
+            statusMenuItem.title = "Daemon: Recording for \(clientId) (port \(voxPortString(monitor.port ?? 0)))"
         } else if monitor.isRunning {
             button.toolTip = "Vox"
-            statusMenuItem.title = "Daemon: Running (port \(monitor.port ?? 0))"
+            statusMenuItem.title = "Daemon: Running (port \(voxPortString(monitor.port ?? 0)))"
         } else {
             button.toolTip = "Vox daemon is stopped"
             statusMenuItem.title = "Daemon: Stopped"

@@ -40,7 +40,11 @@ public struct OriginAllowlistSnapshot: Sendable, Equatable {
 
 public actor OriginAllowlist {
     public static let defaultOrigins = [
+        "http://127.0.0.1:*",
+        "http://localhost:*",
+        "https://hudsonkit.com",
         "https://uselinea.com",
+        "https://www.hudsonkit.com",
         "https://www.uselinea.com"
     ]
 

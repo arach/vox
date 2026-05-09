@@ -21,7 +21,11 @@ struct OriginAllowlistTests {
         let snapshot = await allowlist.snapshot()
 
         #expect(snapshot.builtinOrigins == [
+            "http://127.0.0.1:*",
+            "http://localhost:*",
+            "https://hudsonkit.com",
             "https://uselinea.com",
+            "https://www.hudsonkit.com",
             "https://www.uselinea.com"
         ])
         #expect(snapshot.userOrigins == [
@@ -34,6 +38,10 @@ struct OriginAllowlistTests {
         ])
         #expect(await allowlist.check("https://docs.hudson.ai"))
         #expect(await allowlist.check("https://app.customer-two.com"))
+        #expect(await allowlist.check("https://hudsonkit.com"))
+        #expect(await allowlist.check("https://www.hudsonkit.com"))
+        #expect(await allowlist.check("http://localhost:3500"))
+        #expect(await allowlist.check("http://127.0.0.1:3500"))
     }
 
     @Test("Allowlist notices new integration origins after initialization")
