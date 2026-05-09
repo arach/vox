@@ -3,7 +3,7 @@ import Network
 import VoxCore
 
 /// Lightweight HTTP server on localhost for browser-to-daemon communication.
-/// Listens on port 43115 and proxies requests to voxd via DaemonProxy.
+/// Listens on `VoxDefaults.bridgePort` by default and proxies requests to voxd via DaemonProxy.
 public final class HTTPBridgeServer: @unchecked Sendable {
     public static let defaultPort: UInt16 = VoxDefaults.bridgePort
     private static let headerDelimiter = Data("\r\n\r\n".utf8)
@@ -327,7 +327,6 @@ public final class HTTPBridgeServer: @unchecked Sendable {
 
     private func handleStartLiveSession(body: [String: Any]?, origin: String?, on connection: NWConnection) async {
         let clientId = (body?["clientId"] as? String) ?? "vox-web"
-        let modelId = (body?["modelId"] as? String) ?? "parakeet:v3"
         var didStartStream = false
 
         do {
@@ -338,12 +337,16 @@ public final class HTTPBridgeServer: @unchecked Sendable {
             try await sendStreamingResponseHead(origin: origin, on: connection)
             didStartStream = true
 
+            var params: [String: Any] = [
+                "clientId": clientId
+            ]
+            if let modelId = body?["modelId"] as? String {
+                params["modelId"] = modelId
+            }
+
             let result = try await proxy.callStreaming(
                 "transcribe.startSession",
-                params: [
-                    "clientId": clientId,
-                    "modelId": modelId
-                ]
+                params: params
             ) { [self] event, data in
                 await sendStreamingPayload([
                     "event": event,
@@ -372,7 +375,6 @@ public final class HTTPBridgeServer: @unchecked Sendable {
     private func handleStartSynthesis(body: [String: Any]?, origin: String?, on connection: NWConnection) async {
         let clientId = (body?["clientId"] as? String) ?? "vox-web"
         let text = (body?["text"] as? String) ?? ""
-        let modelId = (body?["modelId"] as? String) ?? "avspeech:system"
         let voiceId = body?["voiceId"] as? String
         let format = (body?["format"] as? String) ?? "wav"
         let speed = body?["speed"] as? Double
@@ -390,9 +392,11 @@ public final class HTTPBridgeServer: @unchecked Sendable {
             var params: [String: Any] = [
                 "clientId": clientId,
                 "text": text,
-                "modelId": modelId,
                 "format": format
             ]
+            if let modelId = body?["modelId"] as? String {
+                params["modelId"] = modelId
+            }
             if let voiceId {
                 params["voiceId"] = voiceId
             }
@@ -528,6 +532,7 @@ public final class HTTPBridgeServer: @unchecked Sendable {
             let clientId = (metadata?["surface"] as? String)
                 ?? (metadata?["clientId"] as? String)
                 ?? "vox-web"
+            let modelId = formData.fields["modelId"]?.trimmingCharacters(in: .whitespacesAndNewlines)
             let preparedFiles = try prepareUploadedAudioFiles(audio: audio, formatHint: formatHint)
             defer {
                 for fileURL in preparedFiles.cleanupURLs {
@@ -539,11 +544,15 @@ public final class HTTPBridgeServer: @unchecked Sendable {
                 try await proxy.connect()
             }
 
-            let result = try await proxy.call("transcribe.file", params: [
+            var params: [String: Any] = [
                 "path": preparedFiles.transcriptionURL.path,
-                "modelId": "parakeet:v3",
                 "clientId": clientId
-            ])
+            ]
+            if let modelId, !modelId.isEmpty {
+                params["modelId"] = modelId
+            }
+
+            let result = try await proxy.call("transcribe.file", params: params)
 
             let metrics = result["metrics"] as? [String: Any]
             let totalMs = (metrics?["totalMs"] as? Int) ?? (result["elapsedMs"] as? Int) ?? 0
@@ -596,13 +605,14 @@ public final class HTTPBridgeServer: @unchecked Sendable {
 
         // Extract audio URL before crossing isolation boundary
         let audioUrl = (body["source"] as? [String: Any])?["audioUrl"] as? String
+        let modelId = body["modelId"] as? String
         let jobCopy = job
-        Task { [audioUrl, jobCopy] in
-            await processJob(jobCopy, audioUrl: audioUrl)
+        Task { [audioUrl, modelId, jobCopy] in
+            await processJob(jobCopy, audioUrl: audioUrl, modelId: modelId)
         }
     }
 
-    private func processJob(_ job: Job, audioUrl: String?) async {
+    private func processJob(_ job: Job, audioUrl: String?, modelId: String?) async {
         var current = job
         current.status = .processing
         await jobs.set(current)
@@ -630,11 +640,14 @@ public final class HTTPBridgeServer: @unchecked Sendable {
             let clientId = (job.metadata?["surface"] as? String)
                 ?? (job.metadata?["clientId"] as? String)
                 ?? "vox-web"
-            let result = try await proxy.call("transcribe.file", params: [
+            var params: [String: Any] = [
                 "path": tempFile.path,
-                "modelId": "parakeet:v3",
                 "clientId": clientId
-            ])
+            ]
+            if let modelId, !modelId.isEmpty {
+                params["modelId"] = modelId
+            }
+            let result = try await proxy.call("transcribe.file", params: params)
 
             // Clean up temp file
             try? FileManager.default.removeItem(at: tempFile)

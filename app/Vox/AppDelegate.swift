@@ -1,16 +1,26 @@
 import AppKit
+import Combine
 import SwiftUI
 import VoxBridge
 import VoxCore
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
+final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMenuDelegate {
+    private struct BridgeHealthResponse: Decodable, Sendable {
+        let ok: Bool
+        let port: UInt16?
+        let service: String?
+        let version: String?
+    }
+
     private var statusItem: NSStatusItem!
     let monitor = DaemonMonitor()
     let bridgeState = BridgeState()
     private var proxy: DaemonProxy?
     private var bridge: HTTPBridgeServer?
     private var allowlist: OriginAllowlist?
+    private var monitorObserver: AnyCancellable?
+    private let processInfo = ProcessInfo.processInfo
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
@@ -23,10 +33,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
         monitor.start()
 
-        // Show settings on first launch
-        if !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
+        // Show settings on first launch or when explicitly requested for demos/tests.
+        if shouldShowSettingsOnLaunch() {
             showSettings()
-            UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+            if !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
+                UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+            }
         }
     }
 
@@ -35,14 +47,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         return false
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        monitor.stop()
+        bridge?.stop()
+        Task {
+            await proxy?.disconnect()
+        }
+    }
+
     // MARK: - Menu bar
 
     private func setupMenuBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "waveform.circle.fill", accessibilityDescription: "Vox")
+            button.image = MenuBarIcon.makeStatusImage(showsRecordingBadge: monitor.isRecording)
             button.image?.size = NSSize(width: 18, height: 18)
+            button.toolTip = "Vox"
         }
 
         let menu = NSMenu()
@@ -59,10 +80,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Vox", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
+        menu.delegate = self
         statusItem.menu = menu
-
-        Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+        monitorObserver = monitor.objectWillChange.sink { [weak self] _ in
+            Task { @MainActor [weak self] in
                 self?.updateMenuBarState()
             }
         }
@@ -75,11 +96,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
               let statusMenuItem = menu.item(withTag: 100)
         else { return }
 
-        if monitor.isRunning {
-            button.contentTintColor = .systemGreen
+        button.image = MenuBarIcon.makeStatusImage(showsRecordingBadge: monitor.isRecording)
+        button.image?.size = NSSize(width: 18, height: 18)
+        button.contentTintColor = monitor.isRunning && monitor.isRecording ? nil : (monitor.isRunning ? nil : .systemRed)
+
+        if monitor.isRecording, let clientId = monitor.liveSessionClientId {
+            button.toolTip = "Vox is recording for \(clientId)"
+            statusMenuItem.title = "Daemon: Recording for \(clientId) (port \(monitor.port ?? 0))"
+        } else if monitor.isRunning {
+            button.toolTip = "Vox"
             statusMenuItem.title = "Daemon: Running (port \(monitor.port ?? 0))"
         } else {
-            button.contentTintColor = .systemRed
+            button.toolTip = "Vox daemon is stopped"
             statusMenuItem.title = "Daemon: Stopped"
         }
     }
@@ -96,31 +124,121 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
     @objc func restartDaemon() {
         LaunchAgentManager.restart()
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
-            monitor.checkNow()
-        }
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        updateMenuBarState()
     }
 
     // MARK: - HTTP Bridge
 
-    private nonisolated func startBridge() {
+    private func startBridge() {
         let p = DaemonProxy()
         let a = OriginAllowlist()
-        let b = HTTPBridgeServer(proxy: p, allowlist: a)
+        let port = HTTPBridgeServer.defaultPort
 
-        Task { @MainActor in
-            proxy = p
-            allowlist = a
-            bridge = b
-            bridgeState.bind(allowlist: a)
+        proxy = p
+        allowlist = a
+        bridge = nil
+        bridgeState.bind(allowlist: a)
+        bridgeState.port = port
+        bridgeState.isRunning = false
+        bridgeState.statusDetail = "Starting bridge..."
 
-            try? await p.connect()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.runBridgeStartup(proxy: p, allowlist: a, port: port)
+        }
+    }
+
+    private func runBridgeStartup(proxy: DaemonProxy, allowlist: OriginAllowlist, port: UInt16) async {
+        if let existingBridge = await Self.fetchBridgeHealth(port: port) {
+            VoxLog.service.info("Using existing HTTP bridge on http://127.0.0.1:\(existingBridge.port ?? port)")
             bridgeState.isRunning = true
-            bridgeState.port = HTTPBridgeServer.defaultPort
+            bridgeState.port = existingBridge.port ?? port
+            if let version = existingBridge.version, version != VoxVersion.current {
+                bridgeState.statusDetail =
+                    "Using existing bridge from another Vox instance (v\(version))."
+            } else {
+                bridgeState.statusDetail = "Using existing bridge."
+            }
+            try? await proxy.connect()
+            return
         }
 
-        b.start()
+        let bridge = HTTPBridgeServer(port: port, proxy: proxy, allowlist: allowlist)
+        self.bridge = bridge
+        bridge.start()
+
+        if let startedBridge = await Self.waitForBridgeHealth(port: port) {
+            bridgeState.isRunning = true
+            bridgeState.port = startedBridge.port ?? port
+            bridgeState.statusDetail = "Listening on localhost."
+        } else {
+            bridgeState.isRunning = false
+            bridgeState.port = port
+            bridgeState.statusDetail = "Bridge port \(port) is busy or unavailable."
+        }
+
+        try? await proxy.connect()
+    }
+
+    private nonisolated static func fetchBridgeHealth(port: UInt16) async -> BridgeHealthResponse? {
+        guard let url = URL(string: "http://127.0.0.1:\(port)/health") else {
+            return nil
+        }
+
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 0.25
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                return nil
+            }
+
+            let health = try JSONDecoder().decode(BridgeHealthResponse.self, from: data)
+            guard health.service == "vox-companion" else {
+                return nil
+            }
+            return health
+        } catch {
+            return nil
+        }
+    }
+
+    private nonisolated static func waitForBridgeHealth(
+        port: UInt16,
+        attempts: Int = 10,
+        intervalNanoseconds: UInt64 = 100_000_000
+    ) async -> BridgeHealthResponse? {
+        for attempt in 0..<attempts {
+            if let health = await fetchBridgeHealth(port: port) {
+                return health
+            }
+            if attempt + 1 < attempts {
+                try? await Task.sleep(nanoseconds: intervalNanoseconds)
+            }
+        }
+
+        return nil
+    }
+
+    private func shouldShowSettingsOnLaunch() -> Bool {
+        if processInfo.arguments.contains("--show-settings") {
+            return true
+        }
+
+        if let rawValue = processInfo.environment["VOX_SHOW_SETTINGS_ON_LAUNCH"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        {
+            if ["1", "true", "yes", "on"].contains(rawValue) {
+                return true
+            }
+        }
+
+        return !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
     }
 
     // MARK: - URL Scheme

@@ -1,8 +1,12 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
-import { existsSync, mkdirSync, readFileSync, rmSync } from "fs";
+import { spawn, spawnSync } from "child_process";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { writeFile } from "fs/promises";
+import { homedir } from "os";
 import { dirname, join, resolve } from "path";
 import { createInterface } from "readline";
+import { fileURLToPath } from "url";
 import {
   getVoxHome,
   RuntimeDiscovery,
@@ -21,10 +25,15 @@ import {
   DEFAULT_PORT,
 } from "@voxd/sdk";
 
-const REPO_ROOT = resolve(import.meta.dir, "../../..");
-const SWIFT_ROOT = join(REPO_ROOT, "swift");
-const DAEMON_BINARY = join(SWIFT_ROOT, ".build", "debug", "voxd");
-const TTS_BINARY = join(SWIFT_ROOT, ".build", "debug", "voxttsd");
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
+const DEV_REPO_ROOT = resolve(MODULE_DIR, "../../..");
+const DEV_SWIFT_ROOT = join(DEV_REPO_ROOT, "swift");
+const DEV_DAEMON_BINARY = join(DEV_SWIFT_ROOT, ".build", "debug", "voxd");
+const DEV_TTS_BINARY = join(DEV_SWIFT_ROOT, ".build", "debug", "voxttsd");
+
+const LAUNCH_AGENT_LABEL = "com.vox.daemon";
+const PLIST_PATH = join(homedir(), "Library", "LaunchAgents", `${LAUNCH_AGENT_LABEL}.plist`);
+const LOGS_DIR = join(homedir(), ".vox", "logs");
 
 async function main(argv: string[]): Promise<void> {
   const [command, subcommand, ...rest] = argv;
@@ -63,6 +72,12 @@ async function main(argv: string[]): Promise<void> {
     case "tui":
       launchTui();
       return;
+    case "install":
+      await handleInstall();
+      return;
+    case "uninstall":
+      await handleUninstall();
+      return;
     case "help":
     case undefined:
       printUsage();
@@ -91,7 +106,7 @@ async function handleDaemon(subcommand: string | undefined, rest: string[]): Pro
 }
 
 async function handleModels(subcommand: string | undefined, rest: string[]): Promise<void> {
-  const modelId = rest[0] ?? "parakeet:v3";
+  const modelId = rest[0];
 
   await withClient(async (client) => {
     switch (subcommand) {
@@ -123,14 +138,16 @@ async function handleModels(subcommand: string | undefined, rest: string[]): Pro
 async function handleTranscribe(subcommand: string | undefined, rest: string[]): Promise<void> {
   switch (subcommand) {
     case "file": {
-      const showMetrics = rest.includes("--metrics");
-      const showTimestamps = rest.includes("--timestamps");
-      const filePath = rest.find((value) => !value.startsWith("--"));
+      const args = rest;
+      const showMetrics = args.includes("--metrics");
+      const showTimestamps = args.includes("--timestamps");
+      const modelId = readOption(args, "--model");
+      const filePath = readPositionalArgs(args, new Set(["--model"]))[0];
       if (!filePath) {
-        throw new Error("Usage: vox transcribe file [--metrics] [--timestamps] <path>");
+        throw new Error("Usage: vox transcribe file [--model <id>] [--metrics] [--timestamps] <path>");
       }
       await withClient(async (client) => {
-        const result = await client.transcribeFile(resolve(process.cwd(), filePath));
+        const result = await client.transcribeFile(resolve(process.cwd(), filePath), modelId);
         console.log(result.text);
         if (showMetrics && result.metrics) {
           printTranscriptionMetrics(result.metrics);
@@ -142,21 +159,24 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
       return;
     }
     case "bench": {
-      const filePath = rest[0];
-      const runs = Number(rest[1] ?? 5);
+      const args = rest;
+      const modelId = readOption(args, "--model");
+      const positional = readPositionalArgs(args, new Set(["--model"]));
+      const filePath = positional[0];
+      const runs = Number(positional[1] ?? 5);
       if (!filePath) {
-        throw new Error("Usage: vox transcribe bench <path> [runs]");
+        throw new Error("Usage: vox transcribe bench [--model <id>] <path> [runs]");
       }
       if (!Number.isInteger(runs) || runs < 1) {
-        throw new Error(`Expected a positive integer run count, received: ${rest[1] ?? "(missing)"}`);
+        throw new Error(`Expected a positive integer run count, received: ${positional[1] ?? "(missing)"}`);
       }
 
       await withClient(async (client) => {
-        await client.preloadModel();
+        await client.preloadModel(modelId);
         const results: FileTranscriptionResult[] = [];
 
         for (let index = 0; index < runs; index += 1) {
-          const result = await client.transcribeFile(resolve(process.cwd(), filePath));
+          const result = await client.transcribeFile(resolve(process.cwd(), filePath), modelId);
           results.push(result);
 
           const metrics = result.metrics;
@@ -175,7 +195,9 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
       return;
     }
     case "live": {
-      const showTimestamps = rest.includes("--timestamps");
+      const args = rest;
+      const showTimestamps = args.includes("--timestamps");
+      const modelId = readOption(args, "--model");
       await withClient(async (client) => {
         const session = client.createLiveSession();
         session.on("state", ({ state }) => {
@@ -191,7 +213,7 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
           }
         });
 
-        const transcriptPromise = session.start();
+        const transcriptPromise = session.start({ modelId });
         console.error("Recording. Press Enter to stop.");
         await waitForEnter();
         await session.stop();
@@ -222,7 +244,7 @@ async function handleTranscribe(subcommand: string | undefined, rest: string[]):
 async function handleSpeak(subcommand: string | undefined, rest: string[]): Promise<void> {
   if (subcommand === "bench") {
     const args = rest;
-    const modelId = readOption(args, "--model") ?? "avspeech:system";
+    const modelId = readOption(args, "--model");
     const voiceId = readOption(args, "--voice");
     const speedOption = readOption(args, "--speed");
     const speed = speedOption ? Number(speedOption) : undefined;
@@ -265,7 +287,7 @@ async function handleSpeak(subcommand: string | undefined, rest: string[]): Prom
   }
 
   const args = [subcommand, ...rest].filter((value): value is string => Boolean(value));
-  const modelId = readOption(args, "--model") ?? "avspeech:system";
+  const modelId = readOption(args, "--model");
   const voiceId = readOption(args, "--voice");
   const outputPathOption = readOption(args, "--output");
   const speedOption = readOption(args, "--speed");
@@ -317,7 +339,7 @@ async function handleVoices(subcommand: string | undefined, rest: string[]): Pro
 }
 
 async function handleWarmup(subcommand: string | undefined, rest: string[]): Promise<void> {
-  const modelId = rest.find((value) => !value.startsWith("--") && Number.isNaN(Number(value))) ?? "parakeet:v3";
+  const modelId = rest.find((value) => !value.startsWith("--") && Number.isNaN(Number(value)));
 
   await withClient(async (client) => {
     switch (subcommand) {
@@ -394,14 +416,13 @@ async function ensureDaemonRunning(): Promise<RuntimeInfo> {
     }
   }
 
-  buildDaemon();
-  const proc = Bun.spawn([DAEMON_BINARY], {
-    cwd: REPO_ROOT,
+  const voxdPath = resolveOrBuildVoxdBinary();
+  const proc = spawn(voxdPath, [], {
+    cwd: resolveDaemonWorkingDirectory(),
     detached: true,
-    stdout: "ignore",
-    stderr: "ignore",
+    stdio: "ignore",
   });
-  proc.unref?.();
+  proc.unref();
 
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
@@ -412,35 +433,10 @@ async function ensureDaemonRunning(): Promise<RuntimeInfo> {
         return listenerPid === runtime.pid ? runtime : { ...runtime, pid: listenerPid };
       }
     }
-    await Bun.sleep(200);
+    await sleep(200);
   }
 
   throw new Error(`Timed out waiting for Vox daemon. Expected runtime file at ${getRuntimeFilePath()}`);
-}
-
-function buildDaemon(): void {
-  if (existsSync(DAEMON_BINARY) && existsSync(TTS_BINARY)) {
-    return;
-  }
-
-  for (const product of ["voxd", "voxttsd"]) {
-    if (product === "voxd" && existsSync(DAEMON_BINARY)) {
-      continue;
-    }
-    if (product === "voxttsd" && existsSync(TTS_BINARY)) {
-      continue;
-    }
-
-    const result = Bun.spawnSync(["swift", "build", "--package-path", SWIFT_ROOT, "--product", product], {
-      cwd: REPO_ROOT,
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-
-    if (result.exitCode !== 0) {
-      throw new Error(`Failed to build ${product}.`);
-    }
-  }
 }
 
 async function stopDaemon(): Promise<void> {
@@ -476,7 +472,7 @@ async function stopDaemon(): Promise<void> {
       rmSync(getRuntimeFilePath(), { force: true });
       return;
     }
-    await Bun.sleep(100);
+    await sleep(100);
   }
 }
 
@@ -888,7 +884,7 @@ function formatSpeedFactor(value: number): string {
 
 async function writeSynthesisOutput(outputPath: string, result: SynthesisResult): Promise<void> {
   mkdirSync(dirname(outputPath), { recursive: true });
-  await Bun.write(outputPath, result.audio);
+  await writeFile(outputPath, result.audio);
 }
 
 function makeTemporarySpeakPath(format: string): string {
@@ -898,11 +894,8 @@ function makeTemporarySpeakPath(format: string): string {
 }
 
 function playSynthesizedAudio(path: string): boolean {
-  const result = Bun.spawnSync(["afplay", path], {
-    stdout: "ignore",
-    stderr: "ignore",
-  });
-  return result.exitCode === 0;
+  const result = spawnSync("afplay", [path], { stdio: "ignore" });
+  return exitStatus(result) === 0;
 }
 
 function readRuntimeInfo(): RuntimeInfo | null {
@@ -920,18 +913,16 @@ function processIsRunning(pid: number): boolean {
 }
 
 function findListeningPid(port: number): number | null {
-  const result = Bun.spawnSync([
-    "lsof",
+  const result = spawnSync("lsof", [
     "-nP",
     `-iTCP:${port}`,
     "-sTCP:LISTEN",
     "-t",
   ], {
-    stdout: "pipe",
-    stderr: "ignore",
+    stdio: ["ignore", "pipe", "ignore"],
   });
 
-  if (result.exitCode !== 0) {
+  if (exitStatus(result) !== 0) {
     return null;
   }
 
@@ -954,20 +945,203 @@ async function waitForEnter(): Promise<void> {
 }
 
 function launchTui(): void {
-  const tuiPath = join(REPO_ROOT, "packages", "tui", "index.tsx");
-  const proc = Bun.spawnSync(["bun", "run", tuiPath], {
-    cwd: REPO_ROOT,
-    stdout: "inherit",
-    stderr: "inherit",
-    stdin: "inherit",
+  const repoRoot = resolveRepoRoot();
+  if (!repoRoot) {
+    throw new Error("`vox tui` is only available from a Vox repo checkout for now.");
+  }
+  const tuiPath = join(repoRoot, "packages", "tui", "index.tsx");
+  const proc = spawnSync("bun", ["run", tuiPath], {
+    cwd: repoRoot,
+    stdio: "inherit",
   });
-  process.exit(proc.exitCode ?? 0);
+  process.exit(exitStatus(proc) ?? 0);
+}
+
+async function handleInstall(): Promise<void> {
+  const voxdPath = resolveVoxdBinary();
+  if (!voxdPath) {
+    throw new Error(
+      "voxd binary not found. Install Vox.app from https://github.com/arach/vox/releases, " +
+      "or place voxd at ~/.vox/bin/voxd, or build it locally with `swift build --package-path swift --product voxd`."
+    );
+  }
+
+  mkdirSync(dirname(PLIST_PATH), { recursive: true });
+  mkdirSync(LOGS_DIR, { recursive: true });
+
+  writeFileSync(PLIST_PATH, buildLaunchAgentPlist(voxdPath), { mode: 0o644 });
+
+  // Defensive: bootout any prior copy so bootstrap is idempotent.
+  launchctl(["bootout", `gui/${process.getuid?.() ?? 501}/${LAUNCH_AGENT_LABEL}`], { allowFail: true });
+  const code = launchctl(["bootstrap", `gui/${process.getuid?.() ?? 501}`, PLIST_PATH]);
+  if (code !== 0) {
+    throw new Error(`launchctl bootstrap failed with exit code ${code}. Plist written to ${PLIST_PATH}.`);
+  }
+
+  console.log("Vox Companion installed, LaunchAgent registered");
+  console.log(`  plist: ${PLIST_PATH}`);
+  console.log(`  voxd:  ${voxdPath}`);
+  console.log(`  logs:  ${LOGS_DIR}`);
+}
+
+async function handleUninstall(): Promise<void> {
+  if (existsSync(PLIST_PATH)) {
+    launchctl(["bootout", `gui/${process.getuid?.() ?? 501}/${LAUNCH_AGENT_LABEL}`], { allowFail: true });
+    rmSync(PLIST_PATH, { force: true });
+    console.log("Vox Companion uninstalled, LaunchAgent removed");
+  } else {
+    console.log("Vox Companion is not installed (no plist found).");
+  }
+}
+
+function resolveVoxdBinary(): string | null {
+  const candidates = [join(homedir(), ".vox", "bin", "voxd"), "/Applications/Vox.app/Contents/Resources/voxd"];
+  const repoRoot = resolveRepoRoot();
+  if (repoRoot) {
+    const swiftRoot = join(repoRoot, "swift");
+    candidates.push(
+      join(swiftRoot, ".build", "release", "voxd"),
+      join(swiftRoot, ".build", "debug", "voxd"),
+    );
+  }
+  for (const path of candidates) {
+    if (existsSync(path)) return path;
+  }
+  const which = spawnSync("/usr/bin/which", ["voxd"], {
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  if (exitStatus(which) === 0) {
+    const found = new TextDecoder().decode(which.stdout).trim();
+    if (found && existsSync(found)) return found;
+  }
+  return null;
+}
+
+function buildLaunchAgentPlist(voxdPath: string): string {
+  const stdout = join(LOGS_DIR, "voxd.stdout.log");
+  const stderr = join(LOGS_DIR, "voxd.stderr.log");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${xmlEscape(LAUNCH_AGENT_LABEL)}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${xmlEscape(voxdPath)}</string>
+    <string>--port</string>
+    <string>${DEFAULT_PORT}</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>${xmlEscape(stdout)}</string>
+  <key>StandardErrorPath</key>
+  <string>${xmlEscape(stderr)}</string>
+</dict>
+</plist>
+`;
+}
+
+function xmlEscape(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function launchctl(args: string[], opts: { allowFail?: boolean } = {}): number {
+  const proc = spawnSync("/bin/launchctl", args, {
+    stdio: ["ignore", "ignore", opts.allowFail ? "ignore" : "inherit"],
+  });
+  return exitStatus(proc) ?? 0;
+}
+
+function resolveRepoRoot(): string | null {
+  const swiftPackage = join(DEV_SWIFT_ROOT, "Package.swift");
+  return existsSync(swiftPackage) ? DEV_REPO_ROOT : null;
+}
+
+function resolveDaemonWorkingDirectory(): string {
+  return resolveRepoRoot() ?? process.cwd();
+}
+
+function resolveOrBuildVoxdBinary(): string {
+  const existing = resolveVoxdBinary();
+  if (existing) {
+    return existing;
+  }
+
+  const repoRoot = resolveRepoRoot();
+  if (!repoRoot) {
+    throw new Error(
+      "voxd binary not found. Install Vox.app from https://github.com/arach/vox/releases, " +
+      "or place voxd at ~/.vox/bin/voxd before running CLI commands.",
+    );
+  }
+
+  buildDaemon(repoRoot);
+  if (existsSync(DEV_DAEMON_BINARY)) {
+    return DEV_DAEMON_BINARY;
+  }
+
+  throw new Error("Failed to build voxd.");
+}
+
+function buildDaemon(repoRoot: string): void {
+  if (existsSync(DEV_DAEMON_BINARY) && existsSync(DEV_TTS_BINARY)) {
+    return;
+  }
+
+  const swiftRoot = join(repoRoot, "swift");
+  for (const product of ["voxd", "voxttsd"]) {
+    if (product === "voxd" && existsSync(DEV_DAEMON_BINARY)) {
+      continue;
+    }
+    if (product === "voxttsd" && existsSync(DEV_TTS_BINARY)) {
+      continue;
+    }
+
+    const result = spawnSync("swift", ["build", "--package-path", swiftRoot, "--product", product], {
+      cwd: repoRoot,
+      stdio: "inherit",
+    });
+
+    if (exitStatus(result) !== 0) {
+      throw new Error(`Failed to build ${product}.`);
+    }
+  }
+}
+
+function exitStatus(result: ReturnType<typeof spawnSync>): number | null {
+  return result.status ?? result.exitCode ?? null;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolvePromise) => {
+    setTimeout(resolvePromise, ms);
+  });
+}
+
+function isMainModule(): boolean {
+  const entrypoint = process.argv[1];
+  if (!entrypoint) {
+    return false;
+  }
+  return resolve(entrypoint) === fileURLToPath(import.meta.url);
 }
 
 function printUsage(): void {
   console.log(`Vox CLI
 
 Usage:
+  vox install
+  vox uninstall
   vox daemon start|stop|status
   vox doctor
   vox models list|install|preload [modelId]
@@ -975,18 +1149,18 @@ Usage:
   vox warmup schedule [delayMs] [modelId]
   vox perf dashboard [--client <clientId>] [--route <route>] [--last <n>]
   vox logs [daemon|performance|voice] [--tail <n>]
-  vox transcribe file [--metrics] [--timestamps] <path>
-  vox transcribe bench <path> [runs]
+  vox transcribe file [--model <id>] [--metrics] [--timestamps] <path>
+  vox transcribe bench [--model <id>] <path> [runs]
   vox transcribe status
   vox transcribe cancel [sessionId]
-  vox transcribe live [--timestamps]
+  vox transcribe live [--model <id>] [--timestamps]
   vox speak [--model <id>] [--voice <id>] [--output <path>] [--metrics] [--no-play] <text>
   vox speak bench [--model <id>] [--voice <id>] <text> [runs]
   vox voices [list] [--model <id>]
   vox tui`);
 }
 
-if (import.meta.main) {
+if (isMainModule()) {
   main(process.argv.slice(2)).catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);

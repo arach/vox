@@ -1,9 +1,21 @@
+import Dispatch
 import Foundation
 import VoxCore
+import VoxBridge
+
+#if canImport(Darwin)
+import Darwin
+#endif
 
 /// Monitors whether voxd is running by polling runtime.json and checking the PID.
 @MainActor
 final class DaemonMonitor: ObservableObject {
+    struct LiveSessionState: Equatable {
+        var clientId: String
+        var modelId: String
+        var state: SessionState
+    }
+
     struct State: Equatable {
         var isRunning = false
         var port: UInt16?
@@ -12,15 +24,21 @@ final class DaemonMonitor: ObservableObject {
         var modelName: String?
         var modelInstalled: Bool?
         var modelPreloaded: Bool?
+        var liveSession: LiveSessionState?
+
+        var isRecording: Bool {
+            liveSession?.state == .recording
+        }
 
         static let stopped = State()
 
-        static func running(runtime: RuntimeInfo) -> State {
+        static func running(runtime: RuntimeInfo, liveSession: LiveSessionState? = nil) -> State {
             State(
                 isRunning: true,
                 port: runtime.port,
                 pid: runtime.pid,
-                startedAt: runtime.startedAt
+                startedAt: runtime.startedAt,
+                liveSession: liveSession
             )
         }
     }
@@ -34,21 +52,44 @@ final class DaemonMonitor: ObservableObject {
     var modelName: String? { state.modelName }
     var modelInstalled: Bool? { state.modelInstalled }
     var modelPreloaded: Bool? { state.modelPreloaded }
+    var isRecording: Bool { state.isRecording }
+    var liveSessionClientId: String? { state.liveSession?.clientId }
+    var liveSessionModelId: String? { state.liveSession?.modelId }
+    var liveSessionState: SessionState? { state.liveSession?.state }
 
-    private var timer: Timer?
+    private let monitorQueue = DispatchQueue(label: "dev.vox.daemon-monitor")
+    private let proxy = DaemonProxy()
+    private var runtimeDirectorySource: DispatchSourceFileSystemObject?
+    private var runtimeDirectoryFileDescriptor: CInt = -1
+    private var processSource: DispatchSourceProcess?
+    private var observedPID: Int32?
+    private var pendingRefreshTask: Task<Void, Never>?
+    private var liveSessionPollTask: Task<Void, Never>?
 
     func start() {
+        guard runtimeDirectorySource == nil else { return }
+        startWatchingRuntimeDirectory()
+        startLiveSessionPolling()
         checkNow()
-        timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.checkNow()
-            }
-        }
     }
 
     func stop() {
-        timer?.invalidate()
-        timer = nil
+        pendingRefreshTask?.cancel()
+        pendingRefreshTask = nil
+        liveSessionPollTask?.cancel()
+        liveSessionPollTask = nil
+
+        runtimeDirectorySource?.cancel()
+        runtimeDirectorySource = nil
+        runtimeDirectoryFileDescriptor = -1
+
+        processSource?.cancel()
+        processSource = nil
+        observedPID = nil
+
+        Task {
+            await proxy.disconnect()
+        }
     }
 
     func checkNow() {
@@ -58,12 +99,14 @@ final class DaemonMonitor: ObservableObject {
                 return
             }
 
-            guard kill(runtime.pid, 0) == 0 else {
+            errno = 0
+            let processIsReachable = kill(runtime.pid, 0) == 0 || errno == EPERM
+            guard processIsReachable else {
                 markStopped()
                 return
             }
 
-            updateState(.running(runtime: runtime))
+            updateState(.running(runtime: runtime, liveSession: state.liveSession))
         } catch {
             markStopped()
         }
@@ -74,7 +117,134 @@ final class DaemonMonitor: ObservableObject {
     }
 
     private func updateState(_ newState: State) {
+        reconfigureProcessWatcher(for: newState.isRunning ? newState.pid : nil)
+
+        let mergedState: State
+        if newState.isRunning {
+            var runningState = newState
+            runningState.liveSession = newState.liveSession ?? state.liveSession
+            mergedState = runningState
+        } else {
+            mergedState = newState
+        }
+
+        guard state != mergedState else { return }
+        state = mergedState
+    }
+
+    private func updateLiveSession(_ liveSession: LiveSessionState?) {
+        var newState = state
+        newState.liveSession = state.isRunning ? liveSession : nil
         guard state != newState else { return }
         state = newState
+    }
+
+    private func startWatchingRuntimeDirectory() {
+        try? RuntimePaths.ensureDirectories()
+
+        let directoryURL = RuntimePaths.runtimeFileURL().deletingLastPathComponent()
+        let fileDescriptor = open(directoryURL.path, O_EVTONLY)
+        guard fileDescriptor >= 0 else { return }
+
+        runtimeDirectoryFileDescriptor = fileDescriptor
+
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fileDescriptor,
+            eventMask: [.write, .rename, .delete, .attrib, .extend, .link, .revoke],
+            queue: monitorQueue
+        )
+
+        source.setEventHandler { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.scheduleRefresh()
+            }
+        }
+        source.setCancelHandler { [fileDescriptor] in
+            close(fileDescriptor)
+        }
+
+        runtimeDirectorySource = source
+        source.resume()
+    }
+
+    private func reconfigureProcessWatcher(for pid: Int32?) {
+        guard observedPID != pid else { return }
+
+        processSource?.cancel()
+        processSource = nil
+        observedPID = pid
+
+        guard let pid else { return }
+
+        let source = DispatchSource.makeProcessSource(
+            identifier: pid,
+            eventMask: .exit,
+            queue: monitorQueue
+        )
+
+        source.setEventHandler { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.scheduleRefresh()
+            }
+        }
+
+        processSource = source
+        source.resume()
+    }
+
+    private func scheduleRefresh() {
+        pendingRefreshTask?.cancel()
+        pendingRefreshTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled else { return }
+            self?.checkNow()
+        }
+    }
+
+    private func startLiveSessionPolling() {
+        guard liveSessionPollTask == nil else { return }
+        liveSessionPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.refreshLiveSession()
+                try? await Task.sleep(for: .milliseconds(600))
+            }
+        }
+    }
+
+    private func refreshLiveSession() async {
+        guard isRunning else {
+            updateLiveSession(nil)
+            await proxy.disconnect()
+            return
+        }
+
+        do {
+            if !(await proxy.isConnected) {
+                try await proxy.connect()
+            }
+
+            let result = try await proxy.call("transcribe.sessionStatus")
+            updateLiveSession(parseLiveSession(result["session"]))
+        } catch {
+            await proxy.disconnect()
+            updateLiveSession(nil)
+        }
+    }
+
+    private func parseLiveSession(_ rawSession: Any?) -> LiveSessionState? {
+        guard let dictionary = rawSession as? [String: Any],
+              let clientId = dictionary["clientId"] as? String,
+              let modelId = dictionary["modelId"] as? String,
+              let rawState = dictionary["state"] as? String,
+              let sessionState = SessionState(rawValue: rawState)
+        else {
+            return nil
+        }
+
+        return LiveSessionState(
+            clientId: clientId,
+            modelId: modelId,
+            state: sessionState
+        )
     }
 }

@@ -1,33 +1,43 @@
 # Vox Overview
 
-Vox is a local-first voice stack for macOS and iOS. It supports two first-class integration modes:
+Vox is a local-first voice stack for macOS and iOS. It supports both speech-to-text (STT / ASR) and text-to-speech (TTS), and you can use it in two main ways:
 
-- Embed mode -- Apple apps link Vox's Swift packages directly and keep voice in and voice out in process.
-- Companion mode -- `voxd` exposes the same capabilities over local JSON-RPC and HTTP when web or shared-process access is useful.
+- Embed mode: Apple apps link Vox's Swift packages directly and keep speech in and speech out in process.
+- Companion mode: `voxd` exposes the runtime over local WebSocket JSON-RPC, and `VoxBridge` / `voxbridge` exposes an HTTP bridge for browser clients when web or shared-process access is useful.
 
 Main surfaces:
 
-- Swift packages -- `VoxCore`, `VoxEngine`, `VoxService`, `VoxBridge` for embedded Apple app integrations.
-- `voxd` -- Vox Companion, the Swift daemon. Warm-up, telemetry, bridge transport, shared-process coordination.
-- `@voxd/sdk` -- TypeScript SDK for Bun/Node and other companion-connected integrations.
-- `vox` -- Bun CLI. Health checks, benchmarks, warm-up scheduling, transcription, synthesis.
+- Swift packages: `VoxCore`, `VoxEngine`, `VoxService`, `VoxBridge` for embedded Apple app integrations.
+- `voxd`: Vox Companion, the Swift daemon. Warm-up, telemetry, bridge transport, shared-process coordination.
+- `@voxd/sdk`: TypeScript SDK for Bun/Node and other companion-connected integrations. WebSocket JSON-RPC to `voxd`.
+- `@voxd/client`: Browser SDK. HTTP bridge to the Vox Companion for web apps.
+- `@voxd/cli`: Node CLI. Health checks, model management, transcription, synthesis, voices, warm-up, and benchmarks.
+
+## Which surface to reach for
+
+- Use the Swift packages when you are modifying a macOS or iOS app and want speech to stay in process.
+- Use `@voxd/sdk` when you want a local Bun or Node client to talk to the companion daemon over WebSocket JSON-RPC.
+- Use `@voxd/client` when you want a browser app to talk to the local HTTP bridge on the same Mac.
+- Use `@voxd/cli` when you want operator commands, warm-up controls, voice listing, or reproducible benchmarks.
 
 ## Why it exists
 
-Most voice stacks hide lifecycle, warm-up, and latency. Vox keeps them visible:
+Many voice stacks hide lifecycle, warm-up, and latency. Vox tries to keep those parts visible:
 
 - Model stays local
+- STT and TTS stay explicit runtime capabilities instead of hidden backend switches
 - Warm-up is an explicit API
 - Latency dimensions (`clientId`, `route`, `modelId`) are preserved
-- Runtime is observable from day one
+- Runtime stays easy to inspect from the start
 
 ## Repository layout
 
-- `swift/` -- VoxCore, VoxEngine, VoxService, VoxBridge, voxd companion
-- `packages/client/` -- TypeScript SDK
-- `packages/cli/` -- Bun CLI
-- `docs/` -- Dewey source content
-- `site/` -- website, docs route, OG generation
+- `swift/`: VoxCore, VoxEngine, VoxService, VoxBridge, voxd companion
+- `packages/client/`: `@voxd/sdk` (TypeScript SDK)
+- `packages/web-client/`: `@voxd/client` (browser SDK)
+- `packages/cli/`: `@voxd/cli` (Node CLI)
+- `docs/`: Dewey source content
+- `site/`: website and docs UI
 
 ## Design principles
 
@@ -38,21 +48,33 @@ Most voice stacks hide lifecycle, warm-up, and latency. Vox keeps them visible:
 
 ## How it fits together
 
-The split between embed and companion surfaces is intentional. Apple apps embed the Swift packages directly and keep the same provider, warm-up, and telemetry semantics in process. Web apps use `@voxd/client` against Vox Companion, and operators use `vox` to check health, warm-up, and performance. Companion mode lets `voxd` stay warm across browser integrations, local tools, and other shared-process clients.
+Apple app teams embed the Swift packages directly and keep the same provider, warm-up, and telemetry semantics in process. Bun and Node tools use `@voxd/sdk` against `voxd`, browser apps use `@voxd/client` against the local HTTP bridge, and operators use `vox` to check health, list voices, transcribe, synthesize, warm models, and benchmark both speech paths. Companion mode lets `voxd` stay warm across browser integrations, local tools, and other shared-process clients while the bridge stays narrow and browser-facing.
+
+## Reference implementations
+
+- `examples/macos-minimal/` is a good standalone reference for the direct Apple embed path.
+- `packages/client/` and `packages/web-client/` are good companion-mode SDK references in the repo.
 
 ## Workflows
+
+These examples assume `vox` is on your `PATH`. In a repo checkout, replace `vox` with `node packages/cli/dist/index.js` after `bun run build`.
 
 ```bash
 # Build and verify
 bun install && bun run build
-bun packages/cli/src/index.ts doctor
+vox daemon start
+vox doctor
 
-# Warm the model before speech
-bun packages/cli/src/index.ts warmup start
-bun packages/cli/src/index.ts warmup schedule 500 parakeet:v3
+# Speech to text
+vox warmup start parakeet:v3
+vox transcribe file --model parakeet:v3 --metrics --timestamps /tmp/sample.wav
 
-# Transcribe and measure
-bun packages/cli/src/index.ts transcribe file --metrics /tmp/sample.wav
-bun packages/cli/src/index.ts transcribe bench /tmp/sample.wav 5
-bun packages/cli/src/index.ts perf dashboard --client vox-cli
+# Text to speech
+vox voices --model avspeech:system
+vox speak --model avspeech:system --metrics "Hello from Vox"
+
+# Compare warm-path performance
+vox transcribe bench --model parakeet:v3 /tmp/sample.wav 5
+vox speak bench --model avspeech:system "Hello from Vox" 5
+vox perf dashboard --client vox-cli
 ```

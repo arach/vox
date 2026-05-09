@@ -16,16 +16,16 @@ let package = Package(
         .executable(name: "voxttsd", targets: ["VoxTTSRunner"]),
         .executable(name: "voxd", targets: ["voxd"])
     ],
-    dependencies: [
-        .package(url: "https://github.com/FluidInference/FluidAudio", branch: "main")
-    ],
+    dependencies: [],
     targets: [
         .target(name: "VoxCore"),
         .target(
             name: "VoxEngine",
             dependencies: [
-                "VoxCore",
-                .product(name: "FluidAudio", package: "fluidaudio")
+                "VoxCore"
+            ],
+            resources: [
+                .copy("Resources/mlx_audio_provider.py")
             ]
         ),
         .target(

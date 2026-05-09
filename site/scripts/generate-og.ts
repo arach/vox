@@ -234,7 +234,7 @@ function renderDocTemplate(title: string, eyebrow: string, detail: string) {
         <div class="detail">${shellEscape(detail)}</div>
         <div class="panel">
           <div class="panel-label">Docs</div>
-          <div class="panel-body">AI-ready handoff<br />Swift runtime + Bun CLI + TS SDK<br />Operator-first observability</div>
+          <div class="panel-body">AI-ready handoff<br />Swift runtime + Node CLI + TS SDK<br />Operator-first observability</div>
           <div class="panel-accent"></div>
         </div>
       </div>
@@ -496,7 +496,7 @@ try {
   for (const page of docPages) {
     const html = writeTempHtml(
       page.id,
-      renderDocTemplate(page.title, `${page.group} / Docs`, "Swift runtime. Bun CLI. TypeScript SDK."),
+      renderDocTemplate(page.title, `${page.group} / Docs`, "Swift runtime. Node CLI. TypeScript SDK."),
     );
     renderToPng(html, join(docsOgRoot, `${page.id}.png`));
   }

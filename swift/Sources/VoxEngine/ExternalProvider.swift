@@ -109,11 +109,54 @@ public actor ExternalProvider: ASRProvider {
             totalMs: (metricsDict?["totalMs"] as? Int) ?? elapsedMs
         )
 
+        let words: [WordTiming] = ((result["words"] as? [[String: Any]]) ?? []).compactMap { entry in
+            guard let word = entry["word"] as? String else {
+                return nil
+            }
+
+            let start: Double
+            if let value = entry["start"] as? Double {
+                start = value
+            } else if let value = entry["start"] as? Int {
+                start = Double(value)
+            } else {
+                start = 0
+            }
+
+            let end: Double
+            if let value = entry["end"] as? Double {
+                end = value
+            } else if let value = entry["end"] as? Int {
+                end = Double(value)
+            } else {
+                end = 0
+            }
+
+            let confidence: Float
+            if let value = entry["confidence"] as? Float {
+                confidence = value
+            } else if let value = entry["confidence"] as? Double {
+                confidence = Float(value)
+            } else if let value = entry["confidence"] as? Int {
+                confidence = Float(value)
+            } else {
+                confidence = 0
+            }
+
+            return WordTiming(
+                word: word,
+                start: start,
+                end: end,
+                confidence: confidence
+            )
+        }
+
         return TranscriptionOutput(
             modelId: responseModelId,
             text: text,
             elapsedMs: elapsedMs,
-            metrics: metrics
+            metrics: metrics,
+            words: words
         )
     }
 

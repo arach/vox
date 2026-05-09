@@ -8,20 +8,31 @@ BUILD_DIR="$ROOT/dist"
 APP_NAME="Vox.app"
 DMG_NAME="Vox.dmg"
 BUNDLE="$BUILD_DIR/$APP_NAME"
-VERSION="0.2.0"
+APP_BUILD_LOG="$(mktemp -t vox-app-build.XXXXXX.log)"
+VOXD_BUILD_LOG="$(mktemp -t vox-voxd-build.XXXXXX.log)"
+DEFAULT_VERSION="$(sed -n 's/  "version": "\(.*\)",/\1/p' "$ROOT/packages/cli/package.json" | head -n 1)"
+VERSION="${VOX_VERSION:-$DEFAULT_VERSION}"
 
-# Signing
-SIGN_IDENTITY="Developer ID Application: Arach Tchoupani (2U83JFPW66)"
-TEAM_ID="2U83JFPW66"
-NOTARY_PROFILE="notarytool"
+# Signing and notarization are optional for local/dev builds, but release automation
+# should provide them so the published DMG is ready for Gatekeeper.
+SIGN_IDENTITY="${VOX_SIGN_IDENTITY:-}"
+NOTARY_PROFILE="${VOX_NOTARY_PROFILE:-}"
+REQUIRE_SIGNED_RELEASE="${VOX_REQUIRE_SIGNED_RELEASE:-}"
+
+if [ -n "$REQUIRE_SIGNED_RELEASE" ]; then
+    if [ -z "$SIGN_IDENTITY" ] || [ -z "$NOTARY_PROFILE" ]; then
+        echo "Signed release builds require VOX_SIGN_IDENTITY and VOX_NOTARY_PROFILE." >&2
+        exit 1
+    fi
+fi
 
 echo "==> Building release binary..."
 cd "$APP_DIR"
-swift build -c release 2>&1 | tail -3
+swift build -c release 2>&1 | tee "$APP_BUILD_LOG"
 
 echo "==> Building voxd release binary..."
 cd "$ROOT/swift"
-swift build -c release --product voxd 2>&1 | tail -3
+swift build -c release --product voxd 2>&1 | tee "$VOXD_BUILD_LOG"
 
 echo "==> Creating app bundle..."
 rm -rf "$BUILD_DIR"
@@ -121,26 +132,30 @@ sed -i '' "s/VOXVERSION/$VERSION/g" "$BUNDLE/Contents/Info.plist"
 echo "==> App bundle created at $BUNDLE"
 
 # ── Codesign ──────────────────────────────────────────────
-echo "==> Signing..."
+if [ -n "$SIGN_IDENTITY" ]; then
+    echo "==> Signing..."
 
-# Sign voxd helper first (inside-out signing)
-if [ -f "$BUNDLE/Contents/Resources/voxd" ]; then
+    # Sign voxd helper first (inside-out signing)
+    if [ -f "$BUNDLE/Contents/Resources/voxd" ]; then
+        codesign --force --options runtime --timestamp \
+            --sign "$SIGN_IDENTITY" \
+            "$BUNDLE/Contents/Resources/voxd"
+        echo "    Signed voxd"
+    fi
+
+    # Sign the main app bundle
     codesign --force --options runtime --timestamp \
+        --entitlements "$BUILD_DIR/Vox.entitlements" \
         --sign "$SIGN_IDENTITY" \
-        "$BUNDLE/Contents/Resources/voxd"
-    echo "    Signed voxd"
+        "$BUNDLE"
+
+    echo "    Signed Vox.app"
+
+    # Verify
+    codesign --verify --deep --strict --verbose=2 "$BUNDLE" 2>&1 | tail -3
+else
+    echo "==> Skipping codesign (VOX_SIGN_IDENTITY not set)"
 fi
-
-# Sign the main app bundle
-codesign --force --options runtime --timestamp \
-    --entitlements "$BUILD_DIR/Vox.entitlements" \
-    --sign "$SIGN_IDENTITY" \
-    "$BUNDLE"
-
-echo "    Signed Vox.app"
-
-# Verify
-codesign --verify --deep --strict --verbose=2 "$BUNDLE" 2>&1 | tail -3
 
 # ── Create DMG ────────────────────────────────────────────
 echo "==> Creating DMG..."
@@ -157,24 +172,36 @@ hdiutil create \
 
 rm -rf "$DMG_STAGING"
 
-# Sign the DMG itself
-codesign --force --timestamp \
-    --sign "$SIGN_IDENTITY" \
-    "$BUILD_DIR/$DMG_NAME"
+if [ -n "$SIGN_IDENTITY" ]; then
+    # Sign the DMG itself
+    codesign --force --timestamp \
+        --sign "$SIGN_IDENTITY" \
+        "$BUILD_DIR/$DMG_NAME"
 
-echo "    Signed Vox.dmg"
+    echo "    Signed Vox.dmg"
+else
+    echo "==> Skipping DMG codesign (VOX_SIGN_IDENTITY not set)"
+fi
 
 # ── Notarize ──────────────────────────────────────────────
-echo "==> Submitting for notarization..."
-xcrun notarytool submit "$BUILD_DIR/$DMG_NAME" \
-    --keychain-profile "$NOTARY_PROFILE" \
-    --wait
+if [ -n "$SIGN_IDENTITY" ] && [ -n "$NOTARY_PROFILE" ]; then
+    echo "==> Submitting for notarization..."
+    xcrun notarytool submit "$BUILD_DIR/$DMG_NAME" \
+        --keychain-profile "$NOTARY_PROFILE" \
+        --wait
 
-echo "==> Stapling notarization ticket..."
-xcrun stapler staple "$BUILD_DIR/$DMG_NAME"
+    echo "==> Stapling notarization ticket..."
+    xcrun stapler staple "$BUILD_DIR/$DMG_NAME"
+else
+    echo "==> Skipping notarization (VOX_SIGN_IDENTITY or VOX_NOTARY_PROFILE not set)"
+fi
 
 # ── Done ──────────────────────────────────────────────────
 echo ""
 echo "==> Done: $BUILD_DIR/$DMG_NAME"
 ls -lh "$BUILD_DIR/$DMG_NAME"
-spctl --assess --type open --context context:primary-signature -v "$BUILD_DIR/$DMG_NAME" 2>&1 || true
+if [ -n "$REQUIRE_SIGNED_RELEASE" ]; then
+    spctl --assess --type open --context context:primary-signature -v "$BUILD_DIR/$DMG_NAME" 2>&1
+else
+    spctl --assess --type open --context context:primary-signature -v "$BUILD_DIR/$DMG_NAME" 2>&1 || true
+fi

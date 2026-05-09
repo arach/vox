@@ -16,11 +16,12 @@ import type {
   VoxDClientOptions,
   VoxHealth,
 } from "./types.js";
-
-const DEFAULT_PORT = 43115;
-const DEFAULT_HOST = "127.0.0.1";
-const DEFAULT_PROBE_TIMEOUT = 2000;
-const DEFAULT_POLL_INTERVAL = 500;
+import {
+  DEFAULT_HOST,
+  DEFAULT_POLL_INTERVAL,
+  DEFAULT_PORT,
+  DEFAULT_PROBE_TIMEOUT,
+} from "./constants.js";
 
 /**
  * Create a VoxD client instance.
@@ -142,7 +143,7 @@ export class VoxDClient {
    * ```
    */
   async transcribe(options: TranscribeOptions): Promise<TranscriptionResult> {
-    const { audio, format, language, timestamps, metadata } = options;
+    const { audio, modelId, format, language, timestamps, metadata } = options;
 
     // Build multipart form
     const form = new FormData();
@@ -158,6 +159,7 @@ export class VoxDClient {
     }
 
     if (format) form.append("format", format);
+    if (modelId) form.append("modelId", modelId);
     if (language) form.append("language", language);
     if (timestamps) form.append("timestamps", "true");
     form.append("metadata", JSON.stringify(this.withClientMetadata(metadata)));
@@ -304,13 +306,17 @@ export class VoxDClient {
   }
 
   private async openLiveSession(options?: LiveSessionOptions): Promise<Response> {
+    const body: Record<string, unknown> = {
+      clientId: this.clientId,
+    };
+    if (options?.modelId) {
+      body.modelId = options.modelId;
+    }
+
     return this.fetch("/live", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId: this.clientId,
-        modelId: options?.modelId ?? "parakeet:v3",
-      }),
+      body: JSON.stringify(body),
     });
   }
 

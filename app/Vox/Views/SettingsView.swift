@@ -1,9 +1,13 @@
 import SwiftUI
 import VoxCore
+import VoxEngine
 
 struct SettingsView: View {
     var body: some View {
         TabView {
+            EmbedDemoTab()
+                .tabItem { Label("Embed Demo", systemImage: "waveform.and.mic") }
+
             GeneralTab()
                 .tabItem { Label("General", systemImage: "gearshape") }
 
@@ -13,7 +17,7 @@ struct SettingsView: View {
             AboutTab()
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
-        .frame(minWidth: 460, minHeight: 360)
+        .frame(minWidth: 700, minHeight: 560)
     }
 }
 
@@ -21,6 +25,8 @@ struct SettingsView: View {
 
 struct GeneralTab: View {
     @EnvironmentObject var monitor: DaemonMonitor
+    @State private var launchAgentInstalled = LaunchAgentManager.isInstalled()
+    @StateObject private var speechPreferences = SpeechPreferencesState()
 
     var body: some View {
         Form {
@@ -54,6 +60,30 @@ struct GeneralTab: View {
                         UptimeText(startedAt: startedAt)
                     }
                 }
+
+                LabeledContent("Live Capture") {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(monitor.isRecording ? .red : Color.secondary.opacity(0.28))
+                            .frame(width: 8, height: 8)
+                        Text(monitor.isRecording ? "Recording" : "Idle")
+                            .foregroundStyle(monitor.isRecording ? .primary : .secondary)
+                    }
+                }
+
+                if monitor.isRecording, let clientId = monitor.liveSessionClientId {
+                    LabeledContent("Recording Client") {
+                        Text(clientId)
+                            .font(.system(.body, design: .monospaced))
+                    }
+                }
+
+                if monitor.isRecording, let modelId = monitor.liveSessionModelId {
+                    LabeledContent("Recording Model") {
+                        Text(modelId)
+                            .font(.system(.body, design: .monospaced))
+                    }
+                }
             } header: {
                 Text("Daemon")
             }
@@ -64,41 +94,118 @@ struct GeneralTab: View {
                 }
 
                 LabeledContent("Backend") {
-                    Text("FluidAudio (CoreML)")
+                    Text("Parakeet (CoreML)")
                 }
             } header: {
                 Text("Model")
             }
 
             Section {
+                Picker(
+                    "Transcription Default",
+                    selection: Binding(
+                        get: { speechPreferences.preferredTranscriptionModelId },
+                        set: { newValue in
+                            speechPreferences.updatePreferredTranscriptionModelId(newValue)
+                        }
+                    )
+                ) {
+                    Text("Vox Default (parakeet:v3)")
+                        .tag("")
+                    ForEach(speechPreferences.asrModels, id: \.id) { model in
+                        Text(model.id)
+                            .tag(model.id)
+                    }
+                }
+
+                Picker(
+                    "Synthesis Default",
+                    selection: Binding(
+                        get: { speechPreferences.preferredSynthesisModelId },
+                        set: { newValue in
+                            Task {
+                                await speechPreferences.updatePreferredSynthesisModelId(newValue)
+                            }
+                        }
+                    )
+                ) {
+                    Text("Vox Default (\(TTSDefaults.modelId))")
+                        .tag("")
+                    ForEach(speechPreferences.ttsModels, id: \.id) { model in
+                        Text(model.id)
+                            .tag(model.id)
+                    }
+                }
+
+                Picker(
+                    "Voice Default",
+                    selection: Binding(
+                        get: { speechPreferences.preferredSynthesisVoiceId },
+                        set: { newValue in
+                            speechPreferences.updatePreferredSynthesisVoiceId(newValue)
+                        }
+                    )
+                ) {
+                    Text("Provider Default")
+                        .tag("")
+                    ForEach(speechPreferences.voices, id: \.id) { voice in
+                        Text(voiceLabel(voice))
+                            .tag(voice.id)
+                    }
+                }
+                .disabled(speechPreferences.voices.isEmpty)
+
+                if let statusMessage = speechPreferences.statusMessage, !statusMessage.isEmpty {
+                    Text(statusMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Speech Defaults")
+            } footer: {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("These are user-level Vox defaults. Apps can override them when they choose an explicit model or voice.")
+                    Text("Input device defaults are not exposed yet. Live capture currently follows the system default input device.")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
+            Section {
                 HStack {
                     Button("Restart Daemon") {
                         LaunchAgentManager.restart()
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .seconds(2))
-                            monitor.checkNow()
-                        }
                     }
 
-                    if !LaunchAgentManager.isInstalled() {
+                    if !launchAgentInstalled {
                         Button("Install LaunchAgent") {
                             LaunchAgentManager.install()
-                            Task { @MainActor in
-                                try? await Task.sleep(for: .seconds(2))
-                                monitor.checkNow()
-                            }
+                            launchAgentInstalled = LaunchAgentManager.isInstalled()
                         }
                         .tint(.accentColor)
                     }
                 }
 
-                Toggle("Start at login", isOn: .constant(LaunchAgentManager.isInstalled()))
+                Toggle("Start at login", isOn: .constant(launchAgentInstalled))
                     .disabled(true)
             } header: {
                 Text("Actions")
             }
         }
         .formStyle(.grouped)
+        .onAppear {
+            launchAgentInstalled = LaunchAgentManager.isInstalled()
+        }
+        .task(id: monitor.isRunning) {
+            await speechPreferences.load()
+        }
+    }
+
+    private func voiceLabel(_ voice: TTSVoiceInfo) -> String {
+        if let language = voice.language, !language.isEmpty {
+            return voice.isDefault ? "\(voice.name) (\(language)) · default" : "\(voice.name) (\(language))"
+        }
+        return voice.isDefault ? "\(voice.name) · default" : voice.name
     }
 }
 
@@ -128,6 +235,12 @@ struct BridgeTab: View {
                     Text("http://127.0.0.1:\(bridgeState.port)")
                         .font(.system(.body, design: .monospaced))
                         .textSelection(.enabled)
+                }
+
+                if let statusDetail = bridgeState.statusDetail, !statusDetail.isEmpty {
+                    Text(statusDetail)
+                        .font(.caption)
+                        .foregroundStyle(bridgeState.isRunning ? Color.secondary : Color.red)
                 }
             } header: {
                 Text("HTTP Bridge")

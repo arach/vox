@@ -43,6 +43,7 @@ export interface JobMetadata {
 export interface CreateJobOptions {
   type: "alignment" | "transcription";
   sessionId?: string;
+  modelId?: string;
   source: JobSource;
   metadata?: JobMetadata;
 }
@@ -118,6 +119,8 @@ export interface VoxDClientOptions {
 export interface TranscribeOptions {
   /** Audio data — a Blob, File, or ArrayBuffer. */
   audio: Blob | File | ArrayBuffer;
+  /** Optional model override. Omit to use the user's Vox default model. */
+  modelId?: string;
   /** Audio format hint. Default: inferred from Blob type or "wav". */
   format?: "mp3" | "wav" | "aac" | "opus" | "pcm16";
   /** Language code. Default: "en" */
@@ -142,7 +145,7 @@ export interface TranscriptionResult {
 
 /** Options for starting a realtime transcription stream. */
 export interface LiveSessionOptions {
-  /** Model to use for the live session. Default: "parakeet:v3" */
+  /** Model to use for the live session. Omit to use the user's Vox default model. */
   modelId?: string;
 }
 
