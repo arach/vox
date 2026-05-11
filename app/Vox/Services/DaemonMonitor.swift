@@ -57,7 +57,7 @@ final class DaemonMonitor: ObservableObject {
     var liveSessionModelId: String? { state.liveSession?.modelId }
     var liveSessionState: SessionState? { state.liveSession?.state }
 
-    private let monitorQueue = DispatchQueue(label: "dev.vox.daemon-monitor")
+    private let monitorQueue = DispatchQueue(label: "cc.voxd.daemon-monitor")
     private let proxy = DaemonProxy()
     private var processSource: DispatchSourceProcess?
     private var observedPID: Int32?

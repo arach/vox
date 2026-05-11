@@ -9,7 +9,7 @@ public final class HTTPBridgeServer: @unchecked Sendable {
     private static let headerDelimiter = Data("\r\n\r\n".utf8)
 
     private let port: UInt16
-    private let queue = DispatchQueue(label: "dev.vox.bridge.http")
+    private let queue = DispatchQueue(label: "cc.voxd.bridge.http")
     private var listener: NWListener?
     private let proxy: DaemonProxy
     private let allowlist: OriginAllowlist

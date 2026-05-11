@@ -2,7 +2,7 @@ import Foundation
 import os
 
 private enum VoxLogFileSink {
-    private static let queue = DispatchQueue(label: "dev.vox.log-file")
+    private static let queue = DispatchQueue(label: "cc.voxd.log-file")
 
     static func append(_ line: String) {
         queue.sync {
@@ -79,7 +79,7 @@ public struct DualLogger: Sendable {
 }
 
 public enum VoxLog {
-    private static let subsystem = "dev.vox"
+    private static let subsystem = "cc.voxd"
 
     public static let core = DualLogger(subsystem: subsystem, category: "core")
     public static let engine = DualLogger(subsystem: subsystem, category: "engine")

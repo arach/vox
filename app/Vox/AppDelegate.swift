@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
     private enum LaunchPresentation {
         case settings
         case gettingStarted
+        case welcome
     }
 
     private struct BridgeHealthResponse: Decodable, Sendable {
@@ -45,11 +46,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
     private var statusItem: NSStatusItem!
     let monitor = DaemonMonitor()
     let bridgeState = BridgeState()
+    let onboarding = OnboardingState()
     private var proxy: DaemonProxy?
     private var bridge: HTTPBridgeServer?
     private var allowlist: OriginAllowlist?
     private var settingsWindow: NSWindow?
-    private var gettingStartedWindow: NSWindow?
     private var monitorObserver: AnyCancellable?
     private let processInfo = ProcessInfo.processInfo
 
@@ -69,8 +70,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
             switch launchPresentation {
             case .settings:
                 showSettings()
-            case .gettingStarted:
-                showGettingStarted(source: nil)
+            case .gettingStarted, .welcome:
+                onboarding.presentWelcome()
+                showSettings()
             }
 
             if !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
@@ -163,6 +165,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         let rootView = VoxRootView()
             .environmentObject(monitor)
             .environmentObject(bridgeState)
+            .environmentObject(onboarding)
             .frame(minWidth: 920, minHeight: 640)
 
         let window = NSWindow(
@@ -180,10 +183,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
     }
 
     func showGettingStarted(source: String?) {
-        showGettingStarted(context: .generic(sourceName: displayName(forSource: source)))
+        let context = GettingStartedContext.generic(sourceName: displayName(forSource: source))
+        onboarding.present(context: context, returnTo: nil, isTrusted: false)
+        showSettings()
     }
 
-    private func showGettingStarted(request: LaunchRequest) {
+    private func presentLaunch(request: LaunchRequest) {
         let fallbackSourceName = displayName(forSource: request.source)
 
         Task { @MainActor [weak self] in
@@ -191,48 +196,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
             let isTrusted = await self.isTrustedLaunchRequest(returnTo: request.returnTo)
             let context = self.gettingStartedContext(
                 sourceName: fallbackSourceName,
-                payload: isTrusted ? request.context : nil
+                payload: request.context
             )
-            self.showGettingStarted(context: context)
+            self.onboarding.present(
+                context: context,
+                returnTo: request.returnTo,
+                isTrusted: isTrusted
+            )
+            self.showSettings()
         }
-    }
-
-    private func showGettingStarted(context: GettingStartedContext) {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-
-        let rootView = GettingStartedView(
-            context: context,
-            onOpenSettings: { [weak self] in
-                self?.showSettings()
-            },
-            onRestartDaemon: { [weak self] in
-                LaunchAgentManager.restart()
-                self?.monitor.checkNow()
-            }
-        )
-        .environmentObject(monitor)
-        .environmentObject(bridgeState)
-
-        if let window = gettingStartedWindow {
-            window.title = gettingStartedTitle(context: context)
-            window.contentViewController = NSHostingController(rootView: rootView)
-            window.makeKeyAndOrderFront(nil)
-            return
-        }
-
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 430),
-            styleMask: [.titled, .closable, .miniaturizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = gettingStartedTitle(context: context)
-        window.isReleasedWhenClosed = false
-        window.contentViewController = NSHostingController(rootView: rootView)
-        window.center()
-        gettingStartedWindow = window
-        window.makeKeyAndOrderFront(nil)
     }
 
     @objc func restartDaemon() {
@@ -254,6 +226,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         allowlist = a
         bridge = nil
         bridgeState.bind(allowlist: a)
+        onboarding.attach(allowlist: a, bridgeState: bridgeState)
         bridgeState.port = port
         bridgeState.isRunning = false
         bridgeState.statusDetail = "Starting bridge..."
@@ -338,6 +311,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
     }
 
     private func launchPresentationOnLaunch() -> LaunchPresentation? {
+        if processInfo.arguments.contains("--show-welcome") {
+            return .welcome
+        }
+
         if processInfo.arguments.contains("--show-settings") {
             return .settings
         }
@@ -363,13 +340,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         default:
             return nil
         }
-    }
-
-    private func gettingStartedTitle(context: GettingStartedContext) -> String {
-        if let productName = context.productName {
-            return "\(productName) powered by Vox"
-        }
-        return context.sourceName.map { "Vox for \($0)" } ?? "Vox Getting Started"
     }
 
     private func launchRequest(from url: URL) -> LaunchRequest {
@@ -456,7 +426,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
             guard url.scheme == "vox" else { continue }
             switch url.host {
             case "launch":
-                showGettingStarted(request: launchRequest(from: url))
+                presentLaunch(request: launchRequest(from: url))
+            case "welcome":
+                onboarding.presentWelcome()
+                showSettings()
             case "settings":
                 showSettings()
             case "restart":

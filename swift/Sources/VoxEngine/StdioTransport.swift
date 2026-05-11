@@ -5,7 +5,7 @@ public final class StdioTransport: @unchecked Sendable {
     private let log = VoxLog.engine
     private let command: [String]
     private let env: [String: String]?
-    private let queue = DispatchQueue(label: "dev.vox.stdio-transport")
+    private let queue = DispatchQueue(label: "cc.voxd.stdio-transport")
 
     private var process: Process?
     private var stdinPipe: Pipe?

@@ -6,6 +6,7 @@ import VoxCore
 // MARK: - Navigation Sections
 
 enum VoxSection: String, CaseIterable, Identifiable {
+    case welcome
     case general
     case bridge
     case embed
@@ -15,6 +16,7 @@ enum VoxSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .welcome: return "Welcome"
         case .general: return "General"
         case .bridge: return "Bridge"
         case .embed: return "Embed Demo"
@@ -24,6 +26,7 @@ enum VoxSection: String, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
+        case .welcome: return "sparkles"
         case .general: return "gearshape"
         case .bridge: return "network"
         case .embed: return "waveform.and.mic"
@@ -41,8 +44,9 @@ enum VoxSection: String, CaseIterable, Identifiable {
 struct VoxRootView: View {
     @EnvironmentObject var monitor: DaemonMonitor
     @EnvironmentObject var bridgeState: BridgeState
+    @EnvironmentObject var onboarding: OnboardingState
 
-    @State private var section: VoxSection = .general
+    @State private var section: VoxSection = .welcome
     @State private var railExpanded = true
     @State private var inspectorCollapsed = false
 
@@ -87,6 +91,9 @@ struct VoxRootView: View {
             statusBar
         }
         .hudsonAppManifest(manifest)
+        .onChange(of: onboarding.requestToken) { _, _ in
+            section = .welcome
+        }
     }
 
     // MARK: - Rail Footer
@@ -107,6 +114,8 @@ struct VoxRootView: View {
     @ViewBuilder
     private var sectionContent: some View {
         switch section {
+        case .welcome:
+            WelcomeTab(onNavigate: { section = $0 })
         case .general:
             GeneralTab()
         case .bridge:
@@ -122,6 +131,8 @@ struct VoxRootView: View {
 
     private var inspectorContent: some View {
         VStack(alignment: .leading, spacing: HudSpacing.xl) {
+            connectionCard
+
             HudCard {
                 VStack(alignment: .leading, spacing: HudSpacing.md) {
                     HudKVRow(
@@ -166,6 +177,58 @@ struct VoxRootView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Connection Card
+
+    @ViewBuilder
+    private var connectionCard: some View {
+        if hasActiveCaller {
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.md) {
+                    HStack {
+                        HudSectionLabel("Caller")
+                        Spacer()
+                        connectionTrustBadge
+                    }
+
+                    if let name = callerName {
+                        HudKVRow("App", value: name, valueColor: HudPalette.ink)
+                    }
+                    if let host = callerHost {
+                        HudKVRow("Origin", value: host, valueColor: HudPalette.muted)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var connectionTrustBadge: some View {
+        switch onboarding.trust {
+        case .verified:
+            HudBadge("VERIFIED", tint: HudPalette.statusOk, dot: true)
+        case .unverified:
+            HudBadge("UNVERIFIED", tint: HudPalette.statusError, dot: true)
+        case .noOrigin:
+            HudBadge("NO ORIGIN", tint: HudPalette.statusWarn, dot: true)
+        case .unknown:
+            EmptyView()
+        }
+    }
+
+    private var hasActiveCaller: Bool {
+        if case .unknown = onboarding.trust { return false }
+        return true
+    }
+
+    private var callerName: String? {
+        onboarding.context.productName ?? onboarding.context.sourceName
+    }
+
+    private var callerHost: String? {
+        guard let origin = onboarding.returnToOrigin else { return nil }
+        return URL(string: origin)?.host ?? origin
     }
 
     // MARK: - Status Bar

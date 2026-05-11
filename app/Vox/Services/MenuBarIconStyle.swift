@@ -4,13 +4,10 @@ enum MenuBarIcon {
     static func makeStatusImage(size: CGFloat = 18, showsRecordingBadge: Bool = false) -> NSImage {
         let imageSize = NSSize(width: size, height: size)
         let image = NSImage(size: imageSize, flipped: false) { rect in
-            let glyphRect = rect.offsetBy(dx: showsRecordingBadge ? -0.25 : 0, dy: 0)
-            let fillColor = showsRecordingBadge ? NSColor.labelColor : NSColor.black
-            fillColor.setFill()
-            Self.drawBars(
-                in: glyphRect,
-                heights: [0.86, 0.64, 0.28, 0.64, 0.86]
-            )
+            let glyphRect = rect.offsetBy(dx: showsRecordingBadge ? -0.5 : 0, dy: 0)
+            let strokeColor = showsRecordingBadge ? NSColor.labelColor : NSColor.black
+            strokeColor.setStroke()
+            Self.drawVMark(in: glyphRect)
 
             if showsRecordingBadge {
                 Self.drawRecordingBadge(in: rect)
@@ -23,22 +20,24 @@ enum MenuBarIcon {
         return image
     }
 
-    private static func drawBars(in rect: NSRect, heights: [CGFloat]) {
-        let totalWidth = rect.width * 0.72
-        let gapRatio: CGFloat = 0.55
-        let barWidth = totalWidth / (CGFloat(heights.count) + gapRatio * CGFloat(heights.count - 1))
-        let gap = barWidth * gapRatio
-        let maxHeight = rect.height * 0.78
-        let cornerRadius = min(barWidth / 2, 1.8)
-        let startX = rect.midX - totalWidth / 2
+    private static func drawVMark(in rect: NSRect) {
+        let strokeWidth = max(1.6, min(rect.width, rect.height) * 0.18)
+        let horizontalInset = rect.width * 0.18
+        let topY = rect.minY + rect.height * 0.86
+        let bottomY = rect.minY + rect.height * 0.16
 
-        for (index, relativeHeight) in heights.enumerated() {
-            let barHeight = max(2, maxHeight * relativeHeight)
-            let x = startX + CGFloat(index) * (barWidth + gap)
-            let y = rect.midY - barHeight / 2
-            let barRect = NSRect(x: x, y: y, width: barWidth, height: barHeight)
-            NSBezierPath(roundedRect: barRect, xRadius: cornerRadius, yRadius: cornerRadius).fill()
-        }
+        let leftTop  = NSPoint(x: rect.minX + horizontalInset, y: topY)
+        let rightTop = NSPoint(x: rect.maxX - horizontalInset, y: topY)
+        let apex     = NSPoint(x: rect.midX, y: bottomY)
+
+        let path = NSBezierPath()
+        path.lineWidth = strokeWidth
+        path.lineCapStyle = .round
+        path.lineJoinStyle = .round
+        path.move(to: leftTop)
+        path.line(to: apex)
+        path.line(to: rightTop)
+        path.stroke()
     }
 
     private static func drawRecordingBadge(in rect: NSRect) {

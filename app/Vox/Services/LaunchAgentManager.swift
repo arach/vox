@@ -2,8 +2,9 @@ import Foundation
 import VoxCore
 
 enum LaunchAgentManager {
-    static let label = "com.vox.daemon"
+    static let label = "cc.voxd.daemon"
     static let plistName = "\(label).plist"
+    private static let legacyLabels = ["com.vox.daemon"]
 
     static var plistURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -16,6 +17,8 @@ enum LaunchAgentManager {
     }
 
     static func install() {
+        evictLegacyAgents()
+
         let voxdPath = findVoxd()
 
         let plist: [String: Any] = [
@@ -51,6 +54,20 @@ enum LaunchAgentManager {
 
     static func restart() {
         launchctl(["kickstart", "-k", "gui/\(getuid())/\(label)"])
+    }
+
+    /// Boot out and remove plists for any pre-rename launch labels.
+    /// Called from `install()` so first launch after rebranding is self-healing.
+    private static func evictLegacyAgents() {
+        let agentsDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/LaunchAgents")
+
+        for legacy in legacyLabels {
+            let plistURL = agentsDir.appendingPathComponent("\(legacy).plist")
+            guard FileManager.default.fileExists(atPath: plistURL.path) else { continue }
+            launchctl(["bootout", "gui/\(getuid())/\(legacy)"])
+            try? FileManager.default.removeItem(at: plistURL)
+        }
     }
 
     // MARK: - Private

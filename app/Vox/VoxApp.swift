@@ -5,13 +5,11 @@ struct VoxApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
 
     var body: some Scene {
-        Window("Vox", id: "settings") {
-            VoxRootView()
-                .environmentObject(delegate.monitor)
-                .environmentObject(delegate.bridgeState)
-                .frame(minWidth: 920, minHeight: 640)
+        // Empty Settings scene satisfies App's "at least one Scene" requirement
+        // without auto-creating a window. AppDelegate owns window creation so
+        // deep links and menu actions land in a single deduped NSWindow.
+        Settings {
+            EmptyView()
         }
-        .windowStyle(.titleBar)
-        .defaultSize(width: 960, height: 680)
     }
 }
