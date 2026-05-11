@@ -49,6 +49,10 @@ struct VoxRootView: View {
     @State private var section: VoxSection = .welcome
     @State private var railExpanded = true
     @State private var inspectorCollapsed = false
+    @State private var stopFeedback: String?
+    @State private var stopFeedbackIsError = false
+    @State private var stopInFlight = false
+    @State private var stopFeedbackTask: Task<Void, Never>?
 
     private let manifest = HudAppManifest(
         name: "Vox",
@@ -155,19 +159,7 @@ struct VoxRootView: View {
                 }
             }
 
-            if monitor.isRecording {
-                HudCard {
-                    VStack(alignment: .leading, spacing: HudSpacing.md) {
-                        HudBadge("RECORDING", tint: HudPalette.statusError, dot: true)
-                        if let clientId = monitor.liveSessionClientId {
-                            HudKVRow("Client", value: clientId)
-                        }
-                        if let modelId = monitor.liveSessionModelId {
-                            HudKVRow("Model", value: modelId)
-                        }
-                    }
-                }
-            }
+            activeSessionCard
 
             HudCard {
                 VStack(alignment: .leading, spacing: HudSpacing.md) {
@@ -231,6 +223,131 @@ struct VoxRootView: View {
         return URL(string: origin)?.host ?? origin
     }
 
+    // MARK: - Active Session Card
+
+    @ViewBuilder
+    private var activeSessionCard: some View {
+        if monitor.isRecording {
+            sessionCard(
+                title: "Active Session",
+                badge: "RECORDING",
+                tint: HudPalette.statusError,
+                clientId: monitor.liveSession?.clientId,
+                modelId: monitor.liveSession?.modelId,
+                startedAt: monitor.liveSession?.startedAt,
+                extras: nil,
+                onStop: { await monitor.cancelLiveSession() }
+            )
+        } else if monitor.isSpeaking {
+            sessionCard(
+                title: "Active Session",
+                badge: "SPEAKING",
+                tint: HudPalette.statusInfo,
+                clientId: monitor.synthesisSession?.clientId,
+                modelId: monitor.synthesisSession?.modelId,
+                startedAt: monitor.synthesisSession?.startedAt,
+                extras: synthesisExtras,
+                onStop: { await monitor.cancelSynthesis() }
+            )
+        }
+    }
+
+    private var synthesisExtras: [(String, String)]? {
+        guard let session = monitor.synthesisSession else { return nil }
+        var rows: [(String, String)] = []
+        if let voiceId = session.voiceId, !voiceId.isEmpty {
+            rows.append(("Voice", voiceId))
+        }
+        if session.textLength > 0 {
+            rows.append(("Chars", "\(session.textLength)"))
+        }
+        return rows.isEmpty ? nil : rows
+    }
+
+    private func sessionCard(
+        title: String,
+        badge: String,
+        tint: Color,
+        clientId: String?,
+        modelId: String?,
+        startedAt: Date?,
+        extras: [(String, String)]?,
+        onStop: @escaping () async -> String?
+    ) -> some View {
+        HudCard(stroke: HudSurface.tintBorder(tint)) {
+            VStack(alignment: .leading, spacing: HudSpacing.md) {
+                HStack {
+                    HudSectionLabel(title, tint: tint)
+                    Spacer()
+                    HudBadge(badge, tint: tint, dot: true)
+                }
+
+                if let clientId, !clientId.isEmpty {
+                    HudKVRow("Client", value: clientId, valueColor: HudPalette.ink)
+                }
+                if let modelId, !modelId.isEmpty {
+                    HudKVRow("Model", value: modelId, valueColor: HudPalette.muted)
+                }
+                if let extras {
+                    ForEach(Array(extras.enumerated()), id: \.offset) { _, row in
+                        HudKVRow(row.0, value: row.1, valueColor: HudPalette.muted)
+                    }
+                }
+                if let startedAt {
+                    HStack {
+                        Text("ELAPSED")
+                            .font(HudFont.mono(9))
+                            .tracking(0.8)
+                            .foregroundStyle(HudPalette.dim)
+                        Spacer()
+                        ElapsedText(startedAt: startedAt)
+                            .font(HudFont.mono(11))
+                            .foregroundStyle(HudPalette.ink)
+                    }
+                }
+
+                if let stopFeedback {
+                    HudInset {
+                        VoxBodyText(
+                            stopFeedback,
+                            tint: stopFeedbackIsError ? HudPalette.statusError : HudPalette.statusOk
+                        )
+                    }
+                }
+
+                HudButton("Stop", icon: "stop.fill", style: .primary(.red)) {
+                    runStop(onStop)
+                }
+                .disabled(stopInFlight)
+            }
+        }
+    }
+
+    private func runStop(_ action: @escaping () async -> String?) {
+        guard !stopInFlight else { return }
+        stopInFlight = true
+        stopFeedbackTask?.cancel()
+        stopFeedbackTask = nil
+
+        Task {
+            let errorMessage = await action()
+            stopInFlight = false
+            if let errorMessage {
+                stopFeedback = errorMessage
+                stopFeedbackIsError = true
+            } else {
+                stopFeedback = "Session stopped."
+                stopFeedbackIsError = false
+            }
+            stopFeedbackTask = Task { [weak monitor] in
+                _ = monitor
+                try? await Task.sleep(for: .seconds(2.5))
+                guard !Task.isCancelled else { return }
+                stopFeedback = nil
+            }
+        }
+    }
+
     // MARK: - Status Bar
 
     private var statusBar: some View {
@@ -257,6 +374,8 @@ struct VoxRootView: View {
 
             if monitor.isRecording {
                 HudBadge("RECORDING", tint: HudPalette.statusError, dot: true)
+            } else if monitor.isSpeaking {
+                HudBadge("SPEAKING", tint: HudPalette.statusInfo, dot: true)
             }
 
             HudBadge(section.title.uppercased(), tint: manifest.accent)
@@ -264,5 +383,27 @@ struct VoxRootView: View {
         }
         .padding(.horizontal, HudSpacing.xxl)
         .frame(height: HudLayout.statusBarHeight)
+    }
+}
+
+private struct ElapsedText: View {
+    let startedAt: Date
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            Text(format(context.date.timeIntervalSince(startedAt)))
+                .monospacedDigit()
+        }
+    }
+
+    private func format(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds))
+        let h = total / 3600
+        let m = (total % 3600) / 60
+        let s = total % 60
+        if h > 0 {
+            return String(format: "%d:%02d:%02d", h, m, s)
+        }
+        return String(format: "%d:%02d", m, s)
     }
 }

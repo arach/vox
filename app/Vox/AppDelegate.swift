@@ -100,8 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
-            button.image = MenuBarIcon.makeStatusImage(showsRecordingBadge: monitor.isRecording)
-            button.image?.size = NSSize(width: 18, height: 18)
+            button.image = MenuBarIcon.makeStatusImage(state: menuBarIconState())
             button.toolTip = "Vox"
         }
 
@@ -112,6 +111,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         let statusMenuItem = NSMenuItem(title: "Checking daemon...", action: nil, keyEquivalent: "")
         statusMenuItem.tag = 100
         menu.addItem(statusMenuItem)
+
+        let stopRecordingItem = NSMenuItem(
+            title: "Stop Recording",
+            action: #selector(stopRecording),
+            keyEquivalent: "."
+        )
+        stopRecordingItem.tag = 101
+        stopRecordingItem.isHidden = true
+        menu.addItem(stopRecordingItem)
+
+        let stopSynthesisItem = NSMenuItem(
+            title: "Stop Speaking",
+            action: #selector(stopSynthesis),
+            keyEquivalent: "."
+        )
+        stopSynthesisItem.keyEquivalentModifierMask = [.command, .shift]
+        stopSynthesisItem.tag = 102
+        stopSynthesisItem.isHidden = true
+        menu.addItem(stopSynthesisItem)
 
         menu.addItem(.separator())
         menu.addItem(withTitle: "Open Settings...", action: #selector(showSettings), keyEquivalent: ",")
@@ -135,19 +153,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
               let statusMenuItem = menu.item(withTag: 100)
         else { return }
 
-        button.image = MenuBarIcon.makeStatusImage(showsRecordingBadge: monitor.isRecording)
-        button.image?.size = NSSize(width: 18, height: 18)
-        button.contentTintColor = monitor.isRunning && monitor.isRecording ? nil : (monitor.isRunning ? nil : .systemRed)
+        let iconState = menuBarIconState()
+        button.image = MenuBarIcon.makeStatusImage(state: iconState)
+        button.contentTintColor = iconState == .idle && !monitor.isRunning ? .systemRed : nil
 
         if monitor.isRecording, let clientId = monitor.liveSessionClientId {
             button.toolTip = "Vox is recording for \(clientId)"
             statusMenuItem.title = "Daemon: Recording for \(clientId) (port \(voxPortString(monitor.port ?? 0)))"
+        } else if monitor.isSpeaking, let clientId = monitor.synthesisSession?.clientId {
+            button.toolTip = "Vox is speaking for \(clientId)"
+            statusMenuItem.title = "Daemon: Speaking for \(clientId) (port \(voxPortString(monitor.port ?? 0)))"
         } else if monitor.isRunning {
             button.toolTip = "Vox"
             statusMenuItem.title = "Daemon: Running (port \(voxPortString(monitor.port ?? 0)))"
         } else {
             button.toolTip = "Vox daemon is stopped"
             statusMenuItem.title = "Daemon: Stopped"
+        }
+
+        if let stopRecording = menu.item(withTag: 101) {
+            stopRecording.isHidden = !monitor.isRecording
+            if let clientId = monitor.liveSession?.clientId {
+                stopRecording.title = "Stop Recording for \(clientId)"
+            } else {
+                stopRecording.title = "Stop Recording"
+            }
+        }
+        if let stopSynthesis = menu.item(withTag: 102) {
+            stopSynthesis.isHidden = !monitor.isSpeaking
+            if let clientId = monitor.synthesisSession?.clientId {
+                stopSynthesis.title = "Stop Speaking for \(clientId)"
+            } else {
+                stopSynthesis.title = "Stop Speaking"
+            }
         }
     }
 
@@ -209,6 +247,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
 
     @objc func restartDaemon() {
         LaunchAgentManager.restart()
+    }
+
+    private func menuBarIconState() -> MenuBarIcon.State {
+        if monitor.isRecording { return .recording }
+        if monitor.isSpeaking  { return .speaking }
+        return .idle
+    }
+
+    @objc func stopRecording() {
+        Task { @MainActor [weak self] in
+            await self?.monitor.cancelLiveSession()
+        }
+    }
+
+    @objc func stopSynthesis() {
+        Task { @MainActor [weak self] in
+            await self?.monitor.cancelSynthesis()
+        }
     }
 
     func menuWillOpen(_ menu: NSMenu) {
