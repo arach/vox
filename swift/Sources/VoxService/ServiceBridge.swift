@@ -68,7 +68,7 @@ public final class ServiceBridge: @unchecked Sendable {
         self.port = port
         self.bindAddress = bindAddress
         self.serviceName = serviceName
-        self.queue = DispatchQueue(label: "dev.vox.bridge.\(serviceName.lowercased())")
+        self.queue = DispatchQueue(label: "cc.voxd.bridge.\(serviceName.lowercased())")
     }
 
     public func handle(_ method: String, _ handler: @escaping Handler) {

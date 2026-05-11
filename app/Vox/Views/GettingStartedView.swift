@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import HudsonUI
 import VoxCore
 import VoxEngine
 
@@ -10,6 +11,15 @@ struct GettingStartedContext: Equatable {
     var detail: String
     var actionLabel: String
     var logo: GettingStartedLogo?
+
+    static let welcome = Self(
+        sourceName: nil,
+        productName: nil,
+        headline: "Welcome to Vox",
+        detail: "Vox is a local-first voice runtime for your Mac. Capture speech, synthesize it back, and keep everything on this machine.",
+        actionLabel: "Open Bridge Settings",
+        logo: nil
+    )
 
     static func generic(sourceName: String?) -> Self {
         Self(
@@ -28,268 +38,458 @@ struct GettingStartedLogo: Equatable {
     var symbolName: String?
 }
 
-struct GettingStartedView: View {
+struct WelcomeTab: View {
     @EnvironmentObject var monitor: DaemonMonitor
     @EnvironmentObject var bridgeState: BridgeState
-    @StateObject private var speechPreferences = SpeechPreferencesState()
+    @EnvironmentObject var onboarding: OnboardingState
 
-    let context: GettingStartedContext
-    let onOpenSettings: () -> Void
-    let onRestartDaemon: () -> Void
+    let onNavigate: (VoxSection) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            header
-            MenuBarPreview(isRecording: monitor.isRecording)
+        VoxScreen(
+            title: headerTitle,
+            badge: headerBadge,
+            summary: headerSummary
+        ) {
+            heroCard
 
-            VStack(alignment: .leading, spacing: 10) {
-                StatusRow(
-                    title: "Companion",
-                    value: monitor.isRunning ? "Running on port \(monitor.port ?? 0)" : "Not running",
-                    systemImage: monitor.isRunning ? "checkmark.circle.fill" : "exclamationmark.circle.fill",
-                    tint: monitor.isRunning ? .green : .orange
-                )
-
-                StatusRow(
-                    title: "Browser bridge",
-                    value: bridgeState.isRunning ? "Listening on localhost:\(bridgeState.port)" : bridgeState.statusDetail ?? "Starting",
-                    systemImage: bridgeState.isRunning ? "checkmark.circle.fill" : "hourglass.circle.fill",
-                    tint: bridgeState.isRunning ? .green : .secondary
-                )
-
-                StatusRow(
-                    title: "Speech",
-                    value: "Parakeet transcription and system voices",
-                    systemImage: "waveform.and.mic",
-                    tint: .accentColor
-                )
+            if case .unverified(let origin) = onboarding.trust {
+                unverifiedCard(origin: origin)
             }
 
-            SpeechSetupPanel(speechPreferences: speechPreferences)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text(nextStepTitle)
-                    .font(.headline)
-
-                Text(nextStepDetail)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            if case .noOrigin = onboarding.trust {
+                noOriginCard
             }
 
-            HStack(spacing: 10) {
-                Button {
-                    onRestartDaemon()
-                } label: {
-                    Label(monitor.isRunning ? "Restart Companion" : "Start Companion", systemImage: "arrow.clockwise")
+            statusGrid
+
+            quickLinksCard
+        }
+        .task {
+            await bridgeState.refreshOrigins()
+        }
+    }
+
+    // MARK: - Header
+
+    private var headerTitle: String {
+        switch onboarding.trust {
+        case .verified, .unverified, .noOrigin:
+            return "Connection"
+        case .unknown:
+            return "Welcome"
+        }
+    }
+
+    private var headerBadge: String {
+        switch onboarding.trust {
+        case .verified:    return "VERIFIED CALLER"
+        case .unverified:  return "UNVERIFIED"
+        case .noOrigin:    return "UNVERIFIABLE"
+        case .unknown:     return "LOCAL FIRST"
+        }
+    }
+
+    private var headerSummary: String {
+        switch onboarding.trust {
+        case .verified:
+            let name = displayName
+            return "\(name) is allowed to use the local Vox bridge. Speech runs on this Mac — no audio leaves the device."
+        case .unverified:
+            return "Vox can't verify the app that opened this window. Allow its origin to unblock bridge requests, or dismiss this view."
+        case .noOrigin:
+            return "This invocation didn't include a return URL, so Vox can't tie it to an allowlisted origin. Bridge calls follow the standard policy."
+        case .unknown:
+            return "Vox runs locally and exposes a small bridge for browser apps. Use this view to confirm setup, then dive into the rail for daemon, bridge, and embed controls."
+        }
+    }
+
+    // MARK: - Hero
+
+    private var heroCard: some View {
+        HudCard {
+            VStack(alignment: .leading, spacing: HudSpacing.xl) {
+                HStack(alignment: .top, spacing: HudSpacing.xl) {
+                    if hasRequester {
+                        RequesterLogoBadge(
+                            logo: onboarding.context.logo,
+                            fallbackName: displayName,
+                            isMuted: !isVerified
+                        )
+                    } else {
+                        BrandLogoBadge()
+                    }
+
+                    VStack(alignment: .leading, spacing: HudSpacing.xs) {
+                        HStack(alignment: .firstTextBaseline, spacing: HudSpacing.md) {
+                            Text(displayName)
+                                .font(HudFont.ui(HudTextSize.xxl, weight: .semibold))
+                                .foregroundStyle(HudPalette.ink)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+
+                            trustBadge
+                        }
+
+                        Text(hasRequester ? "powered by vox" : "local voice runtime")
+                            .font(HudFont.mono(10, weight: .semibold))
+                            .tracking(1.2)
+                            .foregroundStyle(HudPalette.muted)
+                            .textCase(.uppercase)
+                    }
+
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.borderedProminent)
 
-                Button {
-                    onOpenSettings()
-                } label: {
-                    Label("Settings", systemImage: "gearshape")
+                if hasRequester {
+                    Text(onboarding.context.headline)
+                        .font(HudFont.ui(HudTextSize.lg, weight: .medium))
+                        .foregroundStyle(HudPalette.ink)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .buttonStyle(.bordered)
 
-                Spacer()
-            }
-        }
-        .padding(28)
-        .frame(width: 560, alignment: .leading)
-        .task(id: monitor.isRunning) {
-            await speechPreferences.load()
-        }
-    }
+                VoxBodyText(onboarding.context.detail)
 
-    private var header: some View {
-        HStack(alignment: .center, spacing: 14) {
-            RequesterLogoView(
-                logo: context.logo,
-                fallbackName: context.productName ?? context.sourceName
-            )
+                heroActions
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(context.productName ?? context.headline)
-                    .font(.title2.bold())
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
-
-                PoweredByVoxBadge()
+                if shouldShowMenuBarHint {
+                    menuBarHint
+                }
             }
         }
     }
 
-    private var nextStepTitle: String {
-        if monitor.isRunning && bridgeState.isRunning {
-            return context.actionLabel
+    @ViewBuilder
+    private var trustBadge: some View {
+        switch onboarding.trust {
+        case .verified:
+            HudBadge("VERIFIED", tint: HudPalette.statusOk, dot: true)
+        case .unverified:
+            HudBadge("UNVERIFIED", tint: HudPalette.statusError, dot: true)
+        case .noOrigin:
+            HudBadge("UNVERIFIABLE", tint: HudPalette.statusWarn, dot: true)
+        case .unknown:
+            HudBadge("LOCAL", tint: HudPalette.statusInfo, dot: true)
         }
-        return context.headline
     }
 
-    private var nextStepDetail: String {
-        if monitor.isRunning && bridgeState.isRunning {
-            return context.sourceName.map { "Press Retry or Start Talking in \($0)." }
-                ?? "You can close this window and leave Vox in the menu bar."
-        }
-        return context.detail
-    }
-}
-
-private struct MenuBarPreview: View {
-    let isRecording: Bool
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Text("Menu bar")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 86, alignment: .leading)
-
-            HStack(spacing: 8) {
-                MenuBarIconImage(showsRecordingBadge: false)
-                Divider()
-                    .frame(height: 18)
-                MenuBarIconImage(showsRecordingBadge: true)
+    @ViewBuilder
+    private var heroActions: some View {
+        HStack(spacing: HudSpacing.md) {
+            if isVerified, let url = returnURL {
+                HudButton(
+                    onboarding.context.actionLabel,
+                    icon: "arrow.up.right",
+                    style: .primary(.cyan)
+                ) {
+                    NSWorkspace.shared.open(url)
+                }
+            } else if !hasRequester {
+                HudButton("Manage Bridge", icon: "network", style: .primary(.cyan)) {
+                    onNavigate(.bridge)
+                }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(.quaternary.opacity(0.7), in: Capsule())
 
-            Text(isRecording ? "Recording badge is visible" : "Badge appears while an app is recording")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if hasRequester {
+                HudButton("Open Bridge", icon: "network", style: .secondary) {
+                    onNavigate(.bridge)
+                }
+            }
+
+            if !monitor.isRunning {
+                HudButton("Restart Daemon", icon: "arrow.clockwise", style: .secondary) {
+                    LaunchAgentManager.restart()
+                    monitor.checkNow()
+                }
+            }
 
             Spacer(minLength: 0)
         }
     }
-}
 
-private struct MenuBarIconImage: View {
-    let showsRecordingBadge: Bool
-
-    var body: some View {
-        Image(nsImage: MenuBarIcon.makeStatusImage(size: 18, showsRecordingBadge: showsRecordingBadge))
-            .resizable()
-            .frame(width: 18, height: 18)
+    private var menuBarHint: some View {
+        HudInset {
+            HStack(spacing: HudSpacing.lg) {
+                Image(systemName: "menubar.dock.rectangle")
+                    .font(HudFont.ui(HudTextSize.sm))
+                    .foregroundStyle(HudPalette.muted)
+                Text("Vox lives in your menu bar — look for the V mark")
+                    .font(HudFont.mono(11))
+                    .foregroundStyle(HudPalette.muted)
+                Spacer(minLength: HudSpacing.md)
+                Image(nsImage: MenuBarIcon.makeStatusImage(size: 16, showsRecordingBadge: false))
+                    .renderingMode(.template)
+                    .foregroundStyle(HudPalette.ink)
+                    .frame(width: 16, height: 16)
+            }
+        }
     }
-}
 
-private struct SpeechSetupPanel: View {
-    @ObservedObject var speechPreferences: SpeechPreferencesState
+    // MARK: - Trust treatments
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Speech setup")
-                .font(.headline)
+    private func unverifiedCard(origin: String) -> some View {
+        HudCard(stroke: HudSurface.tintBorder(HudPalette.statusError)) {
+            VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                HStack(spacing: HudSpacing.md) {
+                    Image(systemName: "exclamationmark.shield.fill")
+                        .font(HudFont.ui(HudTextSize.lg))
+                        .foregroundStyle(HudPalette.statusError)
+                    Text("Can't verify this app")
+                        .font(HudFont.ui(HudTextSize.md, weight: .semibold))
+                        .foregroundStyle(HudPalette.ink)
+                    Spacer()
+                    HudBadge("ACTION NEEDED", tint: HudPalette.statusError, dot: true)
+                }
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 10) {
-                    Text("Mic input")
-                        .font(.callout.weight(.semibold))
-                        .frame(width: 116, alignment: .leading)
+                VoxBodyText(
+                    "Bridge calls from this site will return 403 until you allow its origin. Only trust apps you launched yourself."
+                )
 
-                    Text("System default")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                HudInset {
+                    VStack(alignment: .leading, spacing: HudSpacing.md) {
+                        HudKVRow("Origin", value: origin, valueColor: HudPalette.ink)
+                        if let host = URL(string: origin)?.host {
+                            HudKVRow("Host", value: host, valueColor: HudPalette.muted)
+                        }
+                    }
+                }
+
+                if let message = onboarding.trustErrorMessage, !message.isEmpty {
+                    HudInset {
+                        VoxBodyText(message, tint: HudPalette.statusError)
+                    }
+                }
+
+                HStack(spacing: HudSpacing.md) {
+                    HudButton(
+                        "Allow \(displayHost(origin))",
+                        icon: "checkmark.shield",
+                        style: .primary(.green)
+                    ) {
+                        Task { await onboarding.allowReturnOrigin() }
+                    }
+
+                    HudButton("Open Bridge tab", icon: "network", style: .secondary) {
+                        onNavigate(.bridge)
+                    }
 
                     Spacer()
-
-                    Button("Sound Settings") {
-                        openSoundSettings()
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
                 }
-
-                Picker(
-                    "Transcription",
-                    selection: Binding(
-                        get: { speechPreferences.preferredTranscriptionModelId },
-                        set: { speechPreferences.updatePreferredTranscriptionModelId($0) }
-                    )
-                ) {
-                    Text("Vox Default (parakeet:v3)")
-                        .tag("")
-                    ForEach(speechPreferences.asrModels, id: \.id) { model in
-                        Text(model.id)
-                            .tag(model.id)
-                    }
-                }
-
-                Picker(
-                    "Synthesis",
-                    selection: Binding(
-                        get: { speechPreferences.preferredSynthesisModelId },
-                        set: { newValue in
-                            Task {
-                                await speechPreferences.updatePreferredSynthesisModelId(newValue)
-                            }
-                        }
-                    )
-                ) {
-                    Text("Vox Default (\(speechPreferences.defaultSynthesisModelId))")
-                        .tag("")
-                    ForEach(speechPreferences.ttsModels, id: \.id) { model in
-                        Text(model.id)
-                            .tag(model.id)
-                    }
-                }
-
-                Picker(
-                    "Voice",
-                    selection: Binding(
-                        get: { speechPreferences.preferredSynthesisVoiceId },
-                        set: { speechPreferences.updatePreferredSynthesisVoiceId($0) }
-                    )
-                ) {
-                    Text("Provider Default")
-                        .tag("")
-                    ForEach(speechPreferences.voices, id: \.id) { voice in
-                        Text(voiceLabel(voice))
-                            .tag(voice.id)
-                    }
-                }
-                .disabled(speechPreferences.voices.isEmpty)
             }
-
-            Text("Apps can still override these defaults. Live capture follows the macOS input device for now.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
 
-    private func voiceLabel(_ voice: TTSVoiceInfo) -> String {
-        if let language = voice.language, !language.isEmpty {
-            return voice.isDefault ? "\(voice.name) (\(language)) · default" : "\(voice.name) (\(language))"
+    private var noOriginCard: some View {
+        HudCard(stroke: HudSurface.tintBorder(HudPalette.statusWarn)) {
+            VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                HStack(spacing: HudSpacing.md) {
+                    Image(systemName: "questionmark.circle.fill")
+                        .font(HudFont.ui(HudTextSize.lg))
+                        .foregroundStyle(HudPalette.statusWarn)
+                    Text("No return URL provided")
+                        .font(HudFont.ui(HudTextSize.md, weight: .semibold))
+                        .foregroundStyle(HudPalette.ink)
+                    Spacer()
+                    HudBadge("INFORMATIONAL", tint: HudPalette.statusWarn, dot: true)
+                }
+
+                VoxBodyText(
+                    "This launch didn't include a returnTo URL, so Vox can't tie it to an allowlisted origin. Add the calling site under Bridge to enable browser requests."
+                )
+
+                HudButton("Open Bridge tab", icon: "network", style: .secondary) {
+                    onNavigate(.bridge)
+                }
+            }
         }
-        return voice.isDefault ? "\(voice.name) · default" : voice.name
     }
 
-    private func openSoundSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.Sound-Settings.extension") {
-            NSWorkspace.shared.open(url)
+    // MARK: - Status grid
+
+    private var statusGrid: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 220), spacing: HudSpacing.xl)],
+            alignment: .leading,
+            spacing: HudSpacing.xl
+        ) {
+            VoxMetricCard(
+                label: "Daemon",
+                value: monitor.isRunning ? "Running" : "Stopped",
+                detail: daemonDetail,
+                tint: monitor.isRunning ? HudPalette.statusOk : HudPalette.statusError,
+                pulses: monitor.isRunning
+            )
+            VoxMetricCard(
+                label: "HTTP Bridge",
+                value: bridgeState.isRunning ? "Listening" : "Stopped",
+                detail: "127.0.0.1:\(voxPortString(bridgeState.port))",
+                tint: bridgeState.isRunning ? HudPalette.statusInfo : HudPalette.statusError,
+                pulses: bridgeState.isRunning
+            )
+            VoxMetricCard(
+                label: "Allowed Origins",
+                value: "\(totalOriginCount)",
+                detail: originBreakdown,
+                tint: HudPalette.statusOk
+            )
         }
+    }
+
+    // MARK: - Quick links
+
+    private var quickLinksCard: some View {
+        HudCard(padding: HudSpacing.md) {
+            VStack(alignment: .leading, spacing: HudSpacing.md) {
+                HStack {
+                    HudSectionLabel("Where To Next")
+                        .padding(.horizontal, HudSpacing.md)
+                    Spacer()
+                }
+                .padding(.top, HudSpacing.xs)
+
+                HudListRow(
+                    title: "Inspect daemon and speech defaults",
+                    subtitle: "General · runtime, models, voices",
+                    icon: "gearshape",
+                    iconTint: .cyan,
+                    onTap: { onNavigate(.general) }
+                )
+                HudListRow(
+                    title: "Manage allowed origins",
+                    subtitle: "Bridge · add or remove sites that may call Vox",
+                    icon: "network",
+                    iconTint: .blue,
+                    onTap: { onNavigate(.bridge) }
+                )
+                HudListRow(
+                    title: "Try the embed demo",
+                    subtitle: "Embed · exercise ASR + TTS in-process",
+                    icon: "waveform.and.mic",
+                    iconTint: .green,
+                    onTap: { onNavigate(.embed) }
+                )
+                HudListRow(
+                    title: "About Vox",
+                    subtitle: "About · version and runtime contract",
+                    icon: "info.circle",
+                    iconTint: .teal,
+                    onTap: { onNavigate(.about) }
+                )
+            }
+        }
+    }
+
+    // MARK: - Derived
+
+    private var displayName: String {
+        if let product = onboarding.context.productName, !product.isEmpty { return product }
+        if let source = onboarding.context.sourceName, !source.isEmpty { return source }
+        return "Vox"
+    }
+
+    private var hasRequester: Bool {
+        onboarding.context.sourceName != nil || onboarding.context.productName != nil
+    }
+
+    private var isVerified: Bool {
+        if case .verified = onboarding.trust { return true }
+        return false
+    }
+
+    private var shouldShowMenuBarHint: Bool {
+        if case .unknown = onboarding.trust { return true }
+        return false
+    }
+
+    private var returnURL: URL? {
+        guard let raw = onboarding.returnToOrigin, let url = URL(string: raw) else { return nil }
+        return url
+    }
+
+    private func displayHost(_ origin: String) -> String {
+        URL(string: origin)?.host ?? origin
+    }
+
+    private var daemonDetail: String {
+        if monitor.isRunning, let port = monitor.port {
+            return "port \(voxPortString(port))"
+        }
+        if monitor.isRunning {
+            return "running"
+        }
+        return "Restart from General tab"
+    }
+
+    private var totalOriginCount: Int {
+        bridgeState.builtinOrigins.count
+            + bridgeState.userOrigins.count
+            + bridgeState.integrationOrigins.count
+    }
+
+    private var originBreakdown: String {
+        "\(bridgeState.userOrigins.count) user · \(bridgeState.integrationOrigins.count) integrations"
     }
 }
 
-private struct RequesterLogoView: View {
+private struct BrandLogoBadge: View {
+    private static let logo: NSImage? = {
+        guard let url = Bundle.module.url(forResource: "vox-logo", withExtension: "svg") else { return nil }
+        return NSImage(contentsOf: url)
+    }()
+
+    var body: some View {
+        Group {
+            if let logo = Self.logo {
+                Image(nsImage: logo)
+                    .resizable()
+                    .interpolation(.high)
+            } else {
+                RoundedRectangle(cornerRadius: HudRadius.card, style: .continuous)
+                    .fill(HudPalette.surface)
+                    .overlay(
+                        Image(systemName: "waveform")
+                            .font(HudFont.ui(HudTextSize.xxl, weight: .semibold))
+                            .foregroundStyle(HudPalette.muted)
+                    )
+            }
+        }
+        .frame(width: 56, height: 56)
+        .clipShape(RoundedRectangle(cornerRadius: HudRadius.card, style: .continuous))
+        .accessibilityLabel("Vox")
+    }
+}
+
+private struct RequesterLogoBadge: View {
     let logo: GettingStartedLogo?
     let fallbackName: String?
+    var isMuted: Bool = false
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.accentColor.opacity(0.12))
+            RoundedRectangle(cornerRadius: HudRadius.card, style: .continuous)
+                .fill(backgroundFill)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: HudRadius.card, style: .continuous)
+                        .stroke(borderStroke, lineWidth: 1)
                 )
 
             logoContent
                 .frame(width: 36, height: 36)
+                .opacity(isMuted ? 0.55 : 1)
         }
-        .frame(width: 50, height: 50)
+        .frame(width: 56, height: 56)
+    }
+
+    private var backgroundFill: Color {
+        isMuted
+            ? HudPalette.surface
+            : HudSurface.tintFill(HudTint.cyan.color)
+    }
+
+    private var borderStroke: Color {
+        isMuted
+            ? HudHairline.standard
+            : HudSurface.tintBorder(HudTint.cyan.color)
     }
 
     @ViewBuilder
@@ -298,7 +498,7 @@ private struct RequesterLogoView: View {
             Image(nsImage: image)
                 .resizable()
                 .scaledToFit()
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: HudRadius.standard, style: .continuous))
         } else if let url = logo?.url, url.scheme?.hasPrefix("http") == true {
             AsyncImage(url: url) { phase in
                 switch phase {
@@ -306,7 +506,7 @@ private struct RequesterLogoView: View {
                     image
                         .resizable()
                         .scaledToFit()
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: HudRadius.standard, style: .continuous))
                 default:
                     fallbackLogo
                 }
@@ -317,62 +517,25 @@ private struct RequesterLogoView: View {
     }
 
     private var localImage: NSImage? {
-        guard let url = logo?.url else { return nil }
-        if url.isFileURL {
-            return NSImage(contentsOf: url)
-        }
-        return nil
+        guard let url = logo?.url, url.isFileURL else { return nil }
+        return NSImage(contentsOf: url)
     }
 
     private var fallbackLogo: some View {
         Group {
             if let symbolName = logo?.symbolName {
                 Image(systemName: symbolName)
-                    .font(.system(size: 25, weight: .semibold))
+                    .font(HudFont.ui(HudTextSize.xxl, weight: .semibold))
+                    .foregroundStyle(HudTint.cyan.color)
             } else if let initial = fallbackName?.first {
                 Text(String(initial).uppercased())
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .font(HudFont.ui(HudTextSize.xxl, weight: .bold))
+                    .foregroundStyle(HudTint.cyan.color)
             } else {
                 Image(systemName: "waveform")
-                    .font(.system(size: 25, weight: .semibold))
+                    .font(HudFont.ui(HudTextSize.xxl, weight: .semibold))
+                    .foregroundStyle(HudTint.cyan.color)
             }
-        }
-        .foregroundStyle(.tint)
-    }
-}
-
-private struct PoweredByVoxBadge: View {
-    var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: "waveform.circle.fill")
-                .font(.system(size: 13, weight: .semibold))
-            Text("powered by Vox")
-                .font(.system(.caption, design: .rounded).weight(.semibold))
-        }
-        .foregroundStyle(.secondary)
-    }
-}
-
-private struct StatusRow: View {
-    let title: String
-    let value: String
-    let systemImage: String
-    let tint: Color
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: systemImage)
-                .foregroundStyle(tint)
-                .frame(width: 18)
-
-            Text(title)
-                .font(.system(.callout, design: .rounded).weight(.semibold))
-                .frame(width: 116, alignment: .leading)
-
-            Text(value)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
         }
     }
 }

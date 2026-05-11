@@ -11,7 +11,7 @@ public struct TranscriptionTraceStep: Sendable, Equatable {
 public final class TranscriptionTrace: @unchecked Sendable {
     public let traceId: String
 
-    private static let signpostLog = OSLog(subsystem: "dev.vox.performance", category: "Transcription")
+    private static let signpostLog = OSLog(subsystem: "cc.voxd.performance", category: "Transcription")
     private let startNs: UInt64
     private var steps: [TranscriptionTraceStep] = []
     private var currentStepName: String?

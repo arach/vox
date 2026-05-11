@@ -52,6 +52,7 @@ export default function Home() {
             <Link href="/blog" className="px-2.5 py-1.5 transition-colors hover:text-accent">Blog</Link>
             <Link href="#packages" className="px-2.5 py-1.5 transition-colors hover:text-accent">Packages</Link>
             <Link href="#runtime" className="px-2.5 py-1.5 transition-colors hover:text-accent">Runtime</Link>
+            <Link href="#companion" className="px-2.5 py-1.5 transition-colors hover:text-accent">Companion</Link>
             <Link href="#perf" className="px-2.5 py-1.5 transition-colors hover:text-accent">Perf</Link>
             <Link href="https://github.com/arach/vox" target="_blank" rel="noreferrer noopener" className="px-2.5 py-1.5 transition-colors hover:text-accent">GitHub</Link>
           </nav>
@@ -181,6 +182,50 @@ export default function Home() {
                 </p>
               </article>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Companion app */}
+      <section id="companion" className="border-b border-line bg-panel">
+        <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 lg:grid-cols-[1fr_1.4fr] lg:items-start">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">// companion</p>
+            <h2 className="mt-4 max-w-[22ch] text-[clamp(1.5rem,2.6vw,2rem)] font-semibold leading-tight tracking-[-0.02em] text-ink">
+              Manage Vox from the menu bar.
+            </h2>
+            <p className="mt-4 max-w-md text-[15px] leading-7 text-secondary">
+              The companion app lives in the menu bar. Open it for daemon health, allowed origins, and the trust state of any app calling the local bridge.
+            </p>
+            <p className="mt-4 max-w-md text-[14px] leading-7 text-secondary">
+              When a third-party app deep-links into Vox, you get a co-branded landing — verified callers go straight to work, unverified ones get a one-click allow path. No remembering JSON files.
+            </p>
+            <div className="mt-7 flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
+              <span className="inline-flex items-center gap-2 rounded-sm border border-line-strong bg-canvas px-3 py-1.5">
+                <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+                Hudson Kit
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-sm border border-line-strong bg-canvas px-3 py-1.5">
+                Origin allowlist
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-sm border border-line-strong bg-canvas px-3 py-1.5">
+                Local-first
+              </span>
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-sm border border-line-strong bg-canvas">
+            <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
+              <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-line-strong" />
+              <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-line-strong" />
+              <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-line-strong" />
+              <span className="ml-auto font-mono text-[11px] text-muted">Vox · welcome</span>
+            </div>
+            <ScreenshotLightbox
+              src="/screenshots/welcome.png"
+              alt="Vox companion app welcome screen with brand mark, status grid, and trust state"
+              title="Vox · welcome"
+              caption="The welcome view: caller branding on the left, runtime status sidebar on the right, navigable rail to General, Bridge, Embed, and About."
+            />
           </div>
         </div>
       </section>

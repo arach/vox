@@ -114,7 +114,7 @@ cat > "$BUNDLE/Contents/Info.plist" << 'PLIST'
     <key>CFBundleDisplayName</key>
     <string>Vox</string>
     <key>CFBundleIdentifier</key>
-    <string>dev.vox.app</string>
+    <string>cc.voxd.app</string>
     <key>CFBundleVersion</key>
     <string>VOXVERSION</string>
     <key>CFBundleShortVersionString</key>
@@ -135,7 +135,7 @@ cat > "$BUNDLE/Contents/Info.plist" << 'PLIST'
     <array>
         <dict>
             <key>CFBundleURLName</key>
-            <string>dev.vox.app.url</string>
+            <string>cc.voxd.app.url</string>
             <key>CFBundleURLSchemes</key>
             <array>
                 <string>vox</string>

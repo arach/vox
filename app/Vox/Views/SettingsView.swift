@@ -3,25 +3,6 @@ import HudsonUI
 import VoxCore
 import VoxEngine
 
-struct SettingsView: View {
-    var body: some View {
-        TabView {
-            EmbedDemoTab()
-                .tabItem { Label("Embed Demo", systemImage: "waveform.and.mic") }
-
-            GeneralTab()
-                .tabItem { Label("General", systemImage: "gearshape") }
-
-            BridgeTab()
-                .tabItem { Label("Bridge", systemImage: "network") }
-
-            AboutTab()
-                .tabItem { Label("About", systemImage: "info.circle") }
-        }
-        .frame(minWidth: 700, minHeight: 560)
-    }
-}
-
 // MARK: - General Tab
 
 struct GeneralTab: View {
