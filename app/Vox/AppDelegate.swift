@@ -134,6 +134,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         menu.addItem(.separator())
         menu.addItem(withTitle: "Open Settings...", action: #selector(showSettings), keyEquivalent: ",")
         menu.addItem(withTitle: "Restart Daemon", action: #selector(restartDaemon), keyEquivalent: "")
+        let diagnosticsItem = NSMenuItem(
+            title: "Diagnostics…",
+            action: #selector(toggleDiagnostics),
+            keyEquivalent: "d"
+        )
+        diagnosticsItem.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(diagnosticsItem)
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Vox", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
@@ -265,6 +272,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         Task { @MainActor [weak self] in
             await self?.monitor.cancelSynthesis()
         }
+    }
+
+    @objc func toggleDiagnostics() {
+        DiagnosticWindow.shared.toggle()
     }
 
     func menuWillOpen(_ menu: NSMenu) {
