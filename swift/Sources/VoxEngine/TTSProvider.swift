@@ -2,8 +2,40 @@ import Foundation
 import VoxCore
 
 public enum TTSDefaults {
-    public static let modelId = "avspeech:system"
+    public static let modelId = "gpt-4o-mini-tts"
+    public static let localModelId = "avspeech:system"
     public static let format = "wav"
+}
+
+public enum TTSDefaultProviderConfig {
+    public static func inProcess() -> ProvidersConfig {
+        ProvidersConfig(providers: [
+            ProviderEntry(
+                id: "openai-tts",
+                kind: .tts,
+                builtin: true,
+                models: OpenAITTSProvider.supportedModelIDs
+            ),
+            ProviderEntry(
+                id: "elevenlabs",
+                kind: .tts,
+                builtin: true,
+                models: ElevenLabsTTSProvider.supportedModelIDs
+            ),
+            ProviderEntry(
+                id: "minimax",
+                kind: .tts,
+                builtin: true,
+                models: MiniMaxTTSProvider.supportedModelIDs
+            ),
+            ProviderEntry(
+                id: "avspeech",
+                kind: .tts,
+                builtin: true,
+                models: [AVSpeechSynthesizerProvider.modelID]
+            )
+        ])
+    }
 }
 
 public struct SynthesisRequest: Sendable, Equatable {
@@ -48,7 +80,11 @@ public protocol TTSProvider: Sendable {
 public actor TTSEngineManager {
     private let provider: any TTSProvider
 
-    public init(provider: any TTSProvider = AVSpeechSynthesizerProvider()) {
+    public init() {
+        self.provider = TTSProviderRegistry(config: TTSDefaultProviderConfig.inProcess())
+    }
+
+    public init(provider: any TTSProvider) {
         self.provider = provider
     }
 

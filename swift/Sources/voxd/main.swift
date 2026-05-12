@@ -32,31 +32,51 @@ func defaultASRConfig() -> ProvidersConfig {
 
 func defaultTTSConfig() -> ProvidersConfig {
     if let command = bundledTTSCommand() {
+        let models = bundledTTSModels()
         return ProvidersConfig(providers: [
             ProviderEntry(
                 id: "voxttsd",
                 kind: .tts,
                 command: command,
-                models: [AVSpeechSynthesizerProvider.modelID] + OpenAITTSProvider.supportedModelIDs
+                models: models
             )
         ])
     }
 
     log.warning("voxttsd not found next to voxd; using in-process TTS providers")
-    return ProvidersConfig(providers: [
-        ProviderEntry(
-            id: "avspeech",
-            kind: .tts,
-            builtin: true,
-            models: [AVSpeechSynthesizerProvider.modelID]
-        ),
-        ProviderEntry(
-            id: "openai-tts",
-            kind: .tts,
-            builtin: true,
-            models: OpenAITTSProvider.supportedModelIDs
-        )
-    ])
+    return TTSDefaultProviderConfig.inProcess()
+}
+
+func bundledTTSModels() -> [String] {
+    var models: [String] = []
+    if openAITTSAvailable() {
+        models.append(contentsOf: OpenAITTSProvider.supportedModelIDs)
+    }
+    if elevenLabsTTSAvailable() {
+        models.append(contentsOf: ElevenLabsTTSProvider.supportedModelIDs)
+    }
+    if miniMaxTTSAvailable() {
+        models.append(contentsOf: MiniMaxTTSProvider.supportedModelIDs)
+    }
+    models.append(AVSpeechSynthesizerProvider.modelID)
+    return models
+}
+
+func openAITTSAvailable() -> Bool {
+    hasEnvironmentValue("OPENAI_API_KEY")
+}
+
+func elevenLabsTTSAvailable() -> Bool {
+    hasEnvironmentValue("ELEVENLABS_API_KEY")
+}
+
+func miniMaxTTSAvailable() -> Bool {
+    hasEnvironmentValue("MINIMAX_API_KEY")
+}
+
+func hasEnvironmentValue(_ key: String) -> Bool {
+    guard let value = ProcessInfo.processInfo.environment[key] else { return false }
+    return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 }
 
 func bundledTTSCommand() -> [String]? {

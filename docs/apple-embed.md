@@ -56,7 +56,7 @@ actor LineaVoiceStack {
     init(clientId: String = "linea-ios") {
         self.clientId = clientId
         self.asr = EngineManager()      // Parakeet
-        self.tts = TTSEngineManager()   // AVSpeechSynthesizer
+        self.tts = TTSEngineManager()   // OpenAI TTS plus AVSpeech fallback
     }
 
     func warmup() async throws {
@@ -154,12 +154,14 @@ Use the same route names Vox Companion uses:
 
 ## OpenAI TTS in embed mode
 
-The zero-dependency default is:
+The default TTS surface is OpenAI-backed when an API key is configured:
 
 - ASR: `EngineManager()` -> `ParakeetProvider()`
-- TTS: `TTSEngineManager()` -> `AVSpeechSynthesizerProvider()`
+- TTS: `TTSEngineManager()` -> OpenAI TTS plus AVSpeech fallback
+- default TTS model: `TTSDefaults.modelId` = `gpt-4o-mini-tts`
+- local fallback TTS model: `TTSDefaults.localModelId` = `avspeech:system`
 
-If the app needs remote TTS, create a registry explicitly. Prefer passing secrets in code or app configuration rather than relying on process environment inside an iOS app.
+Prefer passing secrets in code or app configuration rather than relying on process environment inside an iOS app.
 
 ```swift
 let ttsConfig = ProvidersConfig(providers: [
@@ -189,9 +191,9 @@ For the first Linea integration, the default plan should be:
 - add `VoxCore` and `VoxEngine`
 - wrap Vox in one app-local actor or service
 - use `parakeet:v3` for ASR
-- use `avspeech:system` for default TTS
+- use `gpt-4o-mini-tts` for default TTS
+- use `avspeech:system` only when a local system voice fallback is required
 - record Vox-compatible telemetry from the app
-- introduce OpenAI TTS only if product requirements need remote voices
 - use Vox Companion only for web surfaces or cross-process workflows
 
 ## What agents should not assume

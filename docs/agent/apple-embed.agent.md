@@ -27,9 +27,10 @@
 ## Default embed engines
 
 - ASR default: `EngineManager()` -> `ParakeetProvider()`
-- TTS default: `TTSEngineManager()` -> `AVSpeechSynthesizerProvider()`
+- TTS default: `TTSEngineManager()` -> `TTSProviderRegistry` with OpenAI TTS plus AVSpeech fallback
 - default ASR model id: `parakeet:v3`
-- default TTS model id: `TTSDefaults.modelId` = `avspeech:system`
+- default TTS model id: `TTSDefaults.modelId` = `gpt-4o-mini-tts`
+- local TTS model id: `TTSDefaults.localModelId` = `avspeech:system`
 - default TTS format: `TTSDefaults.format` = `wav`
 
 ## Public types to use
@@ -65,8 +66,8 @@
 
 ## OpenAI TTS rule
 
-- start with AVSpeech for default Apple embed mode
-- if remote TTS is needed, use `TTSProviderRegistry(config:)`
+- OpenAI TTS is the default API-backed model when an API key is configured
+- use `TTSDefaults.localModelId` when a caller intentionally wants AVSpeech
 - pass `OPENAI_API_KEY` via `ProviderEntry.env` or app config
 - do not rely on process environment inside iOS app code
 
@@ -82,5 +83,6 @@
 - client id: `linea-ios` or `linea-macos`
 - ASR engine: `EngineManager()`
 - TTS engine: `TTSEngineManager()`
-- TTS default: `avspeech:system`
+- TTS default: `gpt-4o-mini-tts`
+- TTS local fallback: `avspeech:system`
 - use Vox Companion only for web or cross-process workflows

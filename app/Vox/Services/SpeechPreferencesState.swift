@@ -121,7 +121,8 @@ final class SpeechPreferencesState: ObservableObject {
         let availableModels = ttsModels.filter { $0.available && $0.installed }
         let candidateModels = availableModels.isEmpty ? ttsModels : availableModels
 
-        return candidateModels.first { $0.id != TTSDefaults.modelId }?.id
+        return candidateModels.first { $0.id == TTSDefaults.modelId }?.id
+            ?? candidateModels.first { OpenAITTSProvider.supportedModelIDs.contains($0.id) }?.id
             ?? candidateModels.first?.id
             ?? TTSDefaults.modelId
     }

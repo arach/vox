@@ -70,11 +70,11 @@ vox warmup start parakeet:v3
 vox transcribe file --model parakeet:v3 --metrics --timestamps /tmp/sample.wav
 
 # Text to speech
-vox voices --model avspeech:system
-vox speak --model avspeech:system --metrics "Hello from Vox"
+vox voices --model gpt-4o-mini-tts
+vox speak --model gpt-4o-mini-tts --metrics "Hello from Vox"
 
 # Compare warm-path performance
 vox transcribe bench --model parakeet:v3 /tmp/sample.wav 5
-vox speak bench --model avspeech:system "Hello from Vox" 5
+vox speak bench --model gpt-4o-mini-tts "Hello from Vox" 5
 vox perf dashboard --client vox-cli
 ```

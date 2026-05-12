@@ -16,6 +16,10 @@ public actor TTSProviderRegistry: TTSProvider {
                     provider = AVSpeechSynthesizerProvider()
                 case "openai", "openai-tts":
                     provider = OpenAITTSProvider(env: entry.env)
+                case "elevenlabs", "elevenlabs-tts", "eleven-labs", "eleven-labs-tts":
+                    provider = ElevenLabsTTSProvider(env: entry.env)
+                case "minimax", "minimax-tts":
+                    provider = MiniMaxTTSProvider(env: entry.env)
                 case "mlx-audio", "mlx_audio", "mlx-audio-tts", "mlx_audio_tts":
                     do {
                         let env = BuiltinExternalProvider.mlxAudioEnvironment(entry.env)

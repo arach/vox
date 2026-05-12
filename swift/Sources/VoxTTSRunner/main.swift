@@ -34,20 +34,7 @@ struct VoxTTSRunner {
     }
 
     private static func defaultTTSConfig() -> ProvidersConfig {
-        ProvidersConfig(providers: [
-            ProviderEntry(
-                id: "avspeech",
-                kind: .tts,
-                builtin: true,
-                models: [AVSpeechSynthesizerProvider.modelID]
-            ),
-            ProviderEntry(
-                id: "openai-tts",
-                kind: .tts,
-                builtin: true,
-                models: OpenAITTSProvider.supportedModelIDs
-            )
-        ])
+        TTSDefaultProviderConfig.inProcess()
     }
 
     private static func handle(

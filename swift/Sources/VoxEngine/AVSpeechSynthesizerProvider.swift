@@ -3,7 +3,7 @@ import Foundation
 import VoxCore
 
 public actor AVSpeechSynthesizerProvider: TTSProvider {
-    public static let modelID = TTSDefaults.modelId
+    public static let modelID = TTSDefaults.localModelId
 
     private let log = VoxLog.engine
     private var preloaded = false

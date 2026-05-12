@@ -20,6 +20,8 @@ Built-in providers include:
 - `parakeet` for ASR
 - `avspeech` for system TTS
 - `openai-tts` for remote TTS
+- `elevenlabs` for ElevenLabs remote TTS
+- `minimax` for MiniMax remote TTS
 - `mlx-audio` for built-in external bridging across both ASR and TTS
 
 ## Provider Config
@@ -40,6 +42,33 @@ Providers are registered in `~/.vox/providers.json`:
       "kind": "tts",
       "builtin": true,
       "models": ["avspeech:system"]
+    },
+    {
+      "id": "openai-tts",
+      "kind": "tts",
+      "builtin": true,
+      "models": ["gpt-4o-mini-tts"],
+      "env": {
+        "OPENAI_API_KEY": "sk-..."
+      }
+    },
+    {
+      "id": "elevenlabs",
+      "kind": "tts",
+      "builtin": true,
+      "models": ["eleven_multilingual_v2"],
+      "env": {
+        "ELEVENLABS_API_KEY": "..."
+      }
+    },
+    {
+      "id": "minimax",
+      "kind": "tts",
+      "builtin": true,
+      "models": ["speech-2.8-hd"],
+      "env": {
+        "MINIMAX_API_KEY": "..."
+      }
     },
     {
       "id": "mlx-audio",
@@ -77,6 +106,7 @@ Notes:
 
 - Register ASR and TTS as separate entries even when they share the same `id`.
 - `models` is optional for external providers now. Vox can call `models()` and route dynamically from the returned list.
+- Built-in remote TTS providers read their API keys from `env` first, then from process environment. `ELEVENLABS_BASE_URL`, `ELEVENLABS_OUTPUT_FORMAT`, and `MINIMAX_BASE_URL` can override vendor defaults.
 - If `providers.json` contains only ASR entries, Vox falls back to default TTS providers. The inverse is also true.
 
 ## Protocol Methods

@@ -14,8 +14,12 @@ public enum TTSDefaultModelSelector {
             return entry.models ?? []
         }
 
-        if let preferredAvailable = availableConfiguredModels.first(where: { $0 != TTSDefaults.modelId }) {
-            return preferredAvailable
+        if availableConfiguredModels.contains(TTSDefaults.modelId) {
+            return TTSDefaults.modelId
+        }
+
+        if let preferredOpenAIModel = availableConfiguredModels.first(where: isOpenAIModel) {
+            return preferredOpenAIModel
         }
 
         if let firstAvailable = availableConfiguredModels.first {
@@ -26,16 +30,27 @@ public enum TTSDefaultModelSelector {
         return configuredModels.first ?? TTSDefaults.modelId
     }
 
+    private static func isOpenAIModel(_ modelId: String) -> Bool {
+        OpenAITTSProvider.supportedModelIDs.contains(modelId)
+    }
+
     private static func isAvailableForDefaultSelection(
         _ entry: ProviderEntry,
         environment: [String: String]
     ) -> Bool {
-        guard entry.id == "openai-tts" else {
+        switch entry.id.lowercased() {
+        case "openai", "openai-tts":
+            return hasValue(entry.env?["OPENAI_API_KEY"])
+                || hasValue(environment["OPENAI_API_KEY"])
+        case "elevenlabs", "elevenlabs-tts", "eleven-labs", "eleven-labs-tts":
+            return hasValue(entry.env?["ELEVENLABS_API_KEY"])
+                || hasValue(environment["ELEVENLABS_API_KEY"])
+        case "minimax", "minimax-tts":
+            return hasValue(entry.env?["MINIMAX_API_KEY"])
+                || hasValue(environment["MINIMAX_API_KEY"])
+        default:
             return true
         }
-
-        return hasValue(entry.env?["OPENAI_API_KEY"])
-            || hasValue(environment["OPENAI_API_KEY"])
     }
 
     private static func hasValue(_ value: String?) -> Bool {

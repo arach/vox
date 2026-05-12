@@ -34,18 +34,18 @@ Warm-up skips cold-start cost. `transcribe file` prints transcript text, stage t
 ## Text to speech
 
 ```bash
-vox voices --model avspeech:system
-vox speak --model avspeech:system --metrics "Hello from Vox"
-vox speak bench --model avspeech:system "Hello from Vox" 5
+vox voices --model gpt-4o-mini-tts
+vox speak --model gpt-4o-mini-tts --metrics "Hello from Vox"
+vox speak bench --model gpt-4o-mini-tts "Hello from Vox" 5
 ```
 
 `voices` shows available presets for the selected model. `speak` synthesizes audio immediately and prints synthesis metrics when `--metrics` is set. `speak bench` repeats the same request so you can compare warm-path TTS behavior.
 
 ## External providers
 
-For non-Parakeet ASR or non-system TTS, add entries to `~/.vox/providers.json` and then pass the returned model ID with `--model`.
+For non-Parakeet ASR or non-default TTS, add entries to `~/.vox/providers.json` and then pass the returned model ID with `--model`.
 
-The [Provider Protocol](./providers.md) includes built-in `mlx-audio` examples for both STT and TTS.
+The [Provider Protocol](./providers.md) includes built-in OpenAI, ElevenLabs, MiniMax, and `mlx-audio` examples for TTS.
 
 ## Measure and inspect
 
