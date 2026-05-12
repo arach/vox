@@ -70,6 +70,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
         let format = (params?["format"] as? String) ?? TTSDefaults.format
         let speed = params?["speed"] as? Double
         let instructions = params?["instructions"] as? String
+        let providerCredentials = providerCredentials(from: params)
 
         return try await performSynthesizeGenerate(request: SynthesisRequest(
             text: text,
@@ -77,7 +78,8 @@ public final class VoxRuntimeService: @unchecked Sendable {
             voiceId: voiceId,
             format: format,
             speed: speed,
-            instructions: instructions
+            instructions: instructions,
+            providerCredentials: providerCredentials
         ))
     }
 
@@ -325,6 +327,23 @@ public final class VoxRuntimeService: @unchecked Sendable {
         return trimmed
     }
 
+    private func providerCredentials(from params: [String: Any]?) -> [String: String] {
+        guard let rawCredentials = params?["credentials"] as? [String: Any] else {
+            return [:]
+        }
+
+        var credentials: [String: String] = [:]
+        for key in ["OPENAI_API_KEY", "openaiApiKey", "openai_api_key"] {
+            if let value = rawCredentials[key] as? String {
+                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    credentials[key] = trimmed
+                }
+            }
+        }
+        return credentials
+    }
+
     private func registerHandlers() {
         bridge.onClientDisconnected = { [weak self] connectionID in
             guard let self else { return }
@@ -543,13 +562,15 @@ public final class VoxRuntimeService: @unchecked Sendable {
             let format = (params?["format"] as? String) ?? TTSDefaults.format
             let speed = params?["speed"] as? Double
             let instructions = params?["instructions"] as? String
+            let providerCredentials = self.providerCredentials(from: params)
             let request = SynthesisRequest(
                 text: text,
                 modelId: modelId,
                 voiceId: voiceId,
                 format: format,
                 speed: speed,
-                instructions: instructions
+                instructions: instructions,
+                providerCredentials: providerCredentials
             )
 
             Task {
@@ -652,6 +673,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
             let format = (params?["format"] as? String) ?? TTSDefaults.format
             let speed = params?["speed"] as? Double
             let instructions = params?["instructions"] as? String
+            let providerCredentials = self.providerCredentials(from: params)
             let clientId = (params?["clientId"] as? String) ?? "unknown"
             let connectionID = (params?["_connectionID"] as? String) ?? UUID().uuidString
 
@@ -698,7 +720,8 @@ public final class VoxRuntimeService: @unchecked Sendable {
                                 voiceId: voiceId,
                                 format: format,
                                 speed: speed,
-                                instructions: instructions
+                                instructions: instructions,
+                                providerCredentials: providerCredentials
                             ))
 
                             guard !Task.isCancelled else { return }

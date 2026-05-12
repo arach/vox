@@ -1,23 +1,94 @@
 import Foundation
+import AVFoundation
 import VoxBridge
 import VoxCore
 import VoxEngine
+
+struct AudioInputDeviceInfo: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let isSystemDefault: Bool
+}
 
 @MainActor
 final class SpeechPreferencesState: ObservableObject {
     @Published var preferredTranscriptionModelId = ""
     @Published var preferredSynthesisModelId = ""
     @Published var preferredSynthesisVoiceId = ""
+    @Published var preferredInputDeviceId = ""
     @Published private(set) var asrModels: [ASRModelInfo] = []
     @Published private(set) var ttsModels: [TTSModelInfo] = []
     @Published private(set) var voices: [TTSVoiceInfo] = []
+    @Published private(set) var inputDevices: [AudioInputDeviceInfo] = []
+    @Published private(set) var microphonePermissionStatus = MicrophonePermission.statusString()
     @Published private(set) var defaultSynthesisModelId = TTSDefaults.modelId
+    @Published private(set) var openAIKeyConfigured = false
+    @Published private(set) var openAIKeyPreview = ""
+    @Published var openAIAPIKeyInput = ""
     @Published var statusMessage: String?
 
     private let proxy = DaemonProxy()
+    private let credentialStore = VoxCredentialStore()
+
+    var effectiveSynthesisModelId: String {
+        normalizedPreferenceValue(preferredSynthesisModelId) ?? defaultSynthesisModelId
+    }
+
+    var effectiveSynthesisModel: TTSModelInfo? {
+        ttsModels.first { $0.id == effectiveSynthesisModelId }
+    }
+
+    var effectiveSynthesisVoice: TTSVoiceInfo? {
+        if let preferredVoiceId = normalizedPreferenceValue(preferredSynthesisVoiceId),
+           let voice = voices.first(where: { $0.id == preferredVoiceId }) {
+            return voice
+        }
+        return voices.first(where: { $0.isDefault }) ?? voices.first
+    }
+
+    var effectiveSynthesisBackendLabel: String {
+        effectiveSynthesisModel?.backend ?? "unknown"
+    }
+
+    var effectiveSynthesisAvailabilityLabel: String {
+        guard let model = effectiveSynthesisModel else {
+            return ttsModels.isEmpty ? "models unavailable" : "not listed"
+        }
+        if model.available && model.installed {
+            return model.preloaded ? "ready" : "available"
+        }
+        if isRemoteSynthesisModel(model) {
+            return "needs API key"
+        }
+        if !model.installed {
+            return "not installed"
+        }
+        return "provider offline"
+    }
+
+    var effectiveSynthesisNeedsAPIKey: Bool {
+        guard let model = effectiveSynthesisModel else { return false }
+        return isRemoteSynthesisModel(model) && !(model.available && model.installed)
+    }
+
+    var effectiveSynthesisVoiceLabel: String {
+        effectiveSynthesisVoice.map { voiceLabel($0) } ?? "Provider default"
+    }
+
+    var effectiveInputDeviceLabel: String {
+        if let device = inputDevices.first(where: { $0.id == preferredInputDeviceId }) {
+            return device.name
+        }
+        if let device = inputDevices.first(where: \.isSystemDefault) {
+            return "System default · \(device.name)"
+        }
+        return "System default"
+    }
 
     func load() async {
         loadPreferencesFromDisk()
+        refreshInputDevices()
+        refreshCredentialState()
         await refreshRemoteOptions()
     }
 
@@ -38,11 +109,70 @@ final class SpeechPreferencesState: ObservableObject {
         savePreferences()
     }
 
+    func updatePreferredInputDeviceId(_ deviceId: String) {
+        preferredInputDeviceId = deviceId
+        savePreferences()
+        refreshInputDevices()
+    }
+
+    func refreshInputDevices() {
+        microphonePermissionStatus = MicrophonePermission.statusString()
+        let defaultID = AVCaptureDevice.default(for: .audio)?.uniqueID
+        inputDevices = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.microphone],
+            mediaType: .audio,
+            position: .unspecified
+        ).devices
+            .map { device in
+                AudioInputDeviceInfo(
+                    id: device.uniqueID,
+                    name: device.localizedName,
+                    isSystemDefault: device.uniqueID == defaultID
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.isSystemDefault != rhs.isSystemDefault {
+                    return lhs.isSystemDefault && !rhs.isSystemDefault
+                }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            }
+
+        if !preferredInputDeviceId.isEmpty,
+           !inputDevices.contains(where: { $0.id == preferredInputDeviceId }) {
+            preferredInputDeviceId = ""
+            savePreferences()
+        }
+    }
+
+    func saveOpenAIAPIKey() {
+        do {
+            try credentialStore.setOpenAIAPIKey(openAIAPIKeyInput)
+            openAIAPIKeyInput = ""
+            refreshCredentialState()
+            statusMessage = "Saved encrypted OpenAI API key for Vox."
+            Task { await refreshRemoteOptions() }
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    func deleteOpenAIAPIKey() {
+        do {
+            try credentialStore.deleteOpenAIAPIKey()
+            refreshCredentialState()
+            statusMessage = "Removed Vox OpenAI API key."
+            Task { await refreshRemoteOptions() }
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
     private func loadPreferencesFromDisk() {
         let preferences = (try? VoxPreferences.load()) ?? VoxPreferences()
         preferredTranscriptionModelId = preferences.speech.preferredTranscriptionModelId ?? ""
         preferredSynthesisModelId = preferences.speech.preferredSynthesisModelId ?? ""
         preferredSynthesisVoiceId = preferences.speech.preferredSynthesisVoiceId ?? ""
+        preferredInputDeviceId = preferences.speech.preferredInputDeviceId ?? ""
     }
 
     private func savePreferences() {
@@ -54,11 +184,19 @@ final class SpeechPreferencesState: ObservableObject {
                 normalizedPreferenceValue(preferredSynthesisModelId)
             preferences.speech.preferredSynthesisVoiceId =
                 normalizedPreferenceValue(preferredSynthesisVoiceId)
+            preferences.speech.preferredInputDeviceId =
+                normalizedPreferenceValue(preferredInputDeviceId)
             try preferences.save()
             statusMessage = "Saved Vox-wide speech defaults."
         } catch {
             statusMessage = error.localizedDescription
         }
+    }
+
+    private func refreshCredentialState() {
+        let state = credentialStore.state()
+        openAIKeyConfigured = state.openAIConfigured
+        openAIKeyPreview = state.openAIPreview ?? ""
     }
 
     private func refreshRemoteOptions() async {
@@ -130,6 +268,24 @@ final class SpeechPreferencesState: ObservableObject {
     private func normalizedPreferenceValue(_ value: String) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func voiceLabel(_ voice: TTSVoiceInfo) -> String {
+        if let language = voice.language, !language.isEmpty {
+            return "\(voice.name) (\(language))"
+        }
+        return voice.name
+    }
+
+    private func isRemoteSynthesisModel(_ model: TTSModelInfo) -> Bool {
+        switch model.backend.lowercased() {
+        case "openai", "elevenlabs", "minimax":
+            return true
+        default:
+            return OpenAITTSProvider.supportedModelIDs.contains(model.id)
+                || ElevenLabsTTSProvider.supportedModelIDs.contains(model.id)
+                || MiniMaxTTSProvider.supportedModelIDs.contains(model.id)
+        }
     }
 
     private func parseASRModels(_ raw: Any?) -> [ASRModelInfo] {

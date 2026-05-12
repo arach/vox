@@ -44,7 +44,8 @@ struct RuntimeRegistryTests {
             speech: VoxSpeechPreferences(
                 preferredTranscriptionModelId: "mlx-community/whisper-large-v3",
                 preferredSynthesisModelId: "openai-tts:alloy",
-                preferredSynthesisVoiceId: "alloy"
+                preferredSynthesisVoiceId: "alloy",
+                preferredInputDeviceId: "system-mic"
             )
         )
 

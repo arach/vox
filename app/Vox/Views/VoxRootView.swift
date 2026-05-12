@@ -8,8 +8,8 @@ import VoxCore
 enum VoxSection: String, CaseIterable, Identifiable {
     case welcome
     case general
+    case speechCheck
     case bridge
-    case embed
     case about
 
     var id: String { rawValue }
@@ -18,8 +18,8 @@ enum VoxSection: String, CaseIterable, Identifiable {
         switch self {
         case .welcome: return "Welcome"
         case .general: return "General"
-        case .bridge: return "Bridge"
-        case .embed: return "Embed Demo"
+        case .speechCheck: return "Speech Check"
+        case .bridge: return "HTTP API"
         case .about: return "About"
         }
     }
@@ -28,8 +28,8 @@ enum VoxSection: String, CaseIterable, Identifiable {
         switch self {
         case .welcome: return "sparkles"
         case .general: return "gearshape"
+        case .speechCheck: return "waveform.and.mic"
         case .bridge: return "network"
-        case .embed: return "waveform.and.mic"
         case .about: return "info.circle"
         }
     }
@@ -46,7 +46,8 @@ struct VoxRootView: View {
     @EnvironmentObject var bridgeState: BridgeState
     @EnvironmentObject var onboarding: OnboardingState
 
-    @State private var section: VoxSection = .welcome
+    @StateObject private var speechPreferences = SpeechPreferencesState()
+    @State private var section: VoxSection
     @State private var railExpanded = true
     @State private var inspectorCollapsed = false
     @State private var stopFeedback: String?
@@ -55,11 +56,15 @@ struct VoxRootView: View {
     @State private var stopFeedbackTask: Task<Void, Never>?
 
     private let manifest = HudAppManifest(
-        name: "Vox",
+        name: "vox",
         version: VoxVersion.current,
         tint: .cyan,
         targetLabel: "Runtime"
     )
+
+    init(initialSection: VoxSection = .about) {
+        _section = State(initialValue: initialSection)
+    }
 
     var body: some View {
         HudAppShell {
@@ -72,19 +77,16 @@ struct VoxRootView: View {
                         }
                     }
                 ),
-                items: VoxSection.allCases.map(\.navItem),
-                isExpanded: $railExpanded
-            ) {
-                railFooter
-            }
+                items: navigationSections.map(\.navItem),
+                isExpanded: $railExpanded,
+                showsHeaderStatusDot: false
+            )
         } trailing: {
             HudInspector(isCollapsed: $inspectorCollapsed) {
                 HStack {
                     HudSectionLabel("Status")
                     Spacer()
-                    HudStatusDot(
-                        color: monitor.isRunning ? HudPalette.statusOk : HudPalette.statusError
-                    )
+                    VoxStatusText(runtimeSummary.badge, tint: runtimeSummary.tint)
                 }
             } content: {
                 inspectorContent
@@ -95,22 +97,29 @@ struct VoxRootView: View {
             statusBar
         }
         .hudsonAppManifest(manifest)
+        .hudTheme(.default)
+        .preferredColorScheme(.dark)
+        .background(HudWindowChrome(colorScheme: .dark))
+        .task(id: monitor.isRunning) {
+            await speechPreferences.load()
+        }
         .onChange(of: onboarding.requestToken) { _, _ in
             section = .welcome
         }
     }
 
-    // MARK: - Rail Footer
-
-    private var railFooter: some View {
-        VStack(alignment: .leading, spacing: HudSpacing.md) {
-            HudSectionLabel("Daemon")
-            HudBadge(
-                monitor.isRunning ? "RUNNING" : "STOPPED",
-                tint: monitor.isRunning ? HudPalette.statusOk : HudPalette.statusError,
-                dot: true
-            )
+    private var navigationSections: [VoxSection] {
+        var sections: [VoxSection] = [.about, .general, .speechCheck, .bridge]
+        if shouldShowWelcome {
+            sections.insert(.welcome, at: 0)
         }
+        return sections
+    }
+
+    private var shouldShowWelcome: Bool {
+        if section == .welcome { return true }
+        if case .unknown = onboarding.trust { return false }
+        return true
     }
 
     // MARK: - Section Content
@@ -119,15 +128,15 @@ struct VoxRootView: View {
     private var sectionContent: some View {
         switch section {
         case .welcome:
-            WelcomeTab(onNavigate: { section = $0 })
+            WelcomeTab(speechPreferences: speechPreferences, onNavigate: { section = $0 })
         case .general:
-            GeneralTab()
+            GeneralTab(speechPreferences: speechPreferences)
+        case .speechCheck:
+            SpeechCheckTab(speechPreferences: speechPreferences)
         case .bridge:
             BridgeTab()
-        case .embed:
-            EmbedDemoTab()
         case .about:
-            AboutTab()
+            AboutTab(speechPreferences: speechPreferences, onNavigate: { section = $0 })
         }
     }
 
@@ -139,25 +148,24 @@ struct VoxRootView: View {
 
             HudCard {
                 VStack(alignment: .leading, spacing: HudSpacing.md) {
+                    HudKVRow("State", value: runtimeSummary.label, valueColor: runtimeSummary.tint)
                     HudKVRow(
-                        "Daemon",
-                        value: monitor.isRunning ? "Running" : "Stopped",
-                        valueColor: monitor.isRunning ? HudPalette.statusOk : HudPalette.statusError
+                        "Detail",
+                        value: runtimeSummary.detail,
+                        valueColor: runtimeSummary.tint,
+                        valueLineLimit: 1
                     )
                     if let port = monitor.port {
-                        HudKVRow("Port", value: voxPortString(port))
+                        HudKVRow("WebSocket API", value: voxPortString(port))
                     }
                     if let pid = monitor.pid {
                         HudKVRow("PID", value: voxProcessIDString(pid))
                     }
-                    HudKVRow(
-                        "Bridge",
-                        value: bridgeState.isRunning ? "Listening" : "Stopped",
-                        valueColor: bridgeState.isRunning ? HudPalette.statusInfo : HudPalette.statusError
-                    )
-                    HudKVRow("Bridge Port", value: voxPortString(bridgeState.port))
+                    HudKVRow("HTTP Port", value: voxPortString(bridgeState.port))
                 }
             }
+
+            speechStatusCard
 
             activeSessionCard
 
@@ -166,6 +174,29 @@ struct VoxRootView: View {
                     HudSectionLabel("Version", tint: HudPalette.muted)
                     HudKVRow("Vox", value: VoxVersion.current)
                     HudKVRow("Runtime", value: "macOS")
+                }
+            }
+        }
+    }
+
+    private var speechStatusCard: some View {
+        HudCard {
+            VStack(alignment: .leading, spacing: HudSpacing.md) {
+                HudSectionLabel("Speech")
+                HudKVRow("TTS", value: speechPreferences.effectiveSynthesisModelId, valueColor: HudPalette.ink)
+                HudKVRow("Backend", value: speechPreferences.effectiveSynthesisBackendLabel, valueColor: HudPalette.muted)
+                HudKVRow("Voice", value: speechPreferences.effectiveSynthesisVoiceLabel, valueColor: HudPalette.muted)
+                HudKVRow("Input", value: speechPreferences.effectiveInputDeviceLabel, valueColor: HudPalette.muted)
+                HudKVRow(
+                    "State",
+                    value: speechPreferences.effectiveSynthesisAvailabilityLabel,
+                    valueColor: speechPreferences.effectiveSynthesisNeedsAPIKey ? HudPalette.statusWarn : HudPalette.muted
+                )
+
+                if speechPreferences.effectiveSynthesisNeedsAPIKey {
+                    HudButton("Add OpenAI Key", icon: "key.fill", style: .secondary) {
+                        section = .general
+                    }
                 }
             }
         }
@@ -199,11 +230,11 @@ struct VoxRootView: View {
     private var connectionTrustBadge: some View {
         switch onboarding.trust {
         case .verified:
-            HudBadge("VERIFIED", tint: HudPalette.statusOk, dot: true)
+            VoxStatusText("VERIFIED", tint: HudPalette.muted)
         case .unverified:
-            HudBadge("UNVERIFIED", tint: HudPalette.statusError, dot: true)
+            VoxStatusText("UNVERIFIED", tint: HudPalette.statusError)
         case .noOrigin:
-            HudBadge("NO ORIGIN", tint: HudPalette.statusWarn, dot: true)
+            VoxStatusText("NO ORIGIN", tint: HudPalette.statusWarn)
         case .unknown:
             EmptyView()
         }
@@ -242,7 +273,7 @@ struct VoxRootView: View {
             sessionCard(
                 title: "Active Session",
                 badge: "SPEAKING",
-                tint: HudPalette.statusInfo,
+                tint: HudPalette.muted,
                 clientId: monitor.synthesisSession?.clientId,
                 modelId: monitor.synthesisSession?.modelId,
                 startedAt: monitor.synthesisSession?.startedAt,
@@ -279,7 +310,7 @@ struct VoxRootView: View {
                 HStack {
                     HudSectionLabel(title, tint: tint)
                     Spacer()
-                    HudBadge(badge, tint: tint, dot: true)
+                    VoxStatusText(badge, tint: tint)
                 }
 
                 if let clientId, !clientId.isEmpty {
@@ -310,7 +341,7 @@ struct VoxRootView: View {
                     HudInset {
                         VoxBodyText(
                             stopFeedback,
-                            tint: stopFeedbackIsError ? HudPalette.statusError : HudPalette.statusOk
+                            tint: stopFeedbackIsError ? HudPalette.statusError : HudPalette.muted
                         )
                     }
                 }
@@ -352,37 +383,35 @@ struct VoxRootView: View {
 
     private var statusBar: some View {
         HStack(spacing: HudSpacing.xl) {
-            HudStatusDot(color: monitor.isRunning ? HudPalette.statusOk : HudPalette.dim)
-            Text("VOX")
+            Text("vox")
                 .font(HudFont.mono(10, weight: .bold))
-                .tracking(1.4)
+                .tracking(0)
                 .foregroundStyle(HudPalette.muted)
             Text("·")
                 .font(HudFont.mono(10))
                 .foregroundStyle(HudPalette.dim)
-            Group {
-                if let port = monitor.port, monitor.isRunning {
-                    Text("port \(voxPortString(port))")
-                } else {
-                    Text("daemon stopped")
-                }
-            }
+            VoxStatusText(runtimeSummary.badge, tint: runtimeSummary.tint)
+            Text(runtimeSummary.detail)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: 520, alignment: .leading)
             .font(HudFont.mono(10))
             .foregroundStyle(HudPalette.muted)
 
             Spacer()
 
-            if monitor.isRecording {
-                HudBadge("RECORDING", tint: HudPalette.statusError, dot: true)
-            } else if monitor.isSpeaking {
-                HudBadge("SPEAKING", tint: HudPalette.statusInfo, dot: true)
-            }
-
-            HudBadge(section.title.uppercased(), tint: manifest.accent)
             HudInspectorToggle(isCollapsed: $inspectorCollapsed)
         }
         .padding(.horizontal, HudSpacing.xxl)
         .frame(height: HudLayout.statusBarHeight)
+    }
+
+    private var runtimeSummary: VoxRuntimeStatusSummary {
+        VoxRuntimeStatusSummary(
+            monitor: monitor,
+            bridgeState: bridgeState,
+            speechPreferences: speechPreferences
+        )
     }
 }
 

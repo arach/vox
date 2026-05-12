@@ -153,6 +153,11 @@ export interface SynthesisOptions {
   format?: string;
   speed?: number;
   instructions?: string;
+  credentials?: {
+    OPENAI_API_KEY?: string;
+    openaiApiKey?: string;
+    openai_api_key?: string;
+  };
 }
 
 export interface SynthesisMetrics {

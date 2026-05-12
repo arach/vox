@@ -74,7 +74,7 @@ public actor OpenAITTSProvider: TTSProvider {
         progress: @escaping @Sendable (ModelProgress) -> Void
     ) async throws -> TTSModelInfo {
         try validate(modelId: modelId)
-        _ = try resolveAPIKey()
+        _ = try resolveAPIKey(providerCredentials: [:])
         if let voiceId {
             _ = try resolveVoice(voiceId: voiceId)
         }
@@ -103,7 +103,7 @@ public actor OpenAITTSProvider: TTSProvider {
         let trace = TranscriptionTrace()
 
         trace.begin("model_check")
-        let apiKey = try resolveAPIKey()
+        let apiKey = try resolveAPIKey(providerCredentials: request.providerCredentials)
         let wasPreloaded = preloadedModels.contains(request.modelId)
         trace.end(wasPreloaded ? "ready" : "cold")
 
@@ -181,17 +181,21 @@ public actor OpenAITTSProvider: TTSProvider {
     }
 
     private func apiKeyAvailability() -> Bool {
-        guard let apiKey else { return false }
+        guard let apiKey = apiKey ?? VoxCredentialStore().openAIAPIKey() else { return false }
         return !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private func resolveAPIKey() throws -> String {
-        guard let apiKey, !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+    private func resolveAPIKey(providerCredentials: [String: String]) throws -> String {
+        let lentKey = providerCredentials["OPENAI_API_KEY"]
+            ?? providerCredentials["openaiApiKey"]
+            ?? providerCredentials["openai_api_key"]
+        let resolvedKey = lentKey ?? apiKey ?? VoxCredentialStore().openAIAPIKey()
+        guard let resolvedKey, !resolvedKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw NSError(domain: "VoxEngine", code: 5104, userInfo: [
                 NSLocalizedDescriptionKey: "Missing OPENAI_API_KEY for OpenAI TTS provider."
             ])
         }
-        return apiKey
+        return resolvedKey.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func validate(modelId: String) throws {

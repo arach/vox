@@ -240,6 +240,23 @@ public final class HTTPBridgeServer: @unchecked Sendable {
         }
     }
 
+    private nonisolated static func providerCredentials(from body: [String: Any]?) -> [String: String]? {
+        guard let rawCredentials = body?["credentials"] as? [String: Any] else {
+            return nil
+        }
+
+        var credentials: [String: String] = [:]
+        for key in ["OPENAI_API_KEY", "openaiApiKey", "openai_api_key"] {
+            if let value = rawCredentials[key] as? String {
+                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    credentials[key] = trimmed
+                }
+            }
+        }
+        return credentials.isEmpty ? nil : credentials
+    }
+
     // MARK: - Endpoint handlers
 
     private func handleCapabilities(origin: String?, on connection: NWConnection) async {
@@ -405,6 +422,9 @@ public final class HTTPBridgeServer: @unchecked Sendable {
             }
             if let instructions {
                 params["instructions"] = instructions
+            }
+            if let credentials = Self.providerCredentials(from: body) {
+                params["credentials"] = credentials
             }
 
             let result = try await proxy.callStreaming(

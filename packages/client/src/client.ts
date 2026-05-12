@@ -206,6 +206,9 @@ export class VoxClient {
     if (options.voiceId) {
       params.voiceId = options.voiceId;
     }
+    if (options.credentials) {
+      params.credentials = options.credentials;
+    }
 
     const result = await this.transport.call(
       "synthesize.generate",

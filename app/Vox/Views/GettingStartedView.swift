@@ -43,6 +43,7 @@ struct WelcomeTab: View {
     @EnvironmentObject var bridgeState: BridgeState
     @EnvironmentObject var onboarding: OnboardingState
 
+    @ObservedObject var speechPreferences: SpeechPreferencesState
     let onNavigate: (VoxSection) -> Void
 
     var body: some View {
@@ -62,6 +63,7 @@ struct WelcomeTab: View {
             }
 
             statusGrid
+            speechSetupCard
 
             quickLinksCard
         }
@@ -100,7 +102,7 @@ struct WelcomeTab: View {
         case .noOrigin:
             return "This invocation didn't include a return URL, so Vox can't tie it to an allowlisted origin. Bridge calls follow the standard policy."
         case .unknown:
-            return "Vox runs locally and exposes a small bridge for browser apps. Use this view to confirm setup, then dive into the rail for daemon, bridge, and embed controls."
+            return "Vox runs locally and exposes a small bridge for browser apps. Use this view to confirm setup, then inspect runtime and bridge controls from the rail."
         }
     }
 
@@ -123,7 +125,7 @@ struct WelcomeTab: View {
                     VStack(alignment: .leading, spacing: HudSpacing.xs) {
                         HStack(alignment: .firstTextBaseline, spacing: HudSpacing.md) {
                             Text(displayName)
-                                .font(HudFont.ui(HudTextSize.xxl, weight: .semibold))
+                                .font(HudFont.ui(HudTextSize.xl, weight: .semibold))
                                 .foregroundStyle(HudPalette.ink)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
@@ -132,8 +134,8 @@ struct WelcomeTab: View {
                         }
 
                         Text(hasRequester ? "powered by vox" : "local voice runtime")
-                            .font(HudFont.mono(10, weight: .semibold))
-                            .tracking(1.2)
+                            .font(HudFont.mono(HudTextSize.micro, weight: .semibold))
+                            .tracking(1.0)
                             .foregroundStyle(HudPalette.muted)
                             .textCase(.uppercase)
                     }
@@ -143,7 +145,7 @@ struct WelcomeTab: View {
 
                 if hasRequester {
                     Text(onboarding.context.headline)
-                        .font(HudFont.ui(HudTextSize.lg, weight: .medium))
+                        .font(HudFont.ui(HudTextSize.md, weight: .medium))
                         .foregroundStyle(HudPalette.ink)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -163,13 +165,13 @@ struct WelcomeTab: View {
     private var trustBadge: some View {
         switch onboarding.trust {
         case .verified:
-            HudBadge("VERIFIED", tint: HudPalette.statusOk, dot: true)
+            VoxStatusText("VERIFIED", tint: HudPalette.muted)
         case .unverified:
-            HudBadge("UNVERIFIED", tint: HudPalette.statusError, dot: true)
+            VoxStatusText("UNVERIFIED", tint: HudPalette.statusError)
         case .noOrigin:
-            HudBadge("UNVERIFIABLE", tint: HudPalette.statusWarn, dot: true)
+            VoxStatusText("UNVERIFIABLE", tint: HudPalette.statusWarn)
         case .unknown:
-            HudBadge("LOCAL", tint: HudPalette.statusInfo, dot: true)
+            VoxStatusText("LOCAL", tint: HudPalette.muted)
         }
     }
 
@@ -185,7 +187,7 @@ struct WelcomeTab: View {
                     NSWorkspace.shared.open(url)
                 }
             } else if !hasRequester {
-                HudButton("Manage Bridge", icon: "network", style: .primary(.cyan)) {
+                HudButton("Manage Bridge", icon: "network", style: .secondary) {
                     onNavigate(.bridge)
                 }
             }
@@ -213,8 +215,8 @@ struct WelcomeTab: View {
                 Image(systemName: "menubar.dock.rectangle")
                     .font(HudFont.ui(HudTextSize.sm))
                     .foregroundStyle(HudPalette.muted)
-                Text("Vox lives in your menu bar — look for the V mark")
-                    .font(HudFont.mono(11))
+                Text("Vox lives in your menu bar")
+                    .font(HudFont.mono(HudTextSize.xxs))
                     .foregroundStyle(HudPalette.muted)
                 Spacer(minLength: HudSpacing.md)
                 Image(nsImage: MenuBarIcon.makeStatusImage(size: 16, showsRecordingBadge: false))
@@ -238,7 +240,7 @@ struct WelcomeTab: View {
                         .font(HudFont.ui(HudTextSize.md, weight: .semibold))
                         .foregroundStyle(HudPalette.ink)
                     Spacer()
-                    HudBadge("ACTION NEEDED", tint: HudPalette.statusError, dot: true)
+                    VoxStatusText("ACTION NEEDED", tint: HudPalette.statusError)
                 }
 
                 VoxBodyText(
@@ -264,7 +266,7 @@ struct WelcomeTab: View {
                     HudButton(
                         "Allow \(displayHost(origin))",
                         icon: "checkmark.shield",
-                        style: .primary(.green)
+                        style: .primary(.cyan)
                     ) {
                         Task { await onboarding.allowReturnOrigin() }
                     }
@@ -290,7 +292,7 @@ struct WelcomeTab: View {
                         .font(HudFont.ui(HudTextSize.md, weight: .semibold))
                         .foregroundStyle(HudPalette.ink)
                     Spacer()
-                    HudBadge("INFORMATIONAL", tint: HudPalette.statusWarn, dot: true)
+                    VoxStatusText("INFORMATIONAL", tint: HudPalette.statusWarn)
                 }
 
                 VoxBodyText(
@@ -313,25 +315,46 @@ struct WelcomeTab: View {
             spacing: HudSpacing.xl
         ) {
             VoxMetricCard(
-                label: "Daemon",
-                value: monitor.isRunning ? "Running" : "Stopped",
-                detail: daemonDetail,
-                tint: monitor.isRunning ? HudPalette.statusOk : HudPalette.statusError,
-                pulses: monitor.isRunning
-            )
-            VoxMetricCard(
-                label: "HTTP Bridge",
-                value: bridgeState.isRunning ? "Listening" : "Stopped",
-                detail: "127.0.0.1:\(voxPortString(bridgeState.port))",
-                tint: bridgeState.isRunning ? HudPalette.statusInfo : HudPalette.statusError,
-                pulses: bridgeState.isRunning
+                label: "Status",
+                value: runtimeSummary.label,
+                detail: runtimeSummary.detail,
+                tint: runtimeSummary.tint
             )
             VoxMetricCard(
                 label: "Allowed Origins",
                 value: "\(totalOriginCount)",
                 detail: originBreakdown,
-                tint: HudPalette.statusOk
+                tint: HudPalette.muted
             )
+            VoxMetricCard(
+                label: "TTS",
+                value: speechStatusValue,
+                detail: speechStatusDetail,
+                tint: speechPreferences.effectiveSynthesisNeedsAPIKey ? HudPalette.statusWarn : HudPalette.muted
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var speechSetupCard: some View {
+        if speechPreferences.effectiveSynthesisNeedsAPIKey {
+            HudCard(stroke: HudSurface.tintBorder(HudPalette.statusWarn)) {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HStack(spacing: HudSpacing.md) {
+                        Image(systemName: "key.fill")
+                            .font(HudFont.ui(HudTextSize.md))
+                            .foregroundStyle(HudPalette.statusWarn)
+                        HudSectionLabel("Speech Setup", tint: HudPalette.statusWarn)
+                        Spacer()
+                    }
+
+                    VoxBodyText("The default speech provider is OpenAI TTS. Add a Vox OpenAI key here, or let a caller lend credentials explicitly with its request.")
+
+                    HudButton("Add OpenAI Key", icon: "key.fill", style: .secondary) {
+                        onNavigate(.general)
+                    }
+                }
+            }
         }
     }
 
@@ -355,24 +378,24 @@ struct WelcomeTab: View {
                     onTap: { onNavigate(.general) }
                 )
                 HudListRow(
-                    title: "Manage allowed origins",
-                    subtitle: "Bridge · add or remove sites that may call Vox",
-                    icon: "network",
-                    iconTint: .blue,
-                    onTap: { onNavigate(.bridge) }
+                    title: "Check voice and dictation",
+                    subtitle: "Speech Check · play voice, record, transcribe",
+                    icon: "waveform.and.mic",
+                    iconTint: .cyan,
+                    onTap: { onNavigate(.speechCheck) }
                 )
                 HudListRow(
-                    title: "Try the embed demo",
-                    subtitle: "Embed · exercise ASR + TTS in-process",
-                    icon: "waveform.and.mic",
-                    iconTint: .green,
-                    onTap: { onNavigate(.embed) }
+                    title: "Manage allowed origins",
+                    subtitle: "HTTP API · add or remove sites that may call Vox",
+                    icon: "network",
+                    iconTint: .cyan,
+                    onTap: { onNavigate(.bridge) }
                 )
                 HudListRow(
                     title: "About Vox",
                     subtitle: "About · version and runtime contract",
                     icon: "info.circle",
-                    iconTint: .teal,
+                    iconTint: .cyan,
                     onTap: { onNavigate(.about) }
                 )
             }
@@ -410,14 +433,12 @@ struct WelcomeTab: View {
         URL(string: origin)?.host ?? origin
     }
 
-    private var daemonDetail: String {
-        if monitor.isRunning, let port = monitor.port {
-            return "port \(voxPortString(port))"
-        }
-        if monitor.isRunning {
-            return "running"
-        }
-        return "Restart from General tab"
+    private var runtimeSummary: VoxRuntimeStatusSummary {
+        VoxRuntimeStatusSummary(
+            monitor: monitor,
+            bridgeState: bridgeState,
+            speechPreferences: speechPreferences
+        )
     }
 
     private var totalOriginCount: Int {
@@ -429,32 +450,43 @@ struct WelcomeTab: View {
     private var originBreakdown: String {
         "\(bridgeState.userOrigins.count) user · \(bridgeState.integrationOrigins.count) integrations"
     }
+
+    private var speechStatusValue: String {
+        speechPreferences.effectiveSynthesisNeedsAPIKey
+            ? "Needs API key"
+            : speechPreferences.effectiveSynthesisModelId
+    }
+
+    private var speechStatusDetail: String {
+        if speechPreferences.effectiveSynthesisNeedsAPIKey {
+            return "Open General to add key"
+        }
+        return "\(speechPreferences.effectiveSynthesisBackendLabel) · \(speechPreferences.effectiveSynthesisVoiceLabel)"
+    }
 }
 
 private struct BrandLogoBadge: View {
-    private static let logo: NSImage? = {
-        guard let url = Bundle.module.url(forResource: "vox-logo", withExtension: "svg") else { return nil }
-        return NSImage(contentsOf: url)
-    }()
+    @Environment(\.hudTheme) private var theme
 
     var body: some View {
-        Group {
-            if let logo = Self.logo {
-                Image(nsImage: logo)
-                    .resizable()
-                    .interpolation(.high)
-            } else {
-                RoundedRectangle(cornerRadius: HudRadius.card, style: .continuous)
-                    .fill(HudPalette.surface)
-                    .overlay(
-                        Image(systemName: "waveform")
-                            .font(HudFont.ui(HudTextSize.xxl, weight: .semibold))
-                            .foregroundStyle(HudPalette.muted)
-                    )
+        RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous)
+            .fill(theme.palette.surface)
+            .overlay(
+                RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous)
+                    .stroke(theme.hairline.subtle, lineWidth: 1)
+            )
+            .overlay {
+                Image(systemName: "waveform")
+                    .font(HudFont.ui(HudTextSize.xxl, weight: .semibold))
+                    .foregroundStyle(theme.palette.muted)
             }
-        }
+            .overlay(alignment: .topTrailing) {
+                Circle()
+                    .fill(theme.palette.statusError)
+                    .frame(width: 5, height: 5)
+                    .padding(12)
+            }
         .frame(width: 56, height: 56)
-        .clipShape(RoundedRectangle(cornerRadius: HudRadius.card, style: .continuous))
         .accessibilityLabel("Vox")
     }
 }

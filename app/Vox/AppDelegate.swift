@@ -69,10 +69,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         if let launchPresentation = launchPresentationOnLaunch() {
             switch launchPresentation {
             case .settings:
-                showSettings()
+                presentSettingsWindow(initialSection: .about)
             case .gettingStarted, .welcome:
                 onboarding.presentWelcome()
-                showSettings()
+                presentSettingsWindow(initialSection: .welcome)
             }
 
             if !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
@@ -199,6 +199,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
     // MARK: - Actions
 
     @objc func showSettings() {
+        presentSettingsWindow(initialSection: .about)
+    }
+
+    private func presentSettingsWindow(initialSection: VoxSection) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
 
@@ -207,7 +211,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
             return
         }
 
-        let rootView = VoxRootView()
+        let rootView = VoxRootView(initialSection: initialSection)
             .environmentObject(monitor)
             .environmentObject(bridgeState)
             .environmentObject(onboarding)
@@ -221,6 +225,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         )
         window.title = "Vox"
         window.isReleasedWhenClosed = false
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.backgroundColor = .black
+        window.titlebarAppearsTransparent = false
+        window.isOpaque = true
         window.contentViewController = NSHostingController(rootView: rootView)
         window.center()
         settingsWindow = window
@@ -230,7 +238,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
     func showGettingStarted(source: String?) {
         let context = GettingStartedContext.generic(sourceName: displayName(forSource: source))
         onboarding.present(context: context, returnTo: nil, isTrusted: false)
-        showSettings()
+        presentSettingsWindow(initialSection: .welcome)
     }
 
     private func presentLaunch(request: LaunchRequest) {
@@ -248,7 +256,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
                 returnTo: request.returnTo,
                 isTrusted: isTrusted
             )
-            self.showSettings()
+            self.presentSettingsWindow(initialSection: .welcome)
         }
     }
 
@@ -326,7 +334,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         if let startedBridge = await Self.waitForBridgeHealth(port: port) {
             bridgeState.isRunning = true
             bridgeState.port = startedBridge.port ?? port
-            bridgeState.statusDetail = "Listening on localhost."
+            bridgeState.statusDetail = "Ready on localhost."
         } else {
             bridgeState.isRunning = false
             bridgeState.port = port

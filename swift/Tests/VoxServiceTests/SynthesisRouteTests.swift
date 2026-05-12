@@ -7,6 +7,7 @@ import VoxEngine
 private actor MockTTSProvider: TTSProvider {
     private let modelId: String
     private let voiceId: String
+    private var capturedRequest: SynthesisRequest?
 
     init(modelId: String = "mock-tts:v1", voiceId: String = "voice-mock") {
         self.modelId = modelId
@@ -57,6 +58,8 @@ private actor MockTTSProvider: TTSProvider {
     }
 
     func synthesize(_ request: SynthesisRequest) async throws -> SynthesisOutput {
+        capturedRequest = request
+
         let bytes = Data([0x52, 0x49, 0x46, 0x46])
         let metrics = SynthesisMetrics(
             traceId: "mock-trace",
@@ -80,6 +83,10 @@ private actor MockTTSProvider: TTSProvider {
             elapsedMs: 16,
             metrics: metrics
         )
+    }
+
+    func lastRequest() -> SynthesisRequest? {
+        capturedRequest
     }
 }
 
@@ -159,5 +166,23 @@ struct SynthesisRouteTests {
 
         #expect(output.modelId == "mock-tts:local")
         #expect(output.voiceId == "voice-local")
+    }
+
+    @Test("synthesize.generate forwards explicit provider credentials")
+    func synthesizeGenerateForwardsExplicitProviderCredentials() async throws {
+        let provider = MockTTSProvider()
+        let service = VoxRuntimeService(ttsEngine: TTSEngineManager(provider: provider))
+
+        _ = try await service.performSynthesizeGenerate(params: [
+            "text": "hello world",
+            "modelId": "mock-tts:v1",
+            "credentials": [
+                "OPENAI_API_KEY": "sk-test-lent",
+                "ignored": "not-forwarded"
+            ]
+        ])
+
+        let request = await provider.lastRequest()
+        #expect(request?.providerCredentials == ["OPENAI_API_KEY": "sk-test-lent"])
     }
 }

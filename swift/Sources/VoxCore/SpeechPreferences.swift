@@ -4,15 +4,18 @@ public struct VoxSpeechPreferences: Codable, Sendable, Equatable {
     public var preferredTranscriptionModelId: String?
     public var preferredSynthesisModelId: String?
     public var preferredSynthesisVoiceId: String?
+    public var preferredInputDeviceId: String?
 
     public init(
         preferredTranscriptionModelId: String? = nil,
         preferredSynthesisModelId: String? = nil,
-        preferredSynthesisVoiceId: String? = nil
+        preferredSynthesisVoiceId: String? = nil,
+        preferredInputDeviceId: String? = nil
     ) {
         self.preferredTranscriptionModelId = preferredTranscriptionModelId
         self.preferredSynthesisModelId = preferredSynthesisModelId
         self.preferredSynthesisVoiceId = preferredSynthesisVoiceId
+        self.preferredInputDeviceId = preferredInputDeviceId
     }
 }
 

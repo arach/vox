@@ -46,6 +46,7 @@ public struct SynthesisRequest: Sendable, Equatable {
     public let format: String
     public let speed: Double?
     public let instructions: String?
+    public let providerCredentials: [String: String]
 
     public init(
         requestId: String = UUID().uuidString,
@@ -54,7 +55,8 @@ public struct SynthesisRequest: Sendable, Equatable {
         voiceId: String? = nil,
         format: String = TTSDefaults.format,
         speed: Double? = nil,
-        instructions: String? = nil
+        instructions: String? = nil,
+        providerCredentials: [String: String] = [:]
     ) {
         self.requestId = requestId
         self.text = text
@@ -63,6 +65,7 @@ public struct SynthesisRequest: Sendable, Equatable {
         self.format = format
         self.speed = speed
         self.instructions = instructions
+        self.providerCredentials = providerCredentials
     }
 }
 
