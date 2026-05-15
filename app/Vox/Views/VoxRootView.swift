@@ -136,7 +136,7 @@ struct VoxRootView: View {
         case .bridge:
             BridgeTab()
         case .about:
-            AboutTab(speechPreferences: speechPreferences, onNavigate: { section = $0 })
+            AboutTab()
         }
     }
 
@@ -148,6 +148,7 @@ struct VoxRootView: View {
 
             HudCard {
                 VStack(alignment: .leading, spacing: HudSpacing.md) {
+                    HudSectionLabel("Runtime", tint: HudPalette.muted)
                     HudKVRow("State", value: runtimeSummary.label, valueColor: runtimeSummary.tint)
                     HudKVRow(
                         "Detail",
@@ -155,50 +156,17 @@ struct VoxRootView: View {
                         valueColor: runtimeSummary.tint,
                         valueLineLimit: 1
                     )
-                    if let port = monitor.port {
-                        HudKVRow("WebSocket API", value: voxPortString(port))
+
+                    HStack(spacing: HudSpacing.md) {
+                        HudButton("Open Runtime", icon: "gearshape", style: .secondary) {
+                            section = .general
+                        }
+                        Spacer(minLength: 0)
                     }
-                    if let pid = monitor.pid {
-                        HudKVRow("PID", value: voxProcessIDString(pid))
-                    }
-                    HudKVRow("HTTP Port", value: voxPortString(bridgeState.port))
                 }
             }
-
-            speechStatusCard
 
             activeSessionCard
-
-            HudCard {
-                VStack(alignment: .leading, spacing: HudSpacing.md) {
-                    HudSectionLabel("Version", tint: HudPalette.muted)
-                    HudKVRow("Vox", value: VoxVersion.current)
-                    HudKVRow("Runtime", value: "macOS")
-                }
-            }
-        }
-    }
-
-    private var speechStatusCard: some View {
-        HudCard {
-            VStack(alignment: .leading, spacing: HudSpacing.md) {
-                HudSectionLabel("Speech")
-                HudKVRow("TTS", value: speechPreferences.effectiveSynthesisModelId, valueColor: HudPalette.ink)
-                HudKVRow("Backend", value: speechPreferences.effectiveSynthesisBackendLabel, valueColor: HudPalette.muted)
-                HudKVRow("Voice", value: speechPreferences.effectiveSynthesisVoiceLabel, valueColor: HudPalette.muted)
-                HudKVRow("Input", value: speechPreferences.effectiveInputDeviceLabel, valueColor: HudPalette.muted)
-                HudKVRow(
-                    "State",
-                    value: speechPreferences.effectiveSynthesisAvailabilityLabel,
-                    valueColor: speechPreferences.effectiveSynthesisNeedsAPIKey ? HudPalette.statusWarn : HudPalette.muted
-                )
-
-                if speechPreferences.effectiveSynthesisNeedsAPIKey {
-                    HudButton("Add OpenAI Key", icon: "key.fill", style: .secondary) {
-                        section = .general
-                    }
-                }
-            }
         }
     }
 
@@ -258,20 +226,20 @@ struct VoxRootView: View {
 
     @ViewBuilder
     private var activeSessionCard: some View {
-        if monitor.isRecording {
+        if let liveSession = monitor.liveSession {
             sessionCard(
-                title: "Active Session",
-                badge: "RECORDING",
-                tint: HudPalette.statusError,
-                clientId: monitor.liveSession?.clientId,
-                modelId: monitor.liveSession?.modelId,
-                startedAt: monitor.liveSession?.startedAt,
+                title: "Live Capture",
+                badge: liveSession.state.rawValue.uppercased(),
+                tint: liveSession.state == .recording ? HudPalette.statusError : HudPalette.statusWarn,
+                clientId: liveSession.clientId,
+                modelId: liveSession.modelId,
+                startedAt: liveSession.startedAt,
                 extras: nil,
                 onStop: { await monitor.cancelLiveSession() }
             )
         } else if monitor.isSpeaking {
             sessionCard(
-                title: "Active Session",
+                title: "Speech Output",
                 badge: "SPEAKING",
                 tint: HudPalette.muted,
                 clientId: monitor.synthesisSession?.clientId,

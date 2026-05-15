@@ -164,9 +164,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         button.image = MenuBarIcon.makeStatusImage(state: iconState)
         button.contentTintColor = iconState == .idle && !monitor.isRunning ? .systemRed : nil
 
-        if monitor.isRecording, let clientId = monitor.liveSessionClientId {
-            button.toolTip = "Vox is recording for \(clientId)"
-            statusMenuItem.title = "Daemon: Recording for \(clientId) (port \(voxPortString(monitor.port ?? 0)))"
+        if let liveSession = monitor.liveSession {
+            let state = liveSession.state == .recording ? "recording" : liveSession.state.rawValue
+            button.toolTip = "Vox is \(state) for \(liveSession.clientId)"
+            statusMenuItem.title = "Daemon: \(state.capitalized) for \(liveSession.clientId) (port \(voxPortString(monitor.port ?? 0)))"
         } else if monitor.isSpeaking, let clientId = monitor.synthesisSession?.clientId {
             button.toolTip = "Vox is speaking for \(clientId)"
             statusMenuItem.title = "Daemon: Speaking for \(clientId) (port \(voxPortString(monitor.port ?? 0)))"
@@ -179,11 +180,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         }
 
         if let stopRecording = menu.item(withTag: 101) {
-            stopRecording.isHidden = !monitor.isRecording
+            stopRecording.isHidden = !monitor.hasLiveSession
             if let clientId = monitor.liveSession?.clientId {
-                stopRecording.title = "Stop Recording for \(clientId)"
+                stopRecording.title = "Stop Live Session for \(clientId)"
             } else {
-                stopRecording.title = "Stop Recording"
+                stopRecording.title = "Stop Live Session"
             }
         }
         if let stopSynthesis = menu.item(withTag: 102) {
@@ -265,7 +266,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
     }
 
     private func menuBarIconState() -> MenuBarIcon.State {
-        if monitor.isRecording { return .recording }
+        if monitor.hasLiveSession { return .recording }
         if monitor.isSpeaking  { return .speaking }
         return .idle
     }

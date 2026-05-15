@@ -204,6 +204,11 @@ final class SpeechPreferencesState: ObservableObject {
             if !(await proxy.isConnected) {
                 try await proxy.connect()
             }
+            defer {
+                Task {
+                    await proxy.disconnect()
+                }
+            }
 
             let asrResult = try await proxy.call("models.list")
             asrModels = parseASRModels(asrResult["models"])
@@ -226,6 +231,11 @@ final class SpeechPreferencesState: ObservableObject {
         do {
             if !(await proxy.isConnected) {
                 try await proxy.connect()
+            }
+            defer {
+                Task {
+                    await proxy.disconnect()
+                }
             }
 
             guard let modelId = resolvedVoiceModelId() else {

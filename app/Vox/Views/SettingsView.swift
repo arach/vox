@@ -8,6 +8,8 @@ import VoxEngine
 struct GeneralTab: View {
     @EnvironmentObject var monitor: DaemonMonitor
     @State private var launchAgentInstalled = LaunchAgentManager.isInstalled()
+    @State private var liveSessionMessage: String?
+    @State private var liveSessionMessageIsError = false
     @ObservedObject var speechPreferences: SpeechPreferencesState
 
     var body: some View {
@@ -67,6 +69,8 @@ struct GeneralTab: View {
                     }
                 }
             }
+
+            liveCaptureCard
 
             HudCard {
                 VStack(alignment: .leading, spacing: HudSpacing.lg) {
@@ -209,6 +213,81 @@ struct GeneralTab: View {
 
     private var microphonePermissionColor: Color {
         speechPreferences.microphonePermissionStatus == "authorized" ? HudPalette.statusOk : HudPalette.statusWarn
+    }
+
+    @ViewBuilder
+    private var liveCaptureCard: some View {
+        HudCard {
+            VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                HStack {
+                    HudSectionLabel("Live Capture")
+                    Spacer()
+                    VoxStatusText(
+                        monitor.liveSession?.state.rawValue.uppercased() ?? "IDLE",
+                        tint: monitor.hasLiveSession ? HudPalette.statusWarn : HudPalette.muted
+                    )
+                }
+
+                HudInset {
+                    VStack(alignment: .leading, spacing: HudSpacing.md) {
+                        if let session = monitor.liveSession {
+                            HudKVRow("Session", value: session.sessionId, valueLineLimit: 1)
+                            HudKVRow("Client", value: session.clientId, valueColor: HudPalette.ink)
+                            HudKVRow("Model", value: session.modelId, valueColor: HudPalette.muted)
+                            HudKVRow("State", value: session.state.rawValue, valueColor: session.state == .recording ? HudPalette.statusError : HudPalette.statusWarn)
+                            if let startedAt = session.startedAt {
+                                HStack {
+                                    Text("ACTIVE FOR")
+                                        .font(HudFont.mono(9))
+                                        .tracking(0.8)
+                                        .foregroundStyle(HudPalette.dim)
+                                    Spacer()
+                                    LiveSessionAgeText(startedAt: startedAt)
+                                        .font(HudFont.mono(11))
+                                        .foregroundStyle(HudPalette.ink)
+                                }
+                            }
+                        } else {
+                            VoxBodyText("No active live transcription session.", tint: HudPalette.muted)
+                        }
+                    }
+                }
+
+                HStack(spacing: HudSpacing.md) {
+                    HudButton("Refresh", icon: "arrow.clockwise", style: .secondary) {
+                        Task {
+                            monitor.checkNow()
+                            await monitor.refreshSessionsNow()
+                        }
+                    }
+
+                    if monitor.hasLiveSession {
+                        HudButton("Cancel Session", icon: "xmark.circle", style: .secondary) {
+                            Task {
+                                if let error = await monitor.cancelLiveSession() {
+                                    liveSessionMessage = error
+                                    liveSessionMessageIsError = true
+                                } else {
+                                    liveSessionMessage = "Cancelled the active live session."
+                                    liveSessionMessageIsError = false
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(minLength: 0)
+                }
+
+                if let liveSessionMessage, !liveSessionMessage.isEmpty {
+                    HudInset {
+                        VoxBodyText(
+                            liveSessionMessage,
+                            tint: liveSessionMessageIsError ? HudPalette.statusError : HudPalette.muted
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private var microphonePermissionIcon: String {
@@ -422,38 +501,35 @@ private struct UptimeText: View {
     }
 }
 
+private struct LiveSessionAgeText: View {
+    let startedAt: Date
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            Text(formatAge(context.date.timeIntervalSince(startedAt)))
+        }
+    }
+
+    private func formatAge(_ seconds: TimeInterval) -> String {
+        let totalSeconds = max(Int(seconds), 0)
+        let minutes = totalSeconds / 60
+        let remainingSeconds = totalSeconds % 60
+        if minutes > 0 {
+            return "\(minutes)m \(remainingSeconds)s"
+        }
+        return "\(remainingSeconds)s"
+    }
+}
+
 // MARK: - About Tab
 
 struct AboutTab: View {
-    @ObservedObject var speechPreferences: SpeechPreferencesState
-    let onNavigate: (VoxSection) -> Void
-
     var body: some View {
         VoxScreen(
             title: "About",
             badge: "COMPANION",
             summary: "Vox is a voice runtime for Apple apps, web companions, and developer tools."
         ) {
-            if speechPreferences.effectiveSynthesisNeedsAPIKey {
-                HudCard(stroke: HudSurface.tintBorder(HudPalette.statusWarn)) {
-                    VStack(alignment: .leading, spacing: HudSpacing.lg) {
-                        HStack(spacing: HudSpacing.md) {
-                            Image(systemName: "key.fill")
-                                .font(HudFont.ui(HudTextSize.md))
-                                .foregroundStyle(HudPalette.statusWarn)
-                            HudSectionLabel("Speech Needs Setup", tint: HudPalette.statusWarn)
-                            Spacer()
-                        }
-
-                        VoxBodyText("The current default uses OpenAI TTS. Store an encrypted Vox OpenAI key, or have a caller lend credentials explicitly when it asks Vox to speak.")
-
-                        HudButton("Add OpenAI Key", icon: "key.fill", style: .secondary) {
-                            onNavigate(.general)
-                        }
-                    }
-                }
-            }
-
             HudCard {
                 VStack(alignment: .leading, spacing: HudSpacing.lg) {
                     HStack {

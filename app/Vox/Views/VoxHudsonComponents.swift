@@ -25,14 +25,14 @@ struct VoxRuntimeStatusSummary {
         bridgeState: BridgeState,
         speechPreferences: SpeechPreferencesState
     ) {
-        if monitor.isRecording {
-            label = "Recording"
+        if let liveSession = monitor.liveSession {
+            label = liveSession.state == .recording ? "Recording" : liveSession.state.rawValue.capitalized
             detail = Self.sessionDetail(
                 fallback: "live transcription",
-                clientId: monitor.liveSession?.clientId,
-                modelId: monitor.liveSession?.modelId
+                clientId: liveSession.clientId,
+                modelId: liveSession.modelId
             )
-            tint = HudPalette.statusError
+            tint = liveSession.state == .recording ? HudPalette.statusError : HudPalette.statusWarn
         } else if monitor.isSpeaking {
             label = "Speaking"
             detail = Self.sessionDetail(

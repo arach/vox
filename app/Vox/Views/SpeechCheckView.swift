@@ -10,43 +10,36 @@ struct SpeechCheckTab: View {
         VoxScreen(
             title: "Speech Check",
             badge: "LOCAL",
-            summary: "Run a short voice and microphone check against the configured Vox runtime."
+            summary: "Run a short voice and microphone check using the current Vox defaults."
         ) {
             HudCard {
                 VStack(alignment: .leading, spacing: HudSpacing.lg) {
-                    HudSectionLabel("Input And Permissions")
+                    HudSectionLabel("Current Defaults")
 
                     HudInset {
                         VStack(alignment: .leading, spacing: HudSpacing.md) {
                             HudKVRow("ASR Model", value: selectedTranscriptionModelLabel)
-                            Picker(
-                                "Input Device",
-                                selection: Binding(
-                                    get: { speechPreferences.preferredInputDeviceId },
-                                    set: { newValue in
-                                        speechPreferences.updatePreferredInputDeviceId(newValue)
-                                    }
-                                )
-                            ) {
-                                Text("System Default")
-                                    .tag("")
-                                ForEach(speechPreferences.inputDevices) { device in
-                                    Text(device.isSystemDefault ? "\(device.name) · system default" : device.name)
-                                        .tag(device.id)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .disabled(state.isBusy || state.isRecording || speechPreferences.inputDevices.isEmpty)
-
+                            HudKVRow("TTS Model", value: speechPreferences.effectiveSynthesisModelId)
+                            HudKVRow("Voice", value: speechPreferences.effectiveSynthesisVoiceLabel, valueColor: HudPalette.muted)
+                            HudKVRow("Input Device", value: speechPreferences.effectiveInputDeviceLabel, valueColor: HudPalette.muted)
                             micPermissionRow
                         }
                     }
+
+                    VoxBodyText("Change model, voice, input, or credentials from Runtime. This screen only exercises the selected defaults.", tint: HudPalette.muted)
                 }
             }
 
             HudCard {
                 VStack(alignment: .leading, spacing: HudSpacing.lg) {
-                    HudSectionLabel("Voice Check")
+                    HStack {
+                        HudSectionLabel("Voice Check")
+                        Spacer()
+                        VoxStatusText(
+                            speechPreferences.effectiveSynthesisAvailabilityLabel.uppercased(),
+                            tint: speechPreferences.effectiveSynthesisNeedsAPIKey ? HudPalette.statusWarn : HudPalette.muted
+                        )
+                    }
 
                     HStack(spacing: HudSpacing.md) {
                         HudButton("Play Voice", icon: "speaker.wave.2", style: .primary(.cyan)) {
