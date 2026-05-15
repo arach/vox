@@ -153,11 +153,50 @@ export interface SynthesisOptions {
   format?: string;
   speed?: number;
   instructions?: string;
+  speechTiming?: boolean | SpeechTimingRequest;
   credentials?: {
     OPENAI_API_KEY?: string;
     openaiApiKey?: string;
     openai_api_key?: string;
   };
+}
+
+export interface SpeechTimingCueRequest {
+  id: string;
+  text?: string;
+  textStart?: number;
+  textEnd?: number;
+}
+
+export interface SpeechTimingRequest {
+  enabled?: boolean;
+  modelId?: string;
+  cues?: SpeechTimingCueRequest[];
+}
+
+export interface SpeechTimingWord {
+  word: string;
+  startMs: number;
+  endMs: number;
+  confidence: number;
+  sourceTextStart?: number | null;
+  sourceTextEnd?: number | null;
+}
+
+export interface SpeechTimingCue {
+  id: string;
+  startMs: number;
+  endMs: number;
+  confidence: number;
+  source: "asr" | "native" | "estimated" | string;
+}
+
+export interface SpeechTiming {
+  source: "asr" | "native" | "estimated" | string;
+  modelId: string;
+  elapsedMs: number;
+  words: SpeechTimingWord[];
+  cues: SpeechTimingCue[];
 }
 
 export interface SynthesisMetrics {
@@ -184,6 +223,7 @@ export interface SynthesisResult {
   audioBytes: number;
   elapsedMs: number;
   metrics?: SynthesisMetrics;
+  speechTiming?: SpeechTiming;
 }
 
 export type SessionState =

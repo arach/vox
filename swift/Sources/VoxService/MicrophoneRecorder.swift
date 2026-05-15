@@ -17,6 +17,23 @@ actor MicrophoneRecorder {
             ])
         }
 
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            break
+        case .notDetermined:
+            throw NSError(domain: "VoxService", code: 26, userInfo: [
+                NSLocalizedDescriptionKey: "Microphone access has not been granted for Vox."
+            ])
+        case .denied, .restricted:
+            throw NSError(domain: "VoxService", code: 27, userInfo: [
+                NSLocalizedDescriptionKey: "Microphone access is not allowed for Vox."
+            ])
+        @unknown default:
+            throw NSError(domain: "VoxService", code: 28, userInfo: [
+                NSLocalizedDescriptionKey: "Microphone access is unavailable."
+            ])
+        }
+
         let device = try resolveInputDevice()
         let input = try AVCaptureDeviceInput(device: device)
         let output = AVCaptureAudioFileOutput()
@@ -65,14 +82,26 @@ actor MicrophoneRecorder {
         }
 
         output.stopRecording()
-        let finishedURL = try await recordingDelegate.waitForFinish()
-        session.stopRunning()
-        self.session = nil
-        self.output = nil
-        self.recordingDelegate = nil
-        self.currentURL = nil
-        log.info("Recording stopped: \(currentURL.lastPathComponent)")
-        return finishedURL
+        defer {
+            session.stopRunning()
+            self.session = nil
+            self.output = nil
+            self.recordingDelegate = nil
+            self.currentURL = nil
+        }
+
+        do {
+            let finishedURL = try await recordingDelegate.waitForFinish()
+            log.info("Recording stopped: \(currentURL.lastPathComponent)")
+            return finishedURL
+        } catch {
+            if isRecoverableStopError(error, outputURL: currentURL) {
+                log.warning("Recording stop reported \(error.localizedDescription); using completed file \(currentURL.lastPathComponent)")
+                return currentURL
+            }
+            log.error("Recording stop failed for \(currentURL.lastPathComponent): \(error.localizedDescription)")
+            throw error
+        }
     }
 
     func cancel() {
@@ -134,6 +163,16 @@ actor MicrophoneRecorder {
         default:
             return "caf"
         }
+    }
+
+    private func isRecoverableStopError(_ error: Error, outputURL: URL) -> Bool {
+        guard FileManager.default.fileExists(atPath: outputURL.path) else {
+            return false
+        }
+
+        let nsError = error as NSError
+        return nsError.domain == AVFoundationErrorDomain
+            || error.localizedDescription == "Recording Stopped"
     }
 }
 

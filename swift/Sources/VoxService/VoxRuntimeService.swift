@@ -17,6 +17,8 @@ public final class VoxRuntimeService: @unchecked Sendable {
     private let startedAt = Date()
     private let preferencesLoader: @Sendable () -> VoxPreferences
     private let defaultSynthesisModelId: String
+    private let inFlightSynthesisLock = NSLock()
+    private var inFlightSynthesisGenerates: [String: [String: Task<Void, Never>]] = [:]
 
     public init(
         port: UInt16 = VoxDefaults.daemonPort,
@@ -71,16 +73,20 @@ public final class VoxRuntimeService: @unchecked Sendable {
         let speed = params?["speed"] as? Double
         let instructions = params?["instructions"] as? String
         let providerCredentials = providerCredentials(from: params)
+        let speechTimingRequest = parseSpeechTimingRequest(params: params, text: text)
 
-        return try await performSynthesizeGenerate(request: SynthesisRequest(
-            text: text,
-            modelId: modelId,
-            voiceId: voiceId,
-            format: format,
-            speed: speed,
-            instructions: instructions,
-            providerCredentials: providerCredentials
-        ))
+        return try await performSynthesizeGenerate(
+            request: SynthesisRequest(
+                text: text,
+                modelId: modelId,
+                voiceId: voiceId,
+                format: format,
+                speed: speed,
+                instructions: instructions,
+                providerCredentials: providerCredentials
+            ),
+            speechTimingRequest: speechTimingRequest
+        )
     }
 
     func performSynthesizeVoices(params: [String: Any]?) async throws -> [TTSVoiceInfo] {
@@ -253,8 +259,33 @@ public final class VoxRuntimeService: @unchecked Sendable {
         }
     }
 
-    private func performSynthesizeGenerate(request: SynthesisRequest) async throws -> SynthesisOutput {
-        try await ttsEngine.synthesize(request)
+    private func performSynthesizeGenerate(
+        request: SynthesisRequest,
+        speechTimingRequest: SpeechTimingRequest? = nil
+    ) async throws -> SynthesisOutput {
+        let output = try await ttsEngine.synthesize(request)
+        guard let speechTimingRequest else {
+            return output
+        }
+
+        guard let speechTiming = await generateSpeechTiming(
+            output: output,
+            request: request,
+            timingRequest: speechTimingRequest
+        ) else {
+            return output
+        }
+
+        return SynthesisOutput(
+            modelId: output.modelId,
+            voiceId: output.voiceId,
+            format: output.format,
+            contentType: output.contentType,
+            audioData: output.audioData,
+            elapsedMs: output.elapsedMs,
+            metrics: output.metrics,
+            speechTiming: speechTiming
+        )
     }
 
     private func performSynthesizeVoices(modelId: String?) async throws -> [TTSVoiceInfo] {
@@ -344,6 +375,269 @@ public final class VoxRuntimeService: @unchecked Sendable {
         return credentials
     }
 
+    private func parseSpeechTimingRequest(params: [String: Any]?, text: String) -> SpeechTimingRequest? {
+        guard let params else {
+            return nil
+        }
+
+        let rawTiming = params["speechTiming"] ?? params["alignment"]
+        guard let rawTiming else {
+            return nil
+        }
+
+        var timingParams: [String: Any] = [:]
+        if let enabled = rawTiming as? Bool {
+            guard enabled else {
+                return nil
+            }
+        } else if let rawTiming = rawTiming as? [String: Any] {
+            if let enabled = rawTiming["enabled"] as? Bool, !enabled {
+                return nil
+            }
+            timingParams = rawTiming
+        } else {
+            return nil
+        }
+
+        let modelId = resolveTranscriptionModelId(timingParams["modelId"] as? String)
+        let rawCues = (timingParams["cues"] as? [[String: Any]]) ?? []
+        var fallbackTextSearchStart = 0
+        let cues = rawCues.compactMap { entry -> SpeechTimingCueRequest? in
+            guard let id = entry["id"] as? String, !id.isEmpty else {
+                return nil
+            }
+
+            let cueText = normalizePreferenceValue(entry["text"] as? String)
+            var textStart = intValue(entry["textStart"])
+            var textEnd = intValue(entry["textEnd"])
+
+            if textStart == nil || textEnd == nil, let cueText {
+                if let range = findTextRange(cueText, in: text, from: fallbackTextSearchStart) {
+                    textStart = range.location
+                    textEnd = range.location + range.length
+                    fallbackTextSearchStart = range.location + range.length
+                }
+            }
+
+            return SpeechTimingCueRequest(
+                id: id,
+                text: cueText,
+                textStart: textStart,
+                textEnd: textEnd
+            )
+        }
+
+        return SpeechTimingRequest(modelId: modelId, cues: cues)
+    }
+
+    private func intValue(_ value: Any?) -> Int? {
+        if let intValue = value as? Int {
+            return intValue
+        }
+        if let doubleValue = value as? Double {
+            return Int(doubleValue)
+        }
+        if let stringValue = value as? String {
+            return Int(stringValue)
+        }
+        return nil
+    }
+
+    private func findTextRange(_ needle: String, in haystack: String, from offset: Int) -> NSRange? {
+        let nsHaystack = haystack as NSString
+        let clampedOffset = max(0, min(offset, nsHaystack.length))
+        let searchRange = NSRange(location: clampedOffset, length: nsHaystack.length - clampedOffset)
+        let found = nsHaystack.range(of: needle, options: [.caseInsensitive, .diacriticInsensitive], range: searchRange)
+        guard found.location != NSNotFound else {
+            return nil
+        }
+        return found
+    }
+
+    private struct SourceToken {
+        let normalized: String
+        let range: NSRange
+    }
+
+    private struct ResolvedSpeechTimingWord {
+        let timing: SpeechTimingWord
+        let sourceRange: NSRange?
+    }
+
+    private func generateSpeechTiming(
+        output: SynthesisOutput,
+        request: SynthesisRequest,
+        timingRequest: SpeechTimingRequest
+    ) async -> SpeechTiming? {
+        let extensionName = output.format.isEmpty ? "wav" : output.format
+        let audioURL = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("vox-speech-timing-\(UUID().uuidString).\(extensionName)")
+
+        do {
+            try output.audioData.write(to: audioURL, options: .atomic)
+            defer {
+                try? FileManager.default.removeItem(at: audioURL)
+            }
+
+            let startedAt = Date()
+            let transcription = try await asrEngine.transcribe(url: audioURL, modelId: timingRequest.modelId)
+            let elapsedMs = Int(Date().timeIntervalSince(startedAt) * 1000)
+            let resolvedWords = resolveSpeechTimingWords(
+                transcription.words,
+                sourceText: request.text
+            )
+            let cues = resolveSpeechTimingCues(
+                timingRequest.cues,
+                resolvedWords: resolvedWords,
+                sourceText: request.text,
+                audioDurationMs: output.metrics.audioDurationMs
+            )
+
+            return SpeechTiming(
+                source: resolvedWords.isEmpty ? "estimated" : "asr",
+                modelId: transcription.modelId,
+                elapsedMs: elapsedMs,
+                words: resolvedWords.map(\.timing),
+                cues: cues
+            )
+        } catch is CancellationError {
+            return nil
+        } catch {
+            log.warning("speechTiming generation failed requestId=\(request.requestId) modelId=\(timingRequest.modelId) error=\(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func resolveSpeechTimingWords(
+        _ words: [WordTiming],
+        sourceText: String
+    ) -> [ResolvedSpeechTimingWord] {
+        let tokens = tokenizeSourceText(sourceText)
+        var nextTokenIndex = 0
+
+        return words.map { word in
+            let normalizedWord = normalizeTimingToken(word.word)
+            var sourceRange: NSRange?
+
+            if !normalizedWord.isEmpty {
+                while nextTokenIndex < tokens.count {
+                    let token = tokens[nextTokenIndex]
+                    nextTokenIndex += 1
+                    if token.normalized == normalizedWord {
+                        sourceRange = token.range
+                        break
+                    }
+                }
+            }
+
+            let timing = SpeechTimingWord(
+                word: word.word,
+                startMs: milliseconds(word.start),
+                endMs: milliseconds(word.end),
+                confidence: word.confidence,
+                sourceTextStart: sourceRange?.location,
+                sourceTextEnd: sourceRange.map { $0.location + $0.length }
+            )
+            return ResolvedSpeechTimingWord(timing: timing, sourceRange: sourceRange)
+        }
+    }
+
+    private func resolveSpeechTimingCues(
+        _ cues: [SpeechTimingCueRequest],
+        resolvedWords: [ResolvedSpeechTimingWord],
+        sourceText: String,
+        audioDurationMs: Int
+    ) -> [SpeechTimingCue] {
+        let textLength = max((sourceText as NSString).length, 1)
+        let cueCount = max(cues.count, 1)
+
+        return cues.enumerated().map { index, cue in
+            let cueRange = normalizedCueRange(cue, textLength: textLength)
+            let matchingWords: [ResolvedSpeechTimingWord] = cueRange.map { range in
+                resolvedWords.filter { word in
+                    guard let sourceRange = word.sourceRange else {
+                        return false
+                    }
+                    return sourceRange.location < range.location + range.length
+                        && sourceRange.location + sourceRange.length > range.location
+                }
+            } ?? []
+
+            if !matchingWords.isEmpty {
+                let startMs = matchingWords.map(\.timing.startMs).min() ?? 0
+                let endMs = matchingWords.map(\.timing.endMs).max() ?? startMs
+                let averageConfidence = matchingWords.reduce(Float(0)) { $0 + $1.timing.confidence } / Float(matchingWords.count)
+                return SpeechTimingCue(
+                    id: cue.id,
+                    startMs: startMs,
+                    endMs: endMs,
+                    confidence: averageConfidence,
+                    source: "asr"
+                )
+            }
+
+            let estimatedRange = cueRange ?? NSRange(
+                location: (textLength * index) / cueCount,
+                length: textLength / cueCount
+            )
+            return estimatedCue(
+                id: cue.id,
+                range: estimatedRange,
+                textLength: textLength,
+                audioDurationMs: audioDurationMs
+            )
+        }
+    }
+
+    private func normalizedCueRange(_ cue: SpeechTimingCueRequest, textLength: Int) -> NSRange? {
+        guard let textStart = cue.textStart, let textEnd = cue.textEnd else {
+            return nil
+        }
+        let start = max(0, min(textStart, textLength))
+        let end = max(start, min(textEnd, textLength))
+        return NSRange(location: start, length: end - start)
+    }
+
+    private func estimatedCue(id: String, range: NSRange, textLength: Int, audioDurationMs: Int) -> SpeechTimingCue {
+        let durationMs = max(audioDurationMs, 0)
+        let startMs = textLength > 0 ? Int((Double(range.location) / Double(textLength)) * Double(durationMs)) : 0
+        let endOffset = range.location + range.length
+        let endMs = textLength > 0 ? Int((Double(endOffset) / Double(textLength)) * Double(durationMs)) : durationMs
+        return SpeechTimingCue(
+            id: id,
+            startMs: startMs,
+            endMs: max(startMs, endMs),
+            confidence: 0,
+            source: "estimated"
+        )
+    }
+
+    private func tokenizeSourceText(_ text: String) -> [SourceToken] {
+        let nsText = text as NSString
+        guard let regex = try? NSRegularExpression(pattern: "[\\p{L}\\p{N}']+") else {
+            return []
+        }
+        let matches = regex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
+        return matches.compactMap { match in
+            let raw = nsText.substring(with: match.range)
+            let normalized = normalizeTimingToken(raw)
+            guard !normalized.isEmpty else {
+                return nil
+            }
+            return SourceToken(normalized: normalized, range: match.range)
+        }
+    }
+
+    private func normalizeTimingToken(_ token: String) -> String {
+        String(token.lowercased().unicodeScalars.filter {
+            CharacterSet.alphanumerics.contains($0)
+        })
+    }
+
+    private func milliseconds(_ seconds: Double) -> Int {
+        Int((seconds * 1000).rounded())
+    }
+
     private func registerHandlers() {
         bridge.onClientDisconnected = { [weak self] connectionID in
             guard let self else { return }
@@ -365,6 +659,22 @@ public final class VoxRuntimeService: @unchecked Sendable {
                     "reason": "recording_timeout"
                 ])
                 session.reply(nil, "session_cancelled:recording_timeout")
+            }
+        }
+
+        sessions.onStartingTimeout = { [weak self] session in
+            guard let self else { return }
+            Task {
+                await self.recorder.cancel()
+                session.state = .cancelled
+                self.log.warning("Auto-cancelled live session \(session.sessionId) for client \(session.clientId) — exceeded \(Int(LiveSessionCoordinator.maxStartingSeconds))s startup limit")
+                session.progress("session.state", [
+                    "sessionId": session.sessionId,
+                    "state": SessionState.cancelled.rawValue,
+                    "previous": SessionState.starting.rawValue,
+                    "reason": "starting_timeout"
+                ])
+                session.reply(nil, "session_cancelled:starting_timeout")
             }
         }
 
@@ -563,6 +873,8 @@ public final class VoxRuntimeService: @unchecked Sendable {
             let speed = params?["speed"] as? Double
             let instructions = params?["instructions"] as? String
             let providerCredentials = self.providerCredentials(from: params)
+            let speechTimingRequest = self.parseSpeechTimingRequest(params: params, text: text)
+            let connectionID = (params?["_connectionID"] as? String) ?? "unknown"
             let request = SynthesisRequest(
                 text: text,
                 modelId: modelId,
@@ -573,9 +885,21 @@ public final class VoxRuntimeService: @unchecked Sendable {
                 providerCredentials: providerCredentials
             )
 
-            Task {
+            let taskID = UUID().uuidString
+            let task = Task { [weak self] in
+                guard let self else { return }
+                defer {
+                    self.finishInFlightSynthesisGenerate(connectionID: connectionID, taskID: taskID)
+                }
+                let routeStartedAt = Date()
+                self.log.info("synthesize.generate started requestId=\(request.requestId) connectionId=\(connectionID) clientId=\(clientId) modelId=\(modelId) voiceId=\(voiceId ?? "default") textLength=\(text.count)")
                 do {
-                    let output = try await self.performSynthesizeGenerate(request: request)
+                    let output = try await self.performSynthesizeGenerate(
+                        request: request,
+                        speechTimingRequest: speechTimingRequest
+                    )
+                    try Task.checkCancellation()
+                    let routeElapsedMs = Int(Date().timeIntervalSince(routeStartedAt) * 1000)
                     await self.performance.record(PerformanceSample(
                         clientId: clientId,
                         route: "synthesize.generate",
@@ -585,8 +909,22 @@ public final class VoxRuntimeService: @unchecked Sendable {
                         textLength: text.count,
                         metrics: output.metrics.performanceMetrics
                     ))
+                    self.log.info("synthesize.generate completed requestId=\(request.requestId) connectionId=\(connectionID) clientId=\(clientId) modelId=\(output.modelId) voiceId=\(output.voiceId) routeElapsedMs=\(routeElapsedMs) providerElapsedMs=\(output.elapsedMs) audioBytes=\(output.audioData.count)")
                     reply(output.dictionaryValue(), nil)
+                } catch is CancellationError {
+                    let routeElapsedMs = Int(Date().timeIntervalSince(routeStartedAt) * 1000)
+                    await self.performance.record(PerformanceSample(
+                        clientId: clientId,
+                        route: "synthesize.generate",
+                        modelId: modelId,
+                        voiceId: voiceId,
+                        outcome: "cancelled",
+                        textLength: text.count,
+                        error: "request_cancelled:connection_closed"
+                    ))
+                    self.log.warning("synthesize.generate cancelled requestId=\(request.requestId) connectionId=\(connectionID) clientId=\(clientId) modelId=\(modelId) voiceId=\(voiceId ?? "default") routeElapsedMs=\(routeElapsedMs)")
                 } catch {
+                    let routeElapsedMs = Int(Date().timeIntervalSince(routeStartedAt) * 1000)
                     await self.performance.record(PerformanceSample(
                         clientId: clientId,
                         route: "synthesize.generate",
@@ -596,9 +934,11 @@ public final class VoxRuntimeService: @unchecked Sendable {
                         textLength: text.count,
                         error: error.localizedDescription
                     ))
+                    self.log.error("synthesize.generate failed requestId=\(request.requestId) connectionId=\(connectionID) clientId=\(clientId) modelId=\(modelId) voiceId=\(voiceId ?? "default") routeElapsedMs=\(routeElapsedMs) error=\(error.localizedDescription)")
                     reply(nil, error.localizedDescription)
                 }
             }
+            self.registerInFlightSynthesisGenerate(task, connectionID: connectionID, taskID: taskID)
         }
 
         bridge.handle("transcribe.sessionStatus") { [weak self] _, reply in
@@ -626,6 +966,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
             let connectionID = (params?["_connectionID"] as? String) ?? UUID().uuidString
 
             Task {
+                var startingSession: LiveSessionCoordinator.Session?
                 do {
                     let session = try self.sessions.begin(
                         connectionID: connectionID,
@@ -634,13 +975,19 @@ public final class VoxRuntimeService: @unchecked Sendable {
                         progress: progress,
                         reply: reply
                     )
+                    startingSession = session
                     self.log.info("Starting live session \(session.sessionId) for client \(clientId) model \(modelId)")
+                    self.sessions.startStartingTimer()
                     session.progress("session.state", [
                         "sessionId": session.sessionId,
                         "state": SessionState.starting.rawValue,
                         "previous": NSNull()
                     ])
                     _ = try await self.recorder.start()
+                    guard self.sessions.current(id: session.sessionId) != nil else {
+                        await self.recorder.cancel()
+                        return
+                    }
                     session.state = .recording
                     self.sessions.startRecordingTimer()
                     session.progress("session.state", [
@@ -650,7 +997,18 @@ public final class VoxRuntimeService: @unchecked Sendable {
                     ])
                     _ = await self.warmup.start(modelId: modelId, requestedBy: clientId)
                 } catch {
-                    if let active = self.sessions.status() {
+                    if let session = startingSession {
+                        _ = self.sessions.finish(id: session.sessionId)
+                        await self.recorder.cancel()
+                        let previousState = session.state
+                        session.state = .error
+                        session.progress("session.state", [
+                            "sessionId": session.sessionId,
+                            "state": SessionState.error.rawValue,
+                            "previous": previousState.rawValue
+                        ])
+                        self.log.error("Failed to start live session \(session.sessionId) for client \(clientId): \(error.localizedDescription)")
+                    } else if let active = self.sessions.status() {
                         self.log.warning("Failed to start live session for client \(clientId): \(error.localizedDescription) active=\(active.sessionId) state=\(active.state.rawValue) owner=\(active.clientId)")
                     } else {
                         self.log.error("Failed to start live session for client \(clientId): \(error.localizedDescription)")
@@ -895,13 +1253,14 @@ public final class VoxRuntimeService: @unchecked Sendable {
                     return
                 }
 
+                let previousState = session.state
                 await self.recorder.cancel()
                 session.state = .cancelled
                 self.log.warning("Cancelled live session \(session.sessionId) for client \(session.clientId)")
                 session.progress("session.state", [
                     "sessionId": session.sessionId,
                     "state": SessionState.cancelled.rawValue,
-                    "previous": SessionState.recording.rawValue
+                    "previous": previousState.rawValue
                 ])
                 session.reply([
                     "cancelled": true,
@@ -980,7 +1339,42 @@ public final class VoxRuntimeService: @unchecked Sendable {
         }
     }
 
+    private func registerInFlightSynthesisGenerate(
+        _ task: Task<Void, Never>,
+        connectionID: String,
+        taskID: String
+    ) {
+        inFlightSynthesisLock.lock()
+        var tasks = inFlightSynthesisGenerates[connectionID] ?? [:]
+        tasks[taskID] = task
+        inFlightSynthesisGenerates[connectionID] = tasks
+        inFlightSynthesisLock.unlock()
+    }
+
+    private func finishInFlightSynthesisGenerate(connectionID: String, taskID: String) {
+        inFlightSynthesisLock.lock()
+        if var tasks = inFlightSynthesisGenerates[connectionID] {
+            tasks.removeValue(forKey: taskID)
+            inFlightSynthesisGenerates[connectionID] = tasks.isEmpty ? nil : tasks
+        }
+        inFlightSynthesisLock.unlock()
+    }
+
+    private func cancelInFlightSynthesisGenerates(connectionID: String) {
+        inFlightSynthesisLock.lock()
+        let tasks = inFlightSynthesisGenerates.removeValue(forKey: connectionID) ?? [:]
+        inFlightSynthesisLock.unlock()
+
+        guard !tasks.isEmpty else { return }
+        log.warning("Connection \(connectionID) closed, cancelling \(tasks.count) in-flight synthesize.generate request(s)")
+        for task in tasks.values {
+            task.cancel()
+        }
+    }
+
     private func handleDisconnect(connectionID: String) async {
+        cancelInFlightSynthesisGenerates(connectionID: connectionID)
+
         if let session = sessions.finish(connectionID: connectionID) {
             await recorder.cancel()
             log.warning("Connection \(connectionID) closed, cancelled live session \(session.sessionId) for client \(session.clientId)")

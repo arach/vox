@@ -17,12 +17,17 @@ public actor DaemonProxy {
     public init() {}
 
     public func connect() async throws {
+        if connected, webSocket != nil {
+            return
+        }
+
         let runtime = try RuntimeRegistry.read()
         guard let runtime else {
             throw BridgeError.daemonNotRunning
         }
         let host = VoxDefaults.resolvedHost()
         let url = URL(string: "ws://\(host):\(runtime.port)")!
+        webSocket?.cancel(with: .goingAway, reason: nil)
         let task = session.webSocketTask(with: url)
         webSocket = task
         connected = true
@@ -86,6 +91,9 @@ public actor DaemonProxy {
         ws.receive { [weak self] result in
             guard let self else { return }
             Task {
+                guard await self.isCurrentSocket(ws) else {
+                    return
+                }
                 switch result {
                 case .success(let message):
                     await self.handleMessage(message)
@@ -95,6 +103,10 @@ public actor DaemonProxy {
                 }
             }
         }
+    }
+
+    private func isCurrentSocket(_ ws: URLSessionWebSocketTask) -> Bool {
+        webSocket === ws
     }
 
     private func handleMessage(_ message: URLSessionWebSocketTask.Message) async {

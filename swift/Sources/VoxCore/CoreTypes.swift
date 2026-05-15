@@ -355,6 +355,124 @@ public struct TranscriptionOutput: Sendable, Equatable {
     }
 }
 
+public struct SpeechTimingCueRequest: Sendable, Equatable {
+    public let id: String
+    public let text: String?
+    public let textStart: Int?
+    public let textEnd: Int?
+
+    public init(id: String, text: String? = nil, textStart: Int? = nil, textEnd: Int? = nil) {
+        self.id = id
+        self.text = text
+        self.textStart = textStart
+        self.textEnd = textEnd
+    }
+}
+
+public struct SpeechTimingRequest: Sendable, Equatable {
+    public let modelId: String
+    public let cues: [SpeechTimingCueRequest]
+
+    public init(modelId: String, cues: [SpeechTimingCueRequest] = []) {
+        self.modelId = modelId
+        self.cues = cues
+    }
+}
+
+public struct SpeechTimingWord: Sendable, Equatable {
+    public let word: String
+    public let startMs: Int
+    public let endMs: Int
+    public let confidence: Float
+    public let sourceTextStart: Int?
+    public let sourceTextEnd: Int?
+
+    public init(
+        word: String,
+        startMs: Int,
+        endMs: Int,
+        confidence: Float,
+        sourceTextStart: Int? = nil,
+        sourceTextEnd: Int? = nil
+    ) {
+        self.word = word
+        self.startMs = startMs
+        self.endMs = endMs
+        self.confidence = confidence
+        self.sourceTextStart = sourceTextStart
+        self.sourceTextEnd = sourceTextEnd
+    }
+
+    public func dictionaryValue() -> [String: Any] {
+        [
+            "word": word,
+            "startMs": startMs,
+            "endMs": endMs,
+            "confidence": confidence,
+            "sourceTextStart": sourceTextStart ?? NSNull(),
+            "sourceTextEnd": sourceTextEnd ?? NSNull()
+        ]
+    }
+}
+
+public struct SpeechTimingCue: Sendable, Equatable {
+    public let id: String
+    public let startMs: Int
+    public let endMs: Int
+    public let confidence: Float
+    public let source: String
+
+    public init(id: String, startMs: Int, endMs: Int, confidence: Float, source: String) {
+        self.id = id
+        self.startMs = startMs
+        self.endMs = endMs
+        self.confidence = confidence
+        self.source = source
+    }
+
+    public func dictionaryValue() -> [String: Any] {
+        [
+            "id": id,
+            "startMs": startMs,
+            "endMs": endMs,
+            "confidence": confidence,
+            "source": source
+        ]
+    }
+}
+
+public struct SpeechTiming: Sendable, Equatable {
+    public let source: String
+    public let modelId: String
+    public let elapsedMs: Int
+    public let words: [SpeechTimingWord]
+    public let cues: [SpeechTimingCue]
+
+    public init(
+        source: String,
+        modelId: String,
+        elapsedMs: Int,
+        words: [SpeechTimingWord],
+        cues: [SpeechTimingCue]
+    ) {
+        self.source = source
+        self.modelId = modelId
+        self.elapsedMs = elapsedMs
+        self.words = words
+        self.cues = cues
+    }
+
+    public func dictionaryValue() -> [String: Any] {
+        [
+            "source": source,
+            "modelId": modelId,
+            "elapsedMs": elapsedMs,
+            "words": words.map { $0.dictionaryValue() },
+            "cues": cues.map { $0.dictionaryValue() }
+        ]
+    }
+}
+
 public struct AnnotationOutput: Sendable, Equatable {
     public let modelId: String
     public let text: String?
@@ -399,6 +517,7 @@ public struct SynthesisOutput: Sendable, Equatable {
     public let audioData: Data
     public let elapsedMs: Int
     public let metrics: SynthesisMetrics
+    public let speechTiming: SpeechTiming?
 
     public init(
         modelId: String,
@@ -409,6 +528,28 @@ public struct SynthesisOutput: Sendable, Equatable {
         elapsedMs: Int,
         metrics: SynthesisMetrics
     ) {
+        self.init(
+            modelId: modelId,
+            voiceId: voiceId,
+            format: format,
+            contentType: contentType,
+            audioData: audioData,
+            elapsedMs: elapsedMs,
+            metrics: metrics,
+            speechTiming: nil
+        )
+    }
+
+    public init(
+        modelId: String,
+        voiceId: String,
+        format: String,
+        contentType: String,
+        audioData: Data,
+        elapsedMs: Int,
+        metrics: SynthesisMetrics,
+        speechTiming: SpeechTiming?
+    ) {
         self.modelId = modelId
         self.voiceId = voiceId
         self.format = format
@@ -416,10 +557,11 @@ public struct SynthesisOutput: Sendable, Equatable {
         self.audioData = audioData
         self.elapsedMs = elapsedMs
         self.metrics = metrics
+        self.speechTiming = speechTiming
     }
 
     public func dictionaryValue() -> [String: Any] {
-        [
+        var payload: [String: Any] = [
             "modelId": modelId,
             "voiceId": voiceId,
             "format": format,
@@ -429,6 +571,10 @@ public struct SynthesisOutput: Sendable, Equatable {
             "elapsedMs": elapsedMs,
             "metrics": metrics.dictionaryValue()
         ]
+        if let speechTiming {
+            payload["speechTiming"] = speechTiming.dictionaryValue()
+        }
+        return payload
     }
 }
 
