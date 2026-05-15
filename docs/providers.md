@@ -49,7 +49,8 @@ Providers are registered in `~/.vox/providers.json`:
       "builtin": true,
       "models": ["gpt-4o-mini-tts"],
       "env": {
-        "OPENAI_API_KEY": "sk-..."
+        "OPENAI_API_KEY": "sk-...",
+        "VOX_OPENAI_TTS_TIMEOUT_SECONDS": "12"
       }
     },
     {
@@ -108,6 +109,17 @@ Notes:
 - `models` is optional for external providers now. Vox can call `models()` and route dynamically from the returned list.
 - Built-in remote TTS providers read their API keys from `env` first, then from process environment. `ELEVENLABS_BASE_URL`, `ELEVENLABS_OUTPUT_FORMAT`, and `MINIMAX_BASE_URL` can override vendor defaults.
 - If `providers.json` contains only ASR entries, Vox falls back to default TTS providers. The inverse is also true.
+
+### OpenAI TTS timeout
+
+`openai-tts` uses a hard wall-clock request timeout so stalled remote TTS calls do not block the caller for minutes.
+
+- default: `12` seconds
+- env override: `VOX_OPENAI_TTS_TIMEOUT_SECONDS`
+- compatibility alias: `OPENAI_TTS_TIMEOUT_SECONDS`
+- maximum accepted value: `30` seconds
+
+The timeout can be set in the provider `env` block or the daemon process environment.
 
 ## Protocol Methods
 
@@ -350,7 +362,22 @@ Providers only deal with models plus transcription or synthesis. The runtime han
 - Warm-up scheduling and state
 - Client identity routing (`clientId`)
 - Performance telemetry collection
-- Multi-client serialization -- providers see one request at a time
+- Provider execution capacity and backpressure -- requests are not globally serialized by default
+
+## Provider execution model
+
+Provider calls are asynchronous work items. Vox must not treat correctness as "only one provider request can exist at a time."
+
+TTS providers, especially remote API-backed providers, should support concurrent `synthesize` calls. A client may submit many independent utterances and await their results independently. Playback ordering is a caller concern, not a provider-execution constraint.
+
+ASR has more physical-resource constraints because microphone capture may involve one input device, permissions, and ownership. That constraint belongs to capture/session coordination, not to the provider protocol itself. File transcription and provider inference can still be concurrent when the selected backend has capacity.
+
+Capacity should be explicit:
+
+- providers may advertise or be configured with max concurrency
+- Vox may apply per-provider or per-model backpressure when capacity is exhausted
+- backpressure should return a typed busy/capacity error or queue metadata, not silently impose a global mutex
+- telemetry should distinguish provider execution time from queue/wait time when queueing exists
 
 ## Writing a provider
 

@@ -351,7 +351,7 @@ Providers only deal with models plus transcription or synthesis. The runtime han
 - Warm-up scheduling and state
 - Client identity routing (`clientId`)
 - Performance telemetry collection
-- Multi-client serialization -- providers see one request at a time
+- Provider execution capacity and backpressure -- requests are not globally serialized by default
 
 ## Writing a provider
 
