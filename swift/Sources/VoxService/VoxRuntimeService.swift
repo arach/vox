@@ -1235,6 +1235,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
                             error: error.localizedDescription
                         ))
                     }
+                    await self.recorder.cancel()
                     self.log.error("Failed to stop live session \(requestedID ?? "current"): \(error.localizedDescription)")
                     if let session = self.sessions.finish(id: requestedID) {
                         session.reply(nil, error.localizedDescription)

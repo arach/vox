@@ -95,9 +95,12 @@ actor MicrophoneRecorder {
             log.info("Recording stopped: \(currentURL.lastPathComponent)")
             return finishedURL
         } catch {
-            if isRecoverableStopError(error, outputURL: currentURL) {
-                log.warning("Recording stop reported \(error.localizedDescription); using completed file \(currentURL.lastPathComponent)")
-                return currentURL
+            if Self.isRecoverableStopError(error) {
+                if await waitForOutputFile(at: currentURL) {
+                    log.warning("Recording stop reported \(error.localizedDescription); using completed file \(currentURL.lastPathComponent)")
+                    return currentURL
+                }
+                log.warning("Recording stop reported \(error.localizedDescription), but no output file was finalized for \(currentURL.lastPathComponent)")
             }
             log.error("Recording stop failed for \(currentURL.lastPathComponent): \(error.localizedDescription)")
             throw error
@@ -165,14 +168,22 @@ actor MicrophoneRecorder {
         }
     }
 
-    private func isRecoverableStopError(_ error: Error, outputURL: URL) -> Bool {
-        guard FileManager.default.fileExists(atPath: outputURL.path) else {
-            return false
-        }
-
+    static func isRecoverableStopError(_ error: Error) -> Bool {
         let nsError = error as NSError
         return nsError.domain == AVFoundationErrorDomain
             || error.localizedDescription == "Recording Stopped"
+    }
+
+    private func waitForOutputFile(at url: URL, attempts: Int = 5) async -> Bool {
+        for attempt in 0..<attempts {
+            if FileManager.default.fileExists(atPath: url.path) {
+                return true
+            }
+            if attempt < attempts - 1 {
+                try? await Task.sleep(for: .milliseconds(20))
+            }
+        }
+        return false
     }
 }
 
