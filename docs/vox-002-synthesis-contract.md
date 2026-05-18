@@ -165,10 +165,24 @@ Rules:
 - `format` is fixed to `wav` in Phase 1.
 - `voiceId` is optional; the provider may choose its default voice.
 - `synthesize.generate` does not implicitly call `warmup.start`.
+- `synthesize.generate` requests are independent asynchronous work items and must not be globally serialized by Vox.
+
+### Synthesis concurrency
+
+TTS is not microphone capture. The default synthesis contract allows concurrent `synthesize.generate` calls.
+
+Rules:
+
+- callers may submit multiple independent utterances and await them independently
+- Vox should preserve request identity, client identity, model, voice, and trace data for each request
+- playback ordering is the caller's responsibility
+- provider capacity should be explicit through configuration or capability metadata
+- if Vox applies backpressure, it must expose that as queue/capacity state or a typed busy response
+- Vox must not hide TTS concurrency behind a process-wide mutex or semaphore
 
 ### Streaming session routes
 
-Phase 1 keeps one streaming synthesis session at a time, matching the current live-transcription concurrency policy.
+Phase 1 keeps the current streaming synthesis route for compatibility, but this is not the general TTS concurrency contract.
 
 `synthesize.startSession` opens a streaming response and emits:
 
@@ -270,11 +284,12 @@ Phase 1 note:
 
 ## Busy Semantics
 
-Phase 1 synthesis streaming is single-session:
+Phase 1 synthesis streaming may be capacity-limited:
 
-- only one `synthesize.startSession` may be active at a time
-- a second start request fails with `synthesis_session_busy`
+- a deployment may limit simultaneous `synthesize.startSession` streams while the route remains experimental
+- a rejected start request should fail with `synthesis_capacity_exhausted` or a more specific typed busy error
 - unary `synthesize.generate` remains available independently of streaming session status
+- unary `synthesize.generate` should not be blocked by an active streaming session except when an explicitly declared provider capacity limit is exhausted
 
 ## Cancel Semantics
 

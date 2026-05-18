@@ -43,6 +43,10 @@ final class DaemonMonitor: ObservableObject {
             liveSession?.state == .recording
         }
 
+        var hasLiveSession: Bool {
+            liveSession != nil
+        }
+
         var isSpeaking: Bool {
             switch synthesisSession?.state {
             case .starting, .recording, .processing:
@@ -80,6 +84,7 @@ final class DaemonMonitor: ObservableObject {
     var modelInstalled: Bool? { state.modelInstalled }
     var modelPreloaded: Bool? { state.modelPreloaded }
     var isRecording: Bool { state.isRecording }
+    var hasLiveSession: Bool { state.hasLiveSession }
     var isSpeaking: Bool { state.isSpeaking }
     var liveSession: LiveSessionState? { state.liveSession }
     var synthesisSession: SynthesisSessionState? { state.synthesisSession }
@@ -153,6 +158,10 @@ final class DaemonMonitor: ObservableObject {
         }
     }
 
+    func refreshSessionsNow() async {
+        await refreshLiveSession()
+    }
+
     /// Cancels the active live transcription session via the daemon and refreshes state.
     /// Returns nil on success, or an error message on failure.
     @discardableResult
@@ -179,22 +188,7 @@ final class DaemonMonitor: ObservableObject {
     /// Returns nil on success, or an error message on failure.
     @discardableResult
     func cancelSynthesis() async -> String? {
-        guard let sessionId = state.synthesisSession?.sessionId else {
-            return nil
-        }
-
-        do {
-            if !(await proxy.isConnected) {
-                try await proxy.connect()
-            }
-            _ = try await proxy.call("synthesize.cancel", params: ["sessionId": sessionId])
-            log.info("Cancelled synthesis session \(sessionId) from UI")
-            await refreshLiveSession()
-            return nil
-        } catch {
-            log.warning("Failed to cancel synthesis session \(sessionId): \(error.localizedDescription)")
-            return error.localizedDescription
-        }
+        nil
     }
 
     private func markStopped() {
@@ -303,9 +297,7 @@ final class DaemonMonitor: ObservableObject {
 
             let liveResult = try await proxy.call("transcribe.sessionStatus")
             updateLiveSession(parseLiveSession(liveResult["session"]))
-
-            let synthResult = try await proxy.call("synthesize.sessionStatus")
-            updateSynthesisSession(parseSynthesisSession(synthResult["session"]))
+            updateSynthesisSession(nil)
         } catch {
             await proxy.disconnect()
             updateLiveSession(nil)

@@ -54,9 +54,23 @@ public actor TTSProviderRegistry: TTSProvider {
 
     public func models() async -> [TTSModelInfo] {
         await withTaskGroup(of: [TTSModelInfo].self) { group in
-            for (_, provider) in providers {
+            for (entry, provider) in providers {
                 group.addTask {
-                    await provider.models()
+                    if let models = entry.models,
+                       provider is ExternalTTSProvider {
+                        return models.map { modelId in
+                            TTSModelInfo(
+                                id: modelId,
+                                name: Self.displayName(for: modelId),
+                                backend: entry.id,
+                                installed: true,
+                                preloaded: false,
+                                available: true
+                            )
+                        }
+                    }
+
+                    return await provider.models()
                 }
             }
 
@@ -140,6 +154,10 @@ public actor TTSProviderRegistry: TTSProvider {
         }
 
         throw TTSProviderRegistryError.unknownModel(modelId)
+    }
+
+    private nonisolated static func displayName(for modelId: String) -> String {
+        modelId.split(separator: "/").last.map(String.init) ?? modelId
     }
 }
 

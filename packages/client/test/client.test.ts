@@ -201,15 +201,48 @@ describe("VoxClient", () => {
             synthesisMs: 12,
             totalMs: 18,
           },
+          speechTiming: {
+            source: "asr",
+            modelId: "parakeet:v3",
+            elapsedMs: 120,
+            words: [
+              {
+                word: "hello",
+                startMs: 0,
+                endMs: 180,
+                confidence: 0.98,
+                sourceTextStart: 0,
+                sourceTextEnd: 5,
+              },
+            ],
+            cues: [
+              {
+                id: "intro",
+                startMs: 0,
+                endMs: 500,
+                confidence: 0.9,
+                source: "asr",
+              },
+            ],
+          },
         };
       },
     };
 
-    const result = await client.synthesize("hello world");
+    const result = await client.synthesize("hello world", {
+      speechTiming: {
+        enabled: true,
+        modelId: "parakeet:v3",
+        cues: [{ id: "intro", textStart: 0, textEnd: 11 }],
+      },
+    });
 
     expect(result.audioBytes).toBe(4);
     expect(result.voiceId).toBe("com.apple.speech.synthesis.voice.Alex");
     expect([...result.audio]).toEqual([0x52, 0x49, 0x46, 0x46]);
+    expect(result.speechTiming?.source).toBe("asr");
+    expect(result.speechTiming?.words[0]?.sourceTextEnd).toBe(5);
+    expect(result.speechTiming?.cues[0]?.id).toBe("intro");
     expect(calls).toEqual([
       {
         method: "synthesize.generate",
@@ -219,6 +252,11 @@ describe("VoxClient", () => {
           format: "wav",
           speed: undefined,
           instructions: undefined,
+          speechTiming: {
+            enabled: true,
+            modelId: "parakeet:v3",
+            cues: [{ id: "intro", textStart: 0, textEnd: 11 }],
+          },
         },
         timeoutMs: STREAM_TIMEOUT_MS,
       },

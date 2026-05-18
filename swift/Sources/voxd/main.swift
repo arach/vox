@@ -113,7 +113,7 @@ func loadEngines() -> (EngineManager, TTSEngineManager, String) {
             ? config
             : defaultASRConfig()
         let ttsConfig = config.providers.contains(where: { $0.resolvedKind == .tts })
-            ? config
+            ? config.mergingMissingTTSDefaults()
             : defaultTTSConfig()
 
         return (
@@ -164,3 +164,23 @@ for signalNumber in signals {
 }
 
 RunLoop.main.run()
+
+private extension ProvidersConfig {
+    func mergingMissingTTSDefaults() -> ProvidersConfig {
+        let existingProviderIds = Set(
+            providers
+                .filter { $0.resolvedKind == .tts }
+                .map { $0.id.lowercased() }
+        )
+        let additionalProviders = TTSDefaultProviderConfig.inProcess().providers.filter { entry in
+            entry.resolvedKind == .tts && !existingProviderIds.contains(entry.id.lowercased())
+        }
+
+        guard !additionalProviders.isEmpty else {
+            return self
+        }
+
+        log.info("Adding \(additionalProviders.count) default TTS provider(s) alongside providers.json")
+        return ProvidersConfig(providers: providers + additionalProviders)
+    }
+}

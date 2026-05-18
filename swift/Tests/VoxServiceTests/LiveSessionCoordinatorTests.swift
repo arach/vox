@@ -26,6 +26,34 @@ struct LiveSessionCoordinatorTests {
         }
     }
 
+    @Test("Busy error gives same caller a cancel-and-retry path")
+    func busyErrorExplainsSameCallerRecovery() throws {
+        let coordinator = LiveSessionCoordinator()
+
+        _ = try coordinator.begin(
+            connectionID: "a",
+            clientId: "client-a",
+            modelId: "parakeet:v3",
+            progress: { _, _ in },
+            reply: { _, _ in }
+        )
+
+        do {
+            _ = try coordinator.begin(
+                connectionID: "b",
+                clientId: "client-a",
+                modelId: "parakeet:v3",
+                progress: { _, _ in },
+                reply: { _, _ in }
+            )
+            Issue.record("Expected busy error")
+        } catch {
+            #expect(error.localizedDescription.contains("live_session_busy"))
+            #expect(error.localizedDescription.contains("client client-a already owns session"))
+            #expect(error.localizedDescription.contains("cancel the active session and retry"))
+        }
+    }
+
     @Test("Active session can be finished by connection")
     func finishByConnectionRemovesSession() throws {
         let coordinator = LiveSessionCoordinator()
@@ -59,5 +87,46 @@ struct LiveSessionCoordinatorTests {
         #expect(status?.modelId == "parakeet:v3")
         #expect(status?.state == .starting)
         #expect(status?.connectionID == "a")
+    }
+
+    @Test("Starting timeout releases a session stuck before recording")
+    func startingTimeoutReleasesSession() async throws {
+        let coordinator = LiveSessionCoordinator()
+        let probe = TimeoutProbe()
+
+        coordinator.onStartingTimeout = { session in
+            probe.record(session.sessionId)
+        }
+
+        let session = try coordinator.begin(
+            connectionID: "a",
+            clientId: "client-a",
+            modelId: "parakeet:v3",
+            progress: { _, _ in },
+            reply: { _, _ in }
+        )
+
+        coordinator.startStartingTimer(timeout: 0.01)
+        try await Task.sleep(for: .milliseconds(60))
+
+        #expect(coordinator.current(id: nil) == nil)
+        #expect(probe.value() == session.sessionId)
+    }
+}
+
+private final class TimeoutProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var sessionId: String?
+
+    func record(_ sessionId: String) {
+        lock.lock()
+        self.sessionId = sessionId
+        lock.unlock()
+    }
+
+    func value() -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return sessionId
     }
 }

@@ -1,7 +1,7 @@
 import Foundation
 
 public enum VoxVersion {
-    public static let current = "0.3.1"
+    public static let current = "0.3.2.dev"
 }
 
 public struct VoxPortDefinition: Sendable, Equatable {
@@ -129,6 +129,14 @@ public enum RuntimePaths {
 
     public static func preferencesFileURL() -> URL {
         voxHomeURL().appendingPathComponent("preferences.json")
+    }
+
+    public static func credentialsFileURL() -> URL {
+        voxHomeURL().appendingPathComponent("credentials.json")
+    }
+
+    public static func credentialsKeyURL() -> URL {
+        voxHomeURL().appendingPathComponent("credentials.key")
     }
 
     public static func bridgeOriginsFileURL() -> URL {

@@ -57,21 +57,27 @@ final class LiveSessionCoordinator: @unchecked Sendable {
     }
 
     enum CoordinatorError: LocalizedError {
-        case busy
+        case busy(active: SessionStatus, requesterClientId: String)
 
         var errorDescription: String? {
             switch self {
-            case .busy:
-                return "live_session_busy"
+            case .busy(let active, let requesterClientId):
+                if active.clientId == requesterClientId {
+                    return "live_session_busy: client \(requesterClientId) already owns session \(active.sessionId) in \(active.state.rawValue); cancel the active session and retry"
+                }
+                return "live_session_busy: session \(active.sessionId) is \(active.state.rawValue) for client \(active.clientId); cancel the active session or wait for it to finish"
             }
         }
     }
 
     /// Max recording duration before auto-cancel. Prevents mic from being left on indefinitely.
     static let maxRecordingSeconds: TimeInterval = 120
+    /// Max startup duration before auto-cancel. Prevents a failed capture start from holding ownership forever.
+    static let maxStartingSeconds: TimeInterval = 10
 
     private let lock = NSLock()
     private var activeSession: Session?
+    private var startingTimer: DispatchSourceTimer?
     private var recordingTimer: DispatchSourceTimer?
 
     func begin(
@@ -84,8 +90,18 @@ final class LiveSessionCoordinator: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
 
-        guard activeSession == nil else {
-            throw CoordinatorError.busy
+        if let activeSession {
+            throw CoordinatorError.busy(
+                active: SessionStatus(
+                    sessionId: activeSession.sessionId,
+                    connectionID: activeSession.connectionID,
+                    clientId: activeSession.clientId,
+                    modelId: activeSession.modelId,
+                    startedAt: activeSession.startedAt,
+                    state: activeSession.state
+                ),
+                requesterClientId: clientId
+            )
         }
 
         let session = Session(
@@ -136,7 +152,7 @@ final class LiveSessionCoordinator: @unchecked Sendable {
         }
 
         self.activeSession = nil
-        cancelRecordingTimer()
+        cancelTimers()
         return activeSession
     }
 
@@ -149,19 +165,44 @@ final class LiveSessionCoordinator: @unchecked Sendable {
         }
 
         self.activeSession = nil
-        cancelRecordingTimer()
+        cancelTimers()
         return activeSession
     }
 
-    // MARK: - Recording timeout
+    // MARK: - Session timeouts
 
+    /// Called if a session remains in .starting longer than maxStartingSeconds.
+    var onStartingTimeout: ((Session) -> Void)?
     /// Called after session transitions to .recording. Fires onTimeout if recording exceeds max duration.
     var onRecordingTimeout: ((Session) -> Void)?
 
-    func startRecordingTimer() {
+    func startStartingTimer(timeout: TimeInterval = LiveSessionCoordinator.maxStartingSeconds) {
+        cancelStartingTimer()
+        let timer = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+        timer.schedule(deadline: .now() + timeout)
+        timer.setEventHandler { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            let session = self.activeSession
+            let didTimeout = session?.state == .starting
+            if didTimeout {
+                self.activeSession = nil
+            }
+            self.lock.unlock()
+            self.cancelStartingTimer()
+            if didTimeout, let session {
+                self.onStartingTimeout?(session)
+            }
+        }
+        timer.resume()
+        startingTimer = timer
+    }
+
+    func startRecordingTimer(timeout: TimeInterval = LiveSessionCoordinator.maxRecordingSeconds) {
+        cancelStartingTimer()
         cancelRecordingTimer()
         let timer = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
-        timer.schedule(deadline: .now() + Self.maxRecordingSeconds)
+        timer.schedule(deadline: .now() + timeout)
         timer.setEventHandler { [weak self] in
             guard let self else { return }
             self.lock.lock()
@@ -175,6 +216,16 @@ final class LiveSessionCoordinator: @unchecked Sendable {
         }
         timer.resume()
         recordingTimer = timer
+    }
+
+    private func cancelTimers() {
+        cancelStartingTimer()
+        cancelRecordingTimer()
+    }
+
+    private func cancelStartingTimer() {
+        startingTimer?.cancel()
+        startingTimer = nil
     }
 
     private func cancelRecordingTimer() {

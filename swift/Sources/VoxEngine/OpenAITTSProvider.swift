@@ -5,6 +5,8 @@ import VoxCore
 public actor OpenAITTSProvider: TTSProvider {
     public static let providerID = "openai-tts"
     public static let supportedModelIDs = ["gpt-4o-mini-tts", "tts-1", "tts-1-hd"]
+    static let defaultRequestTimeout: TimeInterval = 12
+    static let maximumRequestTimeout: TimeInterval = 30
     public static let supportedVoices = [
         "alloy",
         "ash",
@@ -25,6 +27,7 @@ public actor OpenAITTSProvider: TTSProvider {
     private let session: URLSession
     private let apiKey: String?
     private let baseURL: URL
+    private let requestTimeout: TimeInterval
     private var preloadedModels: Set<String> = []
 
     public init(env: [String: String]? = nil, session: URLSession = .shared) {
@@ -35,6 +38,7 @@ public actor OpenAITTSProvider: TTSProvider {
             ?? ProcessInfo.processInfo.environment["OPENAI_BASE_URL"]
             ?? "https://api.openai.com/v1"
         self.baseURL = URL(string: rawBaseURL) ?? URL(string: "https://api.openai.com/v1")!
+        self.requestTimeout = Self.resolveRequestTimeout(env: env)
     }
 
     public func models() async -> [TTSModelInfo] {
@@ -74,7 +78,7 @@ public actor OpenAITTSProvider: TTSProvider {
         progress: @escaping @Sendable (ModelProgress) -> Void
     ) async throws -> TTSModelInfo {
         try validate(modelId: modelId)
-        _ = try resolveAPIKey()
+        _ = try resolveAPIKey(providerCredentials: [:])
         if let voiceId {
             _ = try resolveVoice(voiceId: voiceId)
         }
@@ -103,7 +107,7 @@ public actor OpenAITTSProvider: TTSProvider {
         let trace = TranscriptionTrace()
 
         trace.begin("model_check")
-        let apiKey = try resolveAPIKey()
+        let apiKey = try resolveAPIKey(providerCredentials: request.providerCredentials)
         let wasPreloaded = preloadedModels.contains(request.modelId)
         trace.end(wasPreloaded ? "ready" : "cold")
 
@@ -119,6 +123,7 @@ public actor OpenAITTSProvider: TTSProvider {
 
         trace.begin("inference")
         var urlRequest = URLRequest(url: baseURL.appendingPathComponent("audio/speech"))
+        urlRequest.timeoutInterval = requestTimeout
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -139,15 +144,30 @@ public actor OpenAITTSProvider: TTSProvider {
 
         urlRequest.httpBody = try JSONSerialization.data(withJSONObject: payload, options: [])
 
-        let (data, response) = try await session.data(for: urlRequest)
+        log.info("OpenAI synthesis request started requestId=\(request.requestId) modelId=\(request.modelId) voiceId=\(resolvedVoice) textLength=\(request.text.count) timeoutInterval=\(urlRequest.timeoutInterval)s")
+        let openAIStartedAt = Date()
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await performDataRequest(urlRequest, timeout: requestTimeout)
+        } catch {
+            let elapsedMs = Int(Date().timeIntervalSince(openAIStartedAt) * 1000)
+            log.error("OpenAI synthesis request failed requestId=\(request.requestId) modelId=\(request.modelId) voiceId=\(resolvedVoice) elapsedMs=\(elapsedMs) error=\(error.localizedDescription)")
+            throw error
+        }
+
         guard let httpResponse = response as? HTTPURLResponse else {
+            let elapsedMs = Int(Date().timeIntervalSince(openAIStartedAt) * 1000)
+            log.error("OpenAI synthesis request returned non-HTTP response requestId=\(request.requestId) elapsedMs=\(elapsedMs)")
             throw NSError(domain: "VoxEngine", code: 5102, userInfo: [
                 NSLocalizedDescriptionKey: "OpenAI TTS request returned a non-HTTP response."
             ])
         }
 
         guard (200..<300).contains(httpResponse.statusCode) else {
+            let elapsedMs = Int(Date().timeIntervalSince(openAIStartedAt) * 1000)
             let message = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
+            log.error("OpenAI synthesis request returned error requestId=\(request.requestId) status=\(httpResponse.statusCode) elapsedMs=\(elapsedMs) responseBytes=\(data.count)")
             throw NSError(domain: "VoxEngine", code: 5103, userInfo: [
                 NSLocalizedDescriptionKey: "OpenAI TTS request failed: \(message)"
             ])
@@ -181,17 +201,71 @@ public actor OpenAITTSProvider: TTSProvider {
     }
 
     private func apiKeyAvailability() -> Bool {
-        guard let apiKey else { return false }
+        guard let apiKey = apiKey ?? VoxCredentialStore().openAIAPIKey() else { return false }
         return !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private func resolveAPIKey() throws -> String {
-        guard let apiKey, !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+    private func resolveAPIKey(providerCredentials: [String: String]) throws -> String {
+        let lentKey = providerCredentials["OPENAI_API_KEY"]
+            ?? providerCredentials["openaiApiKey"]
+            ?? providerCredentials["openai_api_key"]
+        let resolvedKey = lentKey ?? apiKey ?? VoxCredentialStore().openAIAPIKey()
+        guard let resolvedKey, !resolvedKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw NSError(domain: "VoxEngine", code: 5104, userInfo: [
                 NSLocalizedDescriptionKey: "Missing OPENAI_API_KEY for OpenAI TTS provider."
             ])
         }
-        return apiKey
+        return resolvedKey.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func resolveRequestTimeout(
+        env: [String: String]?,
+        processEnv: [String: String] = ProcessInfo.processInfo.environment
+    ) -> TimeInterval {
+        let rawValue = env?["VOX_OPENAI_TTS_TIMEOUT_SECONDS"]
+            ?? env?["OPENAI_TTS_TIMEOUT_SECONDS"]
+            ?? processEnv["VOX_OPENAI_TTS_TIMEOUT_SECONDS"]
+            ?? processEnv["OPENAI_TTS_TIMEOUT_SECONDS"]
+        guard
+            let rawValue,
+            let parsed = TimeInterval(rawValue),
+            parsed > 0
+        else {
+            return defaultRequestTimeout
+        }
+        return min(parsed, maximumRequestTimeout)
+    }
+
+    private func performDataRequest(_ request: URLRequest, timeout: TimeInterval) async throws -> (Data, URLResponse) {
+        try await withThrowingTaskGroup(of: (Data, URLResponse).self) { group in
+            let session = self.session
+            group.addTask {
+                try await session.data(for: request)
+            }
+            group.addTask {
+                let nanoseconds = UInt64((timeout * 1_000_000_000).rounded(.up))
+                try await Task.sleep(nanoseconds: nanoseconds)
+                throw NSError(domain: "VoxEngine", code: 5108, userInfo: [
+                    NSLocalizedDescriptionKey: "OpenAI TTS request timed out after \(Self.formatTimeout(timeout))."
+                ])
+            }
+
+            guard let result = try await group.next() else {
+                group.cancelAll()
+                throw NSError(domain: "VoxEngine", code: 5109, userInfo: [
+                    NSLocalizedDescriptionKey: "OpenAI TTS request ended without a response."
+                ])
+            }
+            group.cancelAll()
+            return result
+        }
+    }
+
+    private static func formatTimeout(_ timeout: TimeInterval) -> String {
+        if timeout.rounded() == timeout {
+            return "\(Int(timeout)) seconds"
+        }
+        return "\(String(format: "%.2f", timeout)) seconds"
     }
 
     private func validate(modelId: String) throws {

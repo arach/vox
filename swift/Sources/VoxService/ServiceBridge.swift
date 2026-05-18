@@ -95,7 +95,7 @@ public final class ServiceBridge: @unchecked Sendable {
             listener = try NWListener(using: parameters, on: .init(rawValue: port)!)
         } catch {
             log.error("Failed to create WebSocket listener: \(error.localizedDescription)")
-            return
+            throw error
         }
 
         let startup = StartupGate()
@@ -143,6 +143,8 @@ public final class ServiceBridge: @unchecked Sendable {
     }
 
     private func accept(_ connection: NWConnection) {
+        let connectionID = "\(ObjectIdentifier(connection).hashValue)"
+        log.info("Bridge accepted connection connectionId=\(connectionID)")
         queue.async {
             self.connections.append(connection)
         }
@@ -151,8 +153,17 @@ public final class ServiceBridge: @unchecked Sendable {
             guard let self else { return }
             switch state {
             case .ready:
+                self.log.info("Bridge connection ready connectionId=\(connectionID)")
                 self.receive(on: connection)
-            case .failed, .cancelled:
+            case .failed(let error):
+                if self.isExpectedDisconnect(error) {
+                    self.log.info("Bridge connection closed connectionId=\(connectionID) reason=\(error.localizedDescription)")
+                } else {
+                    self.log.warning("Bridge connection failed connectionId=\(connectionID) error=\(error.localizedDescription)")
+                }
+                self.remove(connection)
+            case .cancelled:
+                self.log.info("Bridge connection cancelled connectionId=\(connectionID)")
                 self.remove(connection)
             default:
                 break
@@ -165,7 +176,12 @@ public final class ServiceBridge: @unchecked Sendable {
     private func remove(_ connection: NWConnection) {
         let connectionID = "\(ObjectIdentifier(connection).hashValue)"
         queue.async {
+            let previousCount = self.connections.count
             self.connections.removeAll { $0 === connection }
+            guard self.connections.count != previousCount else {
+                return
+            }
+            self.log.info("Bridge removed connection connectionId=\(connectionID)")
             self.onClientDisconnected?(connectionID)
         }
     }
@@ -174,7 +190,12 @@ public final class ServiceBridge: @unchecked Sendable {
         connection.receiveMessage { [weak self] content, _, _, error in
             guard let self else { return }
             if let error {
-                self.log.warning("Receive error: \(error.localizedDescription)")
+                let connectionID = "\(ObjectIdentifier(connection).hashValue)"
+                if self.isExpectedDisconnect(error) {
+                    self.log.info("Bridge receive closed connectionId=\(connectionID) reason=\(error.localizedDescription)")
+                } else {
+                    self.log.warning("Bridge receive error connectionId=\(connectionID) error=\(error.localizedDescription)")
+                }
                 connection.cancel()
                 return
             }
@@ -184,6 +205,15 @@ public final class ServiceBridge: @unchecked Sendable {
             }
 
             self.receive(on: connection)
+        }
+    }
+
+    private func isExpectedDisconnect(_ error: NWError) -> Bool {
+        switch error {
+        case .posix(let code):
+            return code == .ECANCELED || code == .ECONNRESET || code == .ENOTCONN
+        default:
+            return false
         }
     }
 
@@ -203,7 +233,11 @@ public final class ServiceBridge: @unchecked Sendable {
         }
 
         var params = object["params"] as? [String: Any] ?? [:]
-        params["_connectionID"] = "\(ObjectIdentifier(connection).hashValue)"
+        let connectionID = "\(ObjectIdentifier(connection).hashValue)"
+        params["_connectionID"] = connectionID
+        if shouldLogRequest(method) {
+            log.info("Bridge received request method=\(method) id=\(id ?? "none") connectionId=\(connectionID)")
+        }
 
         lock.lock()
         let streamingHandler = streamingHandlers[method]
@@ -222,10 +256,18 @@ public final class ServiceBridge: @unchecked Sendable {
                     self.sendJSON(payload, on: connection)
                 },
                 { [weak self, weak connection] result, error in
-                    guard let self, let connection else { return }
+                    guard let self else { return }
+                    guard let connection else {
+                        self.log.warning("Bridge dropped streaming reply method=\(method) id=\(id ?? "none") connectionId=\(connectionID) reason=connection_released")
+                        return
+                    }
                     if let error {
+                        self.log.error("Bridge sending streaming error method=\(method) id=\(id ?? "none") connectionId=\(connectionID) error=\(error)")
                         self.sendError(id: id, message: error, on: connection)
                     } else {
+                        if self.shouldLogRequest(method) {
+                            self.log.info("Bridge sending streaming result method=\(method) id=\(id ?? "none") connectionId=\(connectionID)")
+                        }
                         self.sendResult(id: id, result: result ?? [:], on: connection)
                     }
                 }
@@ -235,10 +277,18 @@ public final class ServiceBridge: @unchecked Sendable {
 
         if let handler {
             handler(params) { [weak self, weak connection] result, error in
-                guard let self, let connection else { return }
+                guard let self else { return }
+                guard let connection else {
+                    self.log.warning("Bridge dropped reply method=\(method) id=\(id ?? "none") connectionId=\(connectionID) reason=connection_released")
+                    return
+                }
                 if let error {
+                    self.log.error("Bridge sending error method=\(method) id=\(id ?? "none") connectionId=\(connectionID) error=\(error)")
                     self.sendError(id: id, message: error, on: connection)
                 } else {
+                    if self.shouldLogRequest(method) {
+                        self.log.info("Bridge sending result method=\(method) id=\(id ?? "none") connectionId=\(connectionID)")
+                    }
                     self.sendResult(id: id, result: result ?? [:], on: connection)
                 }
             }
@@ -246,6 +296,15 @@ public final class ServiceBridge: @unchecked Sendable {
         }
 
         sendError(id: id, message: "Unknown method: \(method)", on: connection)
+    }
+
+    private func shouldLogRequest(_ method: String) -> Bool {
+        switch method {
+        case "transcribe.sessionStatus", "synthesize.sessionStatus":
+            return false
+        default:
+            return true
+        }
     }
 
     private func sendResult(id: String?, result: [String: Any], on connection: NWConnection) {

@@ -178,7 +178,16 @@ public final class HTTPBridgeServer: @unchecked Sendable {
     ) async {
         // /health is open — no origin check
         if method == "GET" && path == "/health" {
-            let daemonRunning = await proxy.isConnected
+            var daemonRunning = await proxy.isConnected
+            if !daemonRunning {
+                do {
+                    try await proxy.connect()
+                    _ = try await proxy.call("health")
+                    daemonRunning = true
+                } catch {
+                    daemonRunning = false
+                }
+            }
             sendResponse(status: 200, body: [
                 "ok": daemonRunning,
                 "service": "vox-companion",
@@ -238,6 +247,23 @@ public final class HTTPBridgeServer: @unchecked Sendable {
         default:
             sendResponse(status: 404, body: ["error": "Not found"], origin: origin, on: connection)
         }
+    }
+
+    private nonisolated static func providerCredentials(from body: [String: Any]?) -> [String: String]? {
+        guard let rawCredentials = body?["credentials"] as? [String: Any] else {
+            return nil
+        }
+
+        var credentials: [String: String] = [:]
+        for key in ["OPENAI_API_KEY", "openaiApiKey", "openai_api_key"] {
+            if let value = rawCredentials[key] as? String {
+                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    credentials[key] = trimmed
+                }
+            }
+        }
+        return credentials.isEmpty ? nil : credentials
     }
 
     // MARK: - Endpoint handlers
@@ -306,23 +332,9 @@ public final class HTTPBridgeServer: @unchecked Sendable {
     }
 
     private func handleSpeakStatus(origin: String?, on connection: NWConnection) async {
-        do {
-            if !(await proxy.isConnected) {
-                try await proxy.connect()
-            }
-
-            let result = try await proxy.call("synthesize.sessionStatus")
-            sendResponse(status: 200, body: [
-                "session": result["session"] ?? NSNull()
-            ], origin: origin, on: connection)
-        } catch {
-            sendResponse(
-                status: statusCode(for: error),
-                body: ["error": error.localizedDescription],
-                origin: origin,
-                on: connection
-            )
-        }
+        sendResponse(status: 200, body: [
+            "session": NSNull()
+        ], origin: origin, on: connection)
     }
 
     private func handleStartLiveSession(body: [String: Any]?, origin: String?, on connection: NWConnection) async {
@@ -379,16 +391,8 @@ public final class HTTPBridgeServer: @unchecked Sendable {
         let format = (body?["format"] as? String) ?? "wav"
         let speed = body?["speed"] as? Double
         let instructions = body?["instructions"] as? String
-        var didStartStream = false
 
         do {
-            if !(await proxy.isConnected) {
-                try await proxy.connect()
-            }
-
-            try await sendStreamingResponseHead(origin: origin, on: connection)
-            didStartStream = true
-
             var params: [String: Any] = [
                 "clientId": clientId,
                 "text": text,
@@ -406,26 +410,20 @@ public final class HTTPBridgeServer: @unchecked Sendable {
             if let instructions {
                 params["instructions"] = instructions
             }
-
-            let result = try await proxy.callStreaming(
-                "synthesize.startSession",
-                params: params
-            ) { [self] event, data in
-                await sendStreamingPayload([
-                    "event": event,
-                    "data": data
-                ], on: connection)
+            if let credentials = Self.providerCredentials(from: body) {
+                params["credentials"] = credentials
             }
 
-            await sendStreamingPayload(["result": result], on: connection)
-            await finishStreamingResponse(on: connection)
+            let requestProxy = DaemonProxy()
+            defer {
+                Task {
+                    await requestProxy.disconnect()
+                }
+            }
+            try await requestProxy.connect()
+            let result = try await requestProxy.call("synthesize.generate", params: params)
+            sendResponse(status: 200, body: result, origin: origin, on: connection)
         } catch {
-            if didStartStream {
-                await sendStreamingPayload(["error": error.localizedDescription], on: connection)
-                await finishStreamingResponse(on: connection)
-                return
-            }
-
             sendResponse(
                 status: statusCode(for: error),
                 body: ["error": error.localizedDescription],
@@ -476,23 +474,10 @@ public final class HTTPBridgeServer: @unchecked Sendable {
     }
 
     private func handleCancelSynthesis(body: [String: Any]?, origin: String?, on connection: NWConnection) async {
-        do {
-            if !(await proxy.isConnected) {
-                try await proxy.connect()
-            }
-
-            let sessionId = body?["sessionId"] as? String
-            let params = sessionId.map { ["sessionId": $0] }
-            let result = try await proxy.call("synthesize.cancel", params: params)
-            sendResponse(status: 200, body: result, origin: origin, on: connection)
-        } catch {
-            sendResponse(
-                status: statusCode(for: error),
-                body: ["error": error.localizedDescription],
-                origin: origin,
-                on: connection
-            )
-        }
+        sendResponse(status: 200, body: [
+            "cancelled": false,
+            "sessionId": body?["sessionId"] as? String ?? ""
+        ], origin: origin, on: connection)
     }
 
     private func handleVoices(origin: String?, on connection: NWConnection) async {

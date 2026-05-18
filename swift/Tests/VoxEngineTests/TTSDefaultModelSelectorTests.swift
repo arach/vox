@@ -52,6 +52,12 @@ struct TTSDefaultModelSelectorTests {
     func skipsRemoteProvidersWithoutAPIKeys() {
         let config = ProvidersConfig(providers: [
             ProviderEntry(
+                id: "mlx-audio",
+                kind: .tts,
+                builtin: true,
+                models: ["mlx-community/Kokoro-82M-bf16"]
+            ),
+            ProviderEntry(
                 id: "openai-tts",
                 kind: .tts,
                 builtin: true,

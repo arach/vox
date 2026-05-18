@@ -8,7 +8,9 @@ import VoxEngine
 struct GeneralTab: View {
     @EnvironmentObject var monitor: DaemonMonitor
     @State private var launchAgentInstalled = LaunchAgentManager.isInstalled()
-    @StateObject private var speechPreferences = SpeechPreferencesState()
+    @State private var liveSessionMessage: String?
+    @State private var liveSessionMessageIsError = false
+    @ObservedObject var speechPreferences: SpeechPreferencesState
 
     var body: some View {
         VoxScreen(
@@ -16,52 +18,12 @@ struct GeneralTab: View {
             badge: "LOCAL FIRST",
             summary: "Manage the local daemon, inspect live capture state, and set user-level speech defaults without hiding model lifecycle."
         ) {
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 220), spacing: HudSpacing.xl)],
-                alignment: .leading,
-                spacing: HudSpacing.xl
-            ) {
-                VoxMetricCard(
-                    label: "Daemon",
-                    value: monitor.isRunning ? "Running" : "Stopped",
-                    detail: daemonDetail,
-                    tint: monitor.isRunning ? HudPalette.statusOk : HudPalette.statusError,
-                    pulses: monitor.isRunning
-                )
-                VoxMetricCard(
-                    label: "Live Capture",
-                    value: monitor.isRecording ? "Recording" : "Idle",
-                    detail: monitor.liveSessionClientId ?? "No active session",
-                    tint: monitor.isRecording ? HudPalette.statusError : HudPalette.dim,
-                    pulses: monitor.isRecording
-                )
-                VoxMetricCard(
-                    label: "Default ASR",
-                    value: selectedTranscriptionModelLabel,
-                    detail: "Explicit warm-up surface",
-                    tint: HudPalette.statusInfo
-                )
-            }
-
             HudCard {
                 VStack(alignment: .leading, spacing: HudSpacing.lg) {
-                    HStack {
-                        HudSectionLabel("Daemon")
-                        Spacer()
-                        HudBadge(
-                            monitor.isRunning ? "RUNNING" : "STOPPED",
-                            tint: monitor.isRunning ? HudPalette.statusOk : HudPalette.statusError,
-                            dot: true
-                        )
-                    }
+                    HudSectionLabel("Daemon")
 
                     HudInset {
                         VStack(alignment: .leading, spacing: HudSpacing.md) {
-                            HudKVRow(
-                                "Status",
-                                value: monitor.isRunning ? "Running" : "Stopped",
-                                valueColor: monitor.isRunning ? HudPalette.statusOk : HudPalette.statusError
-                            )
                             if let port = monitor.port {
                                 HudKVRow("Daemon Port", value: voxPortString(port))
                             }
@@ -80,16 +42,8 @@ struct GeneralTab: View {
                                         .foregroundStyle(HudPalette.ink)
                                 }
                             }
-                            HudKVRow(
-                                "Live Capture",
-                                value: monitor.isRecording ? "Recording" : "Idle",
-                                valueColor: monitor.isRecording ? HudPalette.statusError : HudPalette.muted
-                            )
-                            if monitor.isRecording, let clientId = monitor.liveSessionClientId {
-                                HudKVRow("Recording Client", value: clientId)
-                            }
-                            if monitor.isRecording, let modelId = monitor.liveSessionModelId {
-                                HudKVRow("Recording Model", value: modelId)
+                            if monitor.port == nil, monitor.pid == nil, monitor.startedAt == nil {
+                                VoxBodyText("Runtime file unavailable.", tint: HudPalette.statusError)
                             }
                         }
                     }
@@ -108,10 +62,53 @@ struct GeneralTab: View {
 
                         Spacer()
 
-                        HudBadge(
+                        VoxStatusText(
                             launchAgentInstalled ? "STARTS AT LOGIN" : "MANUAL START",
-                            tint: launchAgentInstalled ? HudPalette.statusOk : HudPalette.muted
+                            tint: HudPalette.muted
                         )
+                    }
+                }
+            }
+
+            liveCaptureCard
+
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HudSectionLabel("Provider Credentials")
+
+                    HudInset {
+                        VStack(alignment: .leading, spacing: HudSpacing.md) {
+                            HStack {
+                                HudKVRow(
+                                    "OpenAI Key",
+                                    value: speechPreferences.openAIKeyConfigured
+                                        ? "stored encrypted (\(speechPreferences.openAIKeyPreview))"
+                                        : "not stored",
+                                    valueColor: speechPreferences.openAIKeyConfigured ? HudPalette.muted : HudPalette.statusWarn
+                                )
+                            }
+
+                            HudSecretField(
+                                "sk-...",
+                                text: $speechPreferences.openAIAPIKeyInput,
+                                icon: "key.fill"
+                            )
+
+                            HStack(spacing: HudSpacing.md) {
+                                HudButton("Save Key", icon: "lock", style: .secondary) {
+                                    speechPreferences.saveOpenAIAPIKey()
+                                }
+                                .disabled(speechPreferences.openAIAPIKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                                if speechPreferences.openAIKeyConfigured {
+                                    HudButton("Remove", icon: "trash", style: .ghost) {
+                                        speechPreferences.deleteOpenAIAPIKey()
+                                    }
+                                }
+
+                                Spacer(minLength: 0)
+                            }
+                        }
                     }
                 }
             }
@@ -119,7 +116,7 @@ struct GeneralTab: View {
             HudCard {
                 VStack(alignment: .leading, spacing: HudSpacing.lg) {
                     HudSectionLabel("Speech Defaults")
-                    VoxBodyText("These defaults are stored at the Vox user level. Apps can still override model and voice choices per request.")
+                    VoxBodyText("Defaults are stored at the Vox user level. Apps can still override model, voice, and input choices per request.")
 
                     VStack(alignment: .leading, spacing: HudSpacing.md) {
                         Picker(
@@ -175,21 +172,32 @@ struct GeneralTab: View {
                             }
                         }
                         .disabled(speechPreferences.voices.isEmpty)
+
+                        Picker(
+                            "Input Device",
+                            selection: Binding(
+                                get: { speechPreferences.preferredInputDeviceId },
+                                set: { newValue in
+                                    speechPreferences.updatePreferredInputDeviceId(newValue)
+                                }
+                            )
+                        ) {
+                            Text("System Default")
+                                .tag("")
+                            ForEach(speechPreferences.inputDevices) { device in
+                                Text(device.isSystemDefault ? "\(device.name) · system default" : device.name)
+                                    .tag(device.id)
+                            }
+                        }
+                        .disabled(speechPreferences.inputDevices.isEmpty)
+
+                        micPermissionRow
                     }
                     .pickerStyle(.menu)
 
                     if let statusMessage = speechPreferences.statusMessage, !statusMessage.isEmpty {
                         HudInset {
                             VoxBodyText(statusMessage)
-                        }
-                    }
-
-                    HudInset {
-                        VStack(alignment: .leading, spacing: HudSpacing.md) {
-                            HudKVRow("ASR", value: selectedTranscriptionModelLabel)
-                            HudKVRow("TTS", value: selectedSynthesisModelLabel)
-                            HudKVRow("Voice", value: selectedVoiceLabel)
-                            HudKVRow("Input Device", value: "System default", valueColor: HudPalette.muted)
                         }
                     }
                 }
@@ -203,32 +211,104 @@ struct GeneralTab: View {
         }
     }
 
-    private var daemonDetail: String {
-        if let port = monitor.port, let pid = monitor.pid {
-            return "port \(voxPortString(port)) · pid \(voxProcessIDString(pid))"
+    private var microphonePermissionColor: Color {
+        speechPreferences.microphonePermissionStatus == "authorized" ? HudPalette.statusOk : HudPalette.statusWarn
+    }
+
+    @ViewBuilder
+    private var liveCaptureCard: some View {
+        HudCard {
+            VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                HStack {
+                    HudSectionLabel("Live Capture")
+                    Spacer()
+                    VoxStatusText(
+                        monitor.liveSession?.state.rawValue.uppercased() ?? "IDLE",
+                        tint: monitor.hasLiveSession ? HudPalette.statusWarn : HudPalette.muted
+                    )
+                }
+
+                HudInset {
+                    VStack(alignment: .leading, spacing: HudSpacing.md) {
+                        if let session = monitor.liveSession {
+                            HudKVRow("Session", value: session.sessionId, valueLineLimit: 1)
+                            HudKVRow("Client", value: session.clientId, valueColor: HudPalette.ink)
+                            HudKVRow("Model", value: session.modelId, valueColor: HudPalette.muted)
+                            HudKVRow("State", value: session.state.rawValue, valueColor: session.state == .recording ? HudPalette.statusError : HudPalette.statusWarn)
+                            if let startedAt = session.startedAt {
+                                HStack {
+                                    Text("ACTIVE FOR")
+                                        .font(HudFont.mono(9))
+                                        .tracking(0.8)
+                                        .foregroundStyle(HudPalette.dim)
+                                    Spacer()
+                                    LiveSessionAgeText(startedAt: startedAt)
+                                        .font(HudFont.mono(11))
+                                        .foregroundStyle(HudPalette.ink)
+                                }
+                            }
+                        } else {
+                            VoxBodyText("No active live transcription session.", tint: HudPalette.muted)
+                        }
+                    }
+                }
+
+                HStack(spacing: HudSpacing.md) {
+                    HudButton("Refresh", icon: "arrow.clockwise", style: .secondary) {
+                        Task {
+                            monitor.checkNow()
+                            await monitor.refreshSessionsNow()
+                        }
+                    }
+
+                    if monitor.hasLiveSession {
+                        HudButton("Cancel Session", icon: "xmark.circle", style: .secondary) {
+                            Task {
+                                if let error = await monitor.cancelLiveSession() {
+                                    liveSessionMessage = error
+                                    liveSessionMessageIsError = true
+                                } else {
+                                    liveSessionMessage = "Cancelled the active live session."
+                                    liveSessionMessageIsError = false
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(minLength: 0)
+                }
+
+                if let liveSessionMessage, !liveSessionMessage.isEmpty {
+                    HudInset {
+                        VoxBodyText(
+                            liveSessionMessage,
+                            tint: liveSessionMessageIsError ? HudPalette.statusError : HudPalette.muted
+                        )
+                    }
+                }
+            }
         }
-        if let port = monitor.port {
-            return "port \(voxPortString(port))"
-        }
-        return "Runtime file unavailable"
     }
 
-    private var selectedTranscriptionModelLabel: String {
-        speechPreferences.preferredTranscriptionModelId.isEmpty
-            ? "parakeet:v3"
-            : speechPreferences.preferredTranscriptionModelId
+    private var microphonePermissionIcon: String {
+        speechPreferences.microphonePermissionStatus == "authorized"
+            ? "checkmark.circle.fill"
+            : "exclamationmark.triangle.fill"
     }
 
-    private var selectedSynthesisModelLabel: String {
-        speechPreferences.preferredSynthesisModelId.isEmpty
-            ? speechPreferences.defaultSynthesisModelId
-            : speechPreferences.preferredSynthesisModelId
+    private var microphonePermissionLabel: String {
+        speechPreferences.microphonePermissionStatus == "authorized"
+            ? "Authorized"
+            : speechPreferences.microphonePermissionStatus
     }
 
-    private var selectedVoiceLabel: String {
-        speechPreferences.preferredSynthesisVoiceId.isEmpty
-            ? "Provider default"
-            : speechPreferences.preferredSynthesisVoiceId
+    private var micPermissionRow: some View {
+        VoxIconKVRow(
+            label: "Mic Permission",
+            value: microphonePermissionLabel,
+            icon: microphonePermissionIcon,
+            tint: microphonePermissionColor
+        )
     }
 
     private func voiceLabel(_ voice: TTSVoiceInfo) -> String {
@@ -246,64 +326,25 @@ struct BridgeTab: View {
 
     var body: some View {
         VoxScreen(
-            title: "Bridge",
+            title: "HTTP API",
             badge: "COMPANION",
-            summary: "Control the localhost HTTP bridge and its origin allowlist. Built-in, user-managed, and integration origins stay visible."
+            summary: "The HTTP bridge is Vox's localhost API for browser and web app calls. The daemon is the WebSocket runtime on its own port."
         ) {
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 220), spacing: HudSpacing.xl)],
-                alignment: .leading,
-                spacing: HudSpacing.xl
-            ) {
-                VoxMetricCard(
-                    label: "HTTP Bridge",
-                    value: bridgeState.isRunning ? "Listening" : "Stopped",
-                    detail: "127.0.0.1:\(voxPortString(bridgeState.port))",
-                    tint: bridgeState.isRunning ? HudPalette.statusInfo : HudPalette.statusError,
-                    pulses: bridgeState.isRunning
-                )
-                VoxMetricCard(
-                    label: "User Origins",
-                    value: "\(bridgeState.userOrigins.count)",
-                    detail: "~/.vox/origins.json",
-                    tint: HudPalette.statusOk
-                )
-                VoxMetricCard(
-                    label: "Integrations",
-                    value: "\(bridgeState.integrationOrigins.count)",
-                    detail: "~/.vox/origins.d/",
-                    tint: HudPalette.statusWarn
-                )
-            }
-
             HudCard {
                 VStack(alignment: .leading, spacing: HudSpacing.lg) {
-                    HStack {
-                        HudSectionLabel("HTTP Bridge")
-                        Spacer()
-                        HudBadge(
-                            bridgeState.isRunning ? "LISTENING" : "STOPPED",
-                            tint: bridgeState.isRunning ? HudPalette.statusInfo : HudPalette.statusError,
-                            dot: true
-                        )
-                    }
+                    HudSectionLabel("Endpoint")
 
                     HudInset {
                         VStack(alignment: .leading, spacing: HudSpacing.md) {
-                            HudKVRow(
-                                "Status",
-                                value: bridgeState.isRunning ? "Listening" : "Stopped",
-                                valueColor: bridgeState.isRunning ? HudPalette.statusInfo : HudPalette.statusError
-                            )
-                            HudKVRow("Port", value: voxPortString(bridgeState.port))
+                            HudKVRow("HTTP Port", value: voxPortString(bridgeState.port))
                             HudKVRow("Address", value: "http://127.0.0.1:\(voxPortString(bridgeState.port))", valueLineLimit: 1)
                         }
                     }
 
-                    if let statusDetail = bridgeState.statusDetail, !statusDetail.isEmpty {
+                    if !bridgeState.isRunning, let statusDetail = bridgeState.statusDetail, !statusDetail.isEmpty {
                         VoxBodyText(
                             statusDetail,
-                            tint: bridgeState.isRunning ? HudPalette.muted : HudPalette.statusError
+                            tint: HudPalette.statusError
                         )
                     }
                 }
@@ -403,7 +444,7 @@ private struct OriginListCard: View {
                     HudSectionLabel(title)
                         .padding(.horizontal, HudSpacing.md)
                     Spacer()
-                    HudBadge("\(origins.count)", tint: origins.isEmpty ? HudPalette.muted : HudPalette.statusInfo)
+                    VoxStatusText("\(origins.count)", tint: HudPalette.muted)
                         .padding(.horizontal, HudSpacing.md)
                 }
 
@@ -460,6 +501,26 @@ private struct UptimeText: View {
     }
 }
 
+private struct LiveSessionAgeText: View {
+    let startedAt: Date
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            Text(formatAge(context.date.timeIntervalSince(startedAt)))
+        }
+    }
+
+    private func formatAge(_ seconds: TimeInterval) -> String {
+        let totalSeconds = max(Int(seconds), 0)
+        let minutes = totalSeconds / 60
+        let remainingSeconds = totalSeconds % 60
+        if minutes > 0 {
+            return "\(minutes)m \(remainingSeconds)s"
+        }
+        return "\(remainingSeconds)s"
+    }
+}
+
 // MARK: - About Tab
 
 struct AboutTab: View {
@@ -467,14 +528,14 @@ struct AboutTab: View {
         VoxScreen(
             title: "About",
             badge: "COMPANION",
-            summary: "Vox is a local-first voice runtime for Apple apps, web companions, and developer tools."
+            summary: "Vox is a voice runtime for Apple apps, web companions, and developer tools."
         ) {
             HudCard {
                 VStack(alignment: .leading, spacing: HudSpacing.lg) {
                     HStack {
                         HudSectionLabel("Vox Companion")
                         Spacer()
-                        HudBadge("LOCAL", tint: HudPalette.statusOk, dot: true)
+                        VoxStatusText("LOCAL", tint: HudPalette.muted)
                     }
 
                     HudInset {
@@ -490,12 +551,7 @@ struct AboutTab: View {
             HudCard {
                 VStack(alignment: .leading, spacing: HudSpacing.lg) {
                     HudSectionLabel("Runtime Contract")
-                    VoxBodyText("Vox keeps speech local by default, exposes warm-up as a public capability, and records latency with client, route, and model dimensions.")
-                    HStack(spacing: HudSpacing.md) {
-                        HudBadge("LOCAL MODELS", tint: HudPalette.statusOk, dot: true)
-                        HudBadge("WARM-UP", tint: HudPalette.statusInfo, dot: true)
-                        HudBadge("TELEMETRY", tint: HudPalette.statusWarn, dot: true)
-                    }
+                    VoxBodyText("Vox exposes warm-up as a public capability, keeps provider choice explicit, and records latency with client, route, and model dimensions.")
                 }
             }
         }

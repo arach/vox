@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" width="720" height="320">
+  <style>
+    text { font-family: -apple-system, 'SF Pro Text', Helvetica, sans-serif; }
+    .label { font-size: 13px; fill: #888; font-weight: 500; }
+    .sublabel { font-size: 10px; fill: #aaa; }
+    .size-label { font-size: 9px; fill: #666; }
+    .rec { fill: #e53e3e; }
+    .speak { fill: #3b82f6; }
+  </style>
+
+  <!-- Background -->
+  <rect width="720" height="320" rx="12" fill="#1a1a1a"/>
+
+  <!-- ==================== DIRECTION 1: Voice V ==================== -->
+  <text x="120" y="30" text-anchor="middle" class="label">Direction 1: Voice V</text>
+  <text x="120" y="46" text-anchor="middle" class="sublabel">V + sound ripple arc</text>
+
+  <!-- 18x18 idle (template style, white on dark) -->
+  <text x="52" y="70" class="size-label">18x18</text>
+  <rect x="46" y="76" width="22" height="22" rx="3" fill="#2a2a2a" stroke="#333" stroke-width="0.5"/>
+  <g transform="translate(48, 78)">
+    <!-- V shape -->
+    <polyline points="2,4 9,14 14.5,4" fill="none" stroke="#d4d4d4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Sound arc -->
+    <path d="M 15.5,6 Q 18,9 15.5,12" fill="none" stroke="#d4d4d4" stroke-width="1.3" stroke-linecap="round"/>
+  </g>
+
+  <!-- 36x36 scaled up for clarity -->
+  <text x="112" y="70" class="size-label">36x36</text>
+  <rect x="96" y="76" width="40" height="40" rx="4" fill="#2a2a2a" stroke="#333" stroke-width="0.5"/>
+  <g transform="translate(99, 79)">
+    <polyline points="4,7 17,28 29,7" fill="none" stroke="#d4d4d4" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 30,10 Q 35,17.5 30,25" fill="none" stroke="#d4d4d4" stroke-width="2.0" stroke-linecap="round"/>
+  </g>
+
+  <!-- 64x64 app icon preview -->
+  <text x="180" y="70" class="size-label">64x64</text>
+  <rect x="156" y="76" width="64" height="64" rx="14" fill="#1e1e2e"/>
+  <g transform="translate(161, 82)">
+    <polyline points="6,10 27,46 48,10" fill="none" stroke="#e0e0e0" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 49,15 Q 56,28 49,41" fill="none" stroke="#e0e0e0" stroke-width="3.0" stroke-linecap="round"/>
+  </g>
+
+  <!-- Active pill: recording -->
+  <text x="80" y="170" class="size-label">38x22 recording</text>
+  <rect x="60" y="178" width="38" height="22" rx="11" class="rec" opacity="0.92"/>
+  <g transform="translate(62, 180)">
+    <polyline points="5,5 11,15 16,5" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 17,6.5 Q 19,10 17,13.5" fill="none" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+    <circle cx="28" cy="10" r="3" fill="white"/>
+  </g>
+
+  <!-- Active pill: speaking -->
+  <text x="80" y="215" class="size-label">38x22 speaking</text>
+  <rect x="60" y="223" width="38" height="22" rx="11" class="speak" opacity="0.92"/>
+  <g transform="translate(62, 225)">
+    <polyline points="5,5 11,15 16,5" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 17,6.5 Q 19,10 17,13.5" fill="none" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+    <circle cx="28" cy="10" r="3" fill="white"/>
+  </g>
+
+  <!-- ==================== DIRECTION A: Tuning-Fork V ==================== -->
+  <text x="360" y="30" text-anchor="middle" class="label">Alt A: Tuning-Fork V</text>
+  <text x="360" y="46" text-anchor="middle" class="sublabel">V + resonance dot</text>
+
+  <!-- 18x18 -->
+  <text x="292" y="70" class="size-label">18x18</text>
+  <rect x="286" y="76" width="22" height="22" rx="3" fill="#2a2a2a" stroke="#333" stroke-width="0.5"/>
+  <g transform="translate(288, 78)">
+    <polyline points="3,4 9,14 15,4" fill="none" stroke="#d4d4d4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="miter"/>
+    <circle cx="9" cy="5.5" r="1.2" fill="#d4d4d4"/>
+  </g>
+
+  <!-- 36x36 -->
+  <text x="352" y="70" class="size-label">36x36</text>
+  <rect x="336" y="76" width="40" height="40" rx="4" fill="#2a2a2a" stroke="#333" stroke-width="0.5"/>
+  <g transform="translate(339, 79)">
+    <polyline points="5,7 17,28 29,7" fill="none" stroke="#d4d4d4" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="miter"/>
+    <circle cx="17" cy="10" r="2.2" fill="#d4d4d4"/>
+  </g>
+
+  <!-- 64x64 -->
+  <text x="420" y="70" class="size-label">64x64</text>
+  <rect x="396" y="76" width="64" height="64" rx="14" fill="#1e1e2e"/>
+  <g transform="translate(401, 82)">
+    <polyline points="7,10 27,46 47,10" fill="none" stroke="#e0e0e0" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="miter"/>
+    <circle cx="27" cy="15" r="3.5" fill="#e0e0e0"/>
+  </g>
+
+  <!-- Active pill: recording -->
+  <text x="320" y="170" class="size-label">38x22 recording</text>
+  <rect x="300" y="178" width="38" height="22" rx="11" class="rec" opacity="0.92"/>
+  <g transform="translate(302, 180)">
+    <polyline points="5,5 11,15 17,5" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="miter"/>
+    <circle cx="11" cy="6.5" r="1.1" fill="white"/>
+    <circle cx="28" cy="10" r="3" fill="white"/>
+  </g>
+
+  <!-- Active pill: speaking -->
+  <text x="320" y="215" class="size-label">38x22 speaking</text>
+  <rect x="300" y="223" width="38" height="22" rx="11" class="speak" opacity="0.92"/>
+  <g transform="translate(302, 225)">
+    <polyline points="5,5 11,15 17,5" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="miter"/>
+    <circle cx="11" cy="6.5" r="1.1" fill="white"/>
+    <circle cx="28" cy="10" r="3" fill="white"/>
+  </g>
+
+  <!-- ==================== DIRECTION B: Vowel V ==================== -->
+  <text x="600" y="30" text-anchor="middle" class="label">Alt B: Vowel V</text>
+  <text x="600" y="46" text-anchor="middle" class="sublabel">Filled V, mouth-shaped counter</text>
+
+  <!-- 18x18 -->
+  <text x="532" y="70" class="size-label">18x18</text>
+  <rect x="526" y="76" width="22" height="22" rx="3" fill="#2a2a2a" stroke="#333" stroke-width="0.5"/>
+  <g transform="translate(528, 78)">
+    <!-- Outer V filled -->
+    <path d="M 1.5,3.5 L 9,15 L 16.5,3.5 Z" fill="#d4d4d4"/>
+    <!-- Inner cutout (mouth shape) -->
+    <path d="M 5,3.5 L 9,11.5 Q 9,12.5 9,11.5 L 13,3.5 Z" fill="#2a2a2a"/>
+    <!-- Rounded inner with curve at apex -->
+    <path d="M 5.5,3.5 L 9,11 Q 9,12.5 9,11 L 12.5,3.5 Z" fill="#2a2a2a"/>
+  </g>
+
+  <!-- 36x36 -->
+  <text x="592" y="70" class="size-label">36x36</text>
+  <rect x="576" y="76" width="40" height="40" rx="4" fill="#2a2a2a" stroke="#333" stroke-width="0.5"/>
+  <g transform="translate(579, 79)">
+    <path d="M 3,7 L 17,30 L 31,7 Z" fill="#d4d4d4"/>
+    <path d="M 9,7 L 17,23 Q 17,24.5 17,23 L 25,7 Z" fill="#2a2a2a"/>
+  </g>
+
+  <!-- 64x64 -->
+  <text x="660" y="70" class="size-label">64x64</text>
+  <rect x="636" y="76" width="64" height="64" rx="14" fill="#1e1e2e"/>
+  <g transform="translate(641, 82)">
+    <path d="M 4,10 L 27,50 L 50,10 Z" fill="#e0e0e0"/>
+    <path d="M 14,10 L 27,38 Q 27,40 27,38 L 40,10 Z" fill="#1e1e2e"/>
+  </g>
+
+  <!-- Active pill: recording -->
+  <text x="560" y="170" class="size-label">38x22 recording</text>
+  <rect x="540" y="178" width="38" height="22" rx="11" class="rec" opacity="0.92"/>
+  <g transform="translate(542, 180)">
+    <path d="M 4,4 L 11,17 L 18,4 Z" fill="white"/>
+    <path d="M 7.5,4 L 11,12 L 14.5,4 Z" fill="#e53e3e"/>
+    <circle cx="28" cy="10" r="3" fill="white"/>
+  </g>
+
+  <!-- Active pill: speaking -->
+  <text x="560" y="215" class="size-label">38x22 speaking</text>
+  <rect x="540" y="223" width="38" height="22" rx="11" class="speak" opacity="0.92"/>
+  <g transform="translate(542, 225)">
+    <path d="M 4,4 L 11,17 L 18,4 Z" fill="white"/>
+    <path d="M 7.5,4 L 11,12 L 14.5,4 Z" fill="#3b82f6"/>
+    <circle cx="28" cy="10" r="3" fill="white"/>
+  </g>
+
+  <!-- Footer notes -->
+  <text x="360" y="280" text-anchor="middle" class="sublabel">All glyphs shown on dark bg simulating macOS dark menu bar. Template tinting applies to idle state.</text>
+  <text x="360" y="296" text-anchor="middle" class="sublabel">Direction 1 recommended for menu bar. Alt B works best at app-icon scale.</text>
+  <text x="360" y="312" text-anchor="middle" class="size-label">SVG: scripts/vox-v-glyphs.svg</text>
+</svg>

@@ -14,6 +14,7 @@ import type {
   ModelProgress,
   SynthesisOptions,
   SynthesisResult,
+  SpeechTiming,
   VoiceInfo,
   WarmupStatus,
   VoxClientOptions,
@@ -206,6 +207,12 @@ export class VoxClient {
     if (options.voiceId) {
       params.voiceId = options.voiceId;
     }
+    if (options.credentials) {
+      params.credentials = options.credentials;
+    }
+    if (options.speechTiming !== undefined) {
+      params.speechTiming = options.speechTiming;
+    }
 
     const result = await this.transport.call(
       "synthesize.generate",
@@ -224,6 +231,7 @@ export class VoxClient {
       audioBytes: Number(result.audioBytes ?? audio.length),
       elapsedMs: Number(result.elapsedMs ?? 0),
       metrics: parseSynthesisMetrics(result.metrics, Number(result.elapsedMs ?? 0)),
+      speechTiming: parseSpeechTiming(result.speechTiming),
     };
   }
 
@@ -256,4 +264,65 @@ export class VoxClient {
   createLiveSession(): VoxLiveSession {
     return new VoxLiveSession(this);
   }
+}
+
+function parseSpeechTiming(value: unknown): SpeechTiming | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return {
+    source: String(value.source ?? ""),
+    modelId: String(value.modelId ?? ""),
+    elapsedMs: Number(value.elapsedMs ?? 0),
+    words: parseSpeechTimingWords(value.words),
+    cues: parseSpeechTimingCues(value.cues),
+  };
+}
+
+function parseSpeechTimingWords(value: unknown): SpeechTiming["words"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((entry) => {
+    const fields = isRecord(entry) ? entry : {};
+    return {
+      word: String(fields.word ?? ""),
+      startMs: Number(fields.startMs ?? 0),
+      endMs: Number(fields.endMs ?? 0),
+      confidence: Number(fields.confidence ?? 0),
+      sourceTextStart: optionalNumber(fields.sourceTextStart),
+      sourceTextEnd: optionalNumber(fields.sourceTextEnd),
+    };
+  }).filter((word) => word.word.length > 0);
+}
+
+function parseSpeechTimingCues(value: unknown): SpeechTiming["cues"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((entry) => {
+    const fields = isRecord(entry) ? entry : {};
+    return {
+      id: String(fields.id ?? ""),
+      startMs: Number(fields.startMs ?? 0),
+      endMs: Number(fields.endMs ?? 0),
+      confidence: Number(fields.confidence ?? 0),
+      source: String(fields.source ?? ""),
+    };
+  }).filter((cue) => cue.id.length > 0);
+}
+
+function optionalNumber(value: unknown): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

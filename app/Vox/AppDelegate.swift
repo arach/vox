@@ -69,10 +69,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         if let launchPresentation = launchPresentationOnLaunch() {
             switch launchPresentation {
             case .settings:
-                showSettings()
+                presentSettingsWindow(initialSection: .about)
             case .gettingStarted, .welcome:
                 onboarding.presentWelcome()
-                showSettings()
+                presentSettingsWindow(initialSection: .welcome)
             }
 
             if !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
@@ -164,9 +164,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         button.image = MenuBarIcon.makeStatusImage(state: iconState)
         button.contentTintColor = iconState == .idle && !monitor.isRunning ? .systemRed : nil
 
-        if monitor.isRecording, let clientId = monitor.liveSessionClientId {
-            button.toolTip = "Vox is recording for \(clientId)"
-            statusMenuItem.title = "Daemon: Recording for \(clientId) (port \(voxPortString(monitor.port ?? 0)))"
+        if let liveSession = monitor.liveSession {
+            let state = liveSession.state == .recording ? "recording" : liveSession.state.rawValue
+            button.toolTip = "Vox is \(state) for \(liveSession.clientId)"
+            statusMenuItem.title = "Daemon: \(state.capitalized) for \(liveSession.clientId) (port \(voxPortString(monitor.port ?? 0)))"
         } else if monitor.isSpeaking, let clientId = monitor.synthesisSession?.clientId {
             button.toolTip = "Vox is speaking for \(clientId)"
             statusMenuItem.title = "Daemon: Speaking for \(clientId) (port \(voxPortString(monitor.port ?? 0)))"
@@ -179,11 +180,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         }
 
         if let stopRecording = menu.item(withTag: 101) {
-            stopRecording.isHidden = !monitor.isRecording
+            stopRecording.isHidden = !monitor.hasLiveSession
             if let clientId = monitor.liveSession?.clientId {
-                stopRecording.title = "Stop Recording for \(clientId)"
+                stopRecording.title = "Stop Live Session for \(clientId)"
             } else {
-                stopRecording.title = "Stop Recording"
+                stopRecording.title = "Stop Live Session"
             }
         }
         if let stopSynthesis = menu.item(withTag: 102) {
@@ -199,6 +200,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
     // MARK: - Actions
 
     @objc func showSettings() {
+        presentSettingsWindow(initialSection: .about)
+    }
+
+    private func presentSettingsWindow(initialSection: VoxSection) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
 
@@ -207,7 +212,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
             return
         }
 
-        let rootView = VoxRootView()
+        let rootView = VoxRootView(initialSection: initialSection)
             .environmentObject(monitor)
             .environmentObject(bridgeState)
             .environmentObject(onboarding)
@@ -221,6 +226,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         )
         window.title = "Vox"
         window.isReleasedWhenClosed = false
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.backgroundColor = .black
+        window.titlebarAppearsTransparent = false
+        window.isOpaque = true
         window.contentViewController = NSHostingController(rootView: rootView)
         window.center()
         settingsWindow = window
@@ -230,7 +239,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
     func showGettingStarted(source: String?) {
         let context = GettingStartedContext.generic(sourceName: displayName(forSource: source))
         onboarding.present(context: context, returnTo: nil, isTrusted: false)
-        showSettings()
+        presentSettingsWindow(initialSection: .welcome)
     }
 
     private func presentLaunch(request: LaunchRequest) {
@@ -248,7 +257,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
                 returnTo: request.returnTo,
                 isTrusted: isTrusted
             )
-            self.showSettings()
+            self.presentSettingsWindow(initialSection: .welcome)
         }
     }
 
@@ -257,7 +266,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
     }
 
     private func menuBarIconState() -> MenuBarIcon.State {
-        if monitor.isRecording { return .recording }
+        if monitor.hasLiveSession { return .recording }
         if monitor.isSpeaking  { return .speaking }
         return .idle
     }
@@ -326,7 +335,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         if let startedBridge = await Self.waitForBridgeHealth(port: port) {
             bridgeState.isRunning = true
             bridgeState.port = startedBridge.port ?? port
-            bridgeState.statusDetail = "Listening on localhost."
+            bridgeState.statusDetail = "Ready on localhost."
         } else {
             bridgeState.isRunning = false
             bridgeState.port = port

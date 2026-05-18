@@ -22,6 +22,14 @@ public enum TTSDefaultModelSelector {
             return preferredOpenAIModel
         }
 
+        if let preferredRemoteModel = availableConfiguredModels.first(where: isRemoteAPIModel) {
+            return preferredRemoteModel
+        }
+
+        if availableConfiguredModels.contains(TTSDefaults.localModelId) {
+            return TTSDefaults.localModelId
+        }
+
         if let firstAvailable = availableConfiguredModels.first {
             return firstAvailable
         }
@@ -32,6 +40,12 @@ public enum TTSDefaultModelSelector {
 
     private static func isOpenAIModel(_ modelId: String) -> Bool {
         OpenAITTSProvider.supportedModelIDs.contains(modelId)
+    }
+
+    private static func isRemoteAPIModel(_ modelId: String) -> Bool {
+        OpenAITTSProvider.supportedModelIDs.contains(modelId)
+            || ElevenLabsTTSProvider.supportedModelIDs.contains(modelId)
+            || MiniMaxTTSProvider.supportedModelIDs.contains(modelId)
     }
 
     private static func isAvailableForDefaultSelection(

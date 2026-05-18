@@ -16,8 +16,8 @@ enum MenuBarIcon {
     }
 
     /// Primary entry point. Returns:
-    /// - For `.idle`: an 18×18 template V mark that AppKit tints for the current menu-bar appearance.
-    /// - For `.recording` / `.speaking`: a 38×22 colored pill with a white V on the left and a white
+    /// - For `.idle`: a native template waveform symbol that AppKit tints for the current menu-bar appearance.
+    /// - For `.recording` / `.speaking`: a 38×22 colored pill with a compact waveform on the left and a
     ///   live-dot on the right. `isTemplate = false` so the tint stays.
     static func makeStatusImage(state: State = .idle, size: CGFloat = 18) -> NSImage {
         switch state {
@@ -35,10 +35,19 @@ enum MenuBarIcon {
     }
 
     private static func makeIdleImage(size: CGFloat) -> NSImage {
+        if let image = NSImage(
+            systemSymbolName: "waveform",
+            accessibilityDescription: "Vox"
+        ) {
+            image.size = NSSize(width: size, height: size)
+            image.isTemplate = true
+            return image
+        }
+
         let imageSize = NSSize(width: size, height: size)
         let image = NSImage(size: imageSize, flipped: false) { rect in
             NSColor.black.setStroke()
-            Self.drawVMark(in: rect)
+            Self.drawCompactWaveformMark(in: rect.insetBy(dx: 2, dy: 3))
             return true
         }
         image.isTemplate = true
@@ -62,8 +71,8 @@ enum MenuBarIcon {
             bgPath.fill()
 
             NSColor.white.setStroke()
-            let vRect = NSRect(x: 5, y: 3, width: 14, height: 16)
-            Self.drawVMark(in: vRect)
+            let markRect = NSRect(x: 7, y: 6, width: 12, height: 10)
+            Self.drawCompactWaveformMark(in: markRect)
 
             let dotDiameter: CGFloat = 6
             let dotX = pillWidth - dotDiameter - 7
@@ -84,23 +93,21 @@ enum MenuBarIcon {
         return image
     }
 
-    private static func drawVMark(in rect: NSRect) {
-        let strokeWidth = max(1.6, min(rect.width, rect.height) * 0.18)
-        let horizontalInset = rect.width * 0.18
-        let topY = rect.minY + rect.height * 0.86
-        let bottomY = rect.minY + rect.height * 0.16
+    private static func drawCompactWaveformMark(in rect: NSRect) {
+        let bars: [CGFloat] = [0.45, 0.9, 0.45]
+        let strokeWidth = max(1.6, min(rect.width, rect.height) * 0.16)
+        let step = rect.width / CGFloat(max(bars.count - 1, 1))
+        let midY = rect.midY
 
-        let leftTop  = NSPoint(x: rect.minX + horizontalInset, y: topY)
-        let rightTop = NSPoint(x: rect.maxX - horizontalInset, y: topY)
-        let apex     = NSPoint(x: rect.midX, y: bottomY)
-
-        let path = NSBezierPath()
-        path.lineWidth = strokeWidth
-        path.lineCapStyle = .round
-        path.lineJoinStyle = .round
-        path.move(to: leftTop)
-        path.line(to: apex)
-        path.line(to: rightTop)
-        path.stroke()
+        for (index, scale) in bars.enumerated() {
+            let x = rect.minX + CGFloat(index) * step
+            let halfHeight = max(1.5, rect.height * scale * 0.5)
+            let path = NSBezierPath()
+            path.lineWidth = strokeWidth
+            path.lineCapStyle = .round
+            path.move(to: NSPoint(x: x, y: midY - halfHeight))
+            path.line(to: NSPoint(x: x, y: midY + halfHeight))
+            path.stroke()
+        }
     }
 }

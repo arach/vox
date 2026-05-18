@@ -7,6 +7,7 @@ import VoxEngine
 private actor MockTTSProvider: TTSProvider {
     private let modelId: String
     private let voiceId: String
+    private var capturedRequest: SynthesisRequest?
 
     init(modelId: String = "mock-tts:v1", voiceId: String = "voice-mock") {
         self.modelId = modelId
@@ -57,6 +58,8 @@ private actor MockTTSProvider: TTSProvider {
     }
 
     func synthesize(_ request: SynthesisRequest) async throws -> SynthesisOutput {
+        capturedRequest = request
+
         let bytes = Data([0x52, 0x49, 0x46, 0x46])
         let metrics = SynthesisMetrics(
             traceId: "mock-trace",
@@ -80,6 +83,92 @@ private actor MockTTSProvider: TTSProvider {
             elapsedMs: 16,
             metrics: metrics
         )
+    }
+
+    func lastRequest() -> SynthesisRequest? {
+        capturedRequest
+    }
+}
+
+private actor MockSpeechTimingASRProvider: ASRProvider {
+    private var transcribeCalls = 0
+
+    func models() async -> [ASRModelInfo] {
+        [
+            ASRModelInfo(
+                id: "mock-asr:v1",
+                name: "Mock ASR",
+                backend: "mock",
+                installed: true,
+                preloaded: true,
+                available: true
+            )
+        ]
+    }
+
+    func install(
+        modelId: String,
+        progress: @escaping @Sendable (ModelProgress) -> Void
+    ) async throws -> ASRModelInfo {
+        progress(ModelProgress(modelId: modelId, progress: 1.0, status: "ready"))
+        return ASRModelInfo(
+            id: modelId,
+            name: "Mock ASR",
+            backend: "mock",
+            installed: true,
+            preloaded: true,
+            available: true
+        )
+    }
+
+    func preload(
+        modelId: String,
+        progress: @escaping @Sendable (ModelProgress) -> Void
+    ) async throws -> ASRModelInfo {
+        progress(ModelProgress(modelId: modelId, progress: 1.0, status: "ready"))
+        return ASRModelInfo(
+            id: modelId,
+            name: "Mock ASR",
+            backend: "mock",
+            installed: true,
+            preloaded: true,
+            available: true
+        )
+    }
+
+    func transcribe(url: URL, modelId: String) async throws -> TranscriptionOutput {
+        transcribeCalls += 1
+
+        let metrics = TranscriptionMetrics(
+            traceId: "mock-asr-trace",
+            audioDurationMs: 1200,
+            inputBytes: 4,
+            wasPreloaded: true,
+            fileCheckMs: 1,
+            modelCheckMs: 1,
+            modelLoadMs: 0,
+            audioLoadMs: 1,
+            audioPrepareMs: 1,
+            inferenceMs: 25,
+            totalMs: 30
+        )
+
+        return TranscriptionOutput(
+            modelId: modelId,
+            text: "First step. Second step.",
+            elapsedMs: 30,
+            metrics: metrics,
+            words: [
+                WordTiming(word: "First", start: 0.0, end: 0.18, confidence: 0.99),
+                WordTiming(word: "step", start: 0.18, end: 0.4, confidence: 0.96),
+                WordTiming(word: "Second", start: 0.52, end: 0.74, confidence: 0.98),
+                WordTiming(word: "step", start: 0.74, end: 1.0, confidence: 0.95)
+            ]
+        )
+    }
+
+    func callCount() -> Int {
+        transcribeCalls
     }
 }
 
@@ -159,5 +248,91 @@ struct SynthesisRouteTests {
 
         #expect(output.modelId == "mock-tts:local")
         #expect(output.voiceId == "voice-local")
+    }
+
+    @Test("synthesize.generate forwards explicit provider credentials")
+    func synthesizeGenerateForwardsExplicitProviderCredentials() async throws {
+        let provider = MockTTSProvider()
+        let service = VoxRuntimeService(ttsEngine: TTSEngineManager(provider: provider))
+
+        _ = try await service.performSynthesizeGenerate(params: [
+            "text": "hello world",
+            "modelId": "mock-tts:v1",
+            "credentials": [
+                "OPENAI_API_KEY": "sk-test-lent",
+                "ignored": "not-forwarded"
+            ]
+        ])
+
+        let request = await provider.lastRequest()
+        #expect(request?.providerCredentials == ["OPENAI_API_KEY": "sk-test-lent"])
+    }
+
+    @Test("synthesize.generate adds optional speech timing from ASR over synthesized audio")
+    func synthesizeGenerateAddsSpeechTimingWhenRequested() async throws {
+        let asrProvider = MockSpeechTimingASRProvider()
+        let service = VoxRuntimeService(
+            engine: EngineManager(provider: asrProvider),
+            ttsEngine: TTSEngineManager(provider: MockTTSProvider())
+        )
+
+        let output = try await service.performSynthesizeGenerate(params: [
+            "text": "First step. Second step.",
+            "modelId": "mock-tts:v1",
+            "voiceId": "voice-mock",
+            "speechTiming": [
+                "enabled": true,
+                "modelId": "mock-asr:v1",
+                "cues": [
+                    [
+                        "id": "first",
+                        "textStart": 0,
+                        "textEnd": 10
+                    ],
+                    [
+                        "id": "second",
+                        "text": "Second step"
+                    ]
+                ]
+            ]
+        ])
+
+        let speechTiming = try #require(output.speechTiming)
+        #expect(speechTiming.source == "asr")
+        #expect(speechTiming.modelId == "mock-asr:v1")
+        #expect(speechTiming.words.count == 4)
+        #expect(speechTiming.words.first?.sourceTextStart == 0)
+        #expect(speechTiming.cues.count == 2)
+        #expect(speechTiming.cues[0].id == "first")
+        #expect(speechTiming.cues[0].startMs == 0)
+        #expect(speechTiming.cues[0].endMs == 400)
+        #expect(speechTiming.cues[0].source == "asr")
+        #expect(speechTiming.cues[1].id == "second")
+        #expect(speechTiming.cues[1].startMs == 520)
+        #expect(speechTiming.cues[1].endMs == 1000)
+
+        let payload = output.dictionaryValue()
+        #expect(payload["speechTiming"] != nil)
+        #expect(payload["alignment"] == nil)
+        #expect(await asrProvider.callCount() == 1)
+    }
+
+    @Test("synthesize.generate keeps fast path when speech timing is omitted")
+    func synthesizeGenerateSkipsSpeechTimingByDefault() async throws {
+        let asrProvider = MockSpeechTimingASRProvider()
+        let service = VoxRuntimeService(
+            engine: EngineManager(provider: asrProvider),
+            ttsEngine: TTSEngineManager(provider: MockTTSProvider())
+        )
+
+        let output = try await service.performSynthesizeGenerate(params: [
+            "text": "First step. Second step.",
+            "modelId": "mock-tts:v1",
+            "voiceId": "voice-mock"
+        ])
+
+        #expect(output.speechTiming == nil)
+        #expect(output.dictionaryValue()["speechTiming"] == nil)
+        #expect(await asrProvider.callCount() == 0)
     }
 }
