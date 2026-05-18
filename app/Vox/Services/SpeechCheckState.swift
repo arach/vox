@@ -16,6 +16,7 @@ final class SpeechCheckState: ObservableObject {
     @Published var isBusy = false
     @Published var status = "Ready."
     @Published var transcriptText = ""
+    @Published var synthesisText = SpeechCheckConfig.voiceSampleText
     @Published var lastRecordingURL: URL?
     @Published var lastTranscriptionMetrics: TranscriptionMetrics?
     @Published var lastSynthesisMetrics: SynthesisMetrics?
@@ -86,16 +87,23 @@ final class SpeechCheckState: ObservableObject {
         status = "Recording cancelled."
     }
 
-    func playVoiceSample(modelId: String, voiceId: String?) {
+    func playVoiceSample(modelId: String, voiceId: String?, text: String? = nil) {
         guard !isBusy else { return }
 
         Task {
             await runBusyTask {
+                let inputText = (text ?? self.synthesisText)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !inputText.isEmpty else {
+                    self.status = "Enter text to synthesize."
+                    return
+                }
+
                 let resolvedModelId = modelId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     ? TTSDefaults.modelId
                     : modelId
                 var params: [String: Any] = [
-                    "text": SpeechCheckConfig.voiceSampleText,
+                    "text": inputText,
                     "modelId": resolvedModelId,
                     "format": TTSDefaults.format,
                     "clientId": SpeechCheckConfig.clientId

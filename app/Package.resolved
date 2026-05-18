@@ -1,0 +1,15 @@
+{
+  "originHash" : "6d2c10cf74fa903a1bcd9bbfac4ff495681cfb2657e6007f2d4b28000c37ca31",
+  "pins" : [
+    {
+      "identity" : "hudson",
+      "kind" : "remoteSourceControl",
+      "location" : "git@github.com:arach/hudson.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "e142ffa55b269073fa299178bf56caa131b9dba9"
+      }
+    }
+  ],
+  "version" : 3
+}

@@ -69,7 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         if let launchPresentation = launchPresentationOnLaunch() {
             switch launchPresentation {
             case .settings:
-                presentSettingsWindow(initialSection: .about)
+                presentSettingsWindow(initialSection: .overview)
             case .gettingStarted, .welcome:
                 onboarding.presentWelcome()
                 presentSettingsWindow(initialSection: .welcome)
@@ -200,7 +200,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
     // MARK: - Actions
 
     @objc func showSettings() {
-        presentSettingsWindow(initialSection: .about)
+        presentSettingsWindow(initialSection: .overview)
     }
 
     private func presentSettingsWindow(initialSection: VoxSection) {

@@ -105,6 +105,9 @@ public actor ExternalTTSProvider: TTSProvider {
         if let instructions = request.instructions {
             params["instructions"] = instructions
         }
+        if !request.providerCredentials.isEmpty {
+            params["credentials"] = request.providerCredentials
+        }
 
         let result = try await transport.call(method: "synthesize", params: params)
         guard let modelId = result["modelId"] as? String else {

@@ -5,6 +5,124 @@ import VoxEngine
 
 // MARK: - General Tab
 
+struct OverviewTab: View {
+    @EnvironmentObject var monitor: DaemonMonitor
+    @State private var launchAgentInstalled = LaunchAgentManager.isInstalled()
+    @ObservedObject var speechPreferences: SpeechPreferencesState
+
+    var body: some View {
+        VoxScreen(
+            title: "Overview",
+            badge: "COMPANION",
+            summary: "Vox is a local-first voice runtime for Apple apps, web companions, and developer tools."
+        ) {
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HStack {
+                        HudSectionLabel("Vox Companion")
+                        Spacer()
+                        VoxStatusText(VoxVersion.current, tint: HudPalette.muted)
+                    }
+
+                    HudInset {
+                        VStack(alignment: .leading, spacing: HudSpacing.md) {
+                            HudKVRow("Version", value: VoxVersion.current)
+                            HudKVRow("Runtime", value: "macOS \(ProcessInfo.processInfo.operatingSystemVersionString)")
+                            HudKVRow("Data", value: "~/.vox/")
+                        }
+                    }
+                }
+            }
+
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HStack {
+                        HudSectionLabel("Daemon")
+                        Spacer()
+                        VoxStatusText(
+                            monitor.isRunning ? "RUNNING" : "STOPPED",
+                            tint: monitor.isRunning ? HudPalette.statusOk : HudPalette.statusError
+                        )
+                    }
+
+                    HudInset {
+                        VStack(alignment: .leading, spacing: HudSpacing.md) {
+                            if let port = monitor.port {
+                                HudKVRow("Daemon Port", value: voxPortString(port))
+                            }
+                            if let pid = monitor.pid {
+                                HudKVRow("PID", value: voxProcessIDString(pid))
+                            }
+                            if let startedAt = monitor.startedAt {
+                                HStack {
+                                    Text("UPTIME")
+                                        .font(HudFont.mono(9))
+                                        .tracking(0.8)
+                                        .foregroundStyle(HudPalette.dim)
+                                    Spacer()
+                                    UptimeText(startedAt: startedAt)
+                                        .font(HudFont.mono(11))
+                                        .foregroundStyle(HudPalette.ink)
+                                }
+                            }
+                            if monitor.port == nil, monitor.pid == nil, monitor.startedAt == nil {
+                                VoxBodyText("Runtime file unavailable.", tint: HudPalette.statusError)
+                            }
+                        }
+                    }
+
+                    HStack(spacing: HudSpacing.md) {
+                        HudButton("Restart", icon: "arrow.clockwise", style: .secondary) {
+                            LaunchAgentManager.restart()
+                        }
+
+                        if !launchAgentInstalled {
+                            HudButton("Install LaunchAgent", icon: "plus", style: .primary(.cyan)) {
+                                LaunchAgentManager.install()
+                                launchAgentInstalled = LaunchAgentManager.isInstalled()
+                            }
+                        }
+
+                        Spacer()
+
+                        VoxStatusText(
+                            launchAgentInstalled ? "STARTS AT LOGIN" : "MANUAL START",
+                            tint: HudPalette.muted
+                        )
+                    }
+                }
+            }
+
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HudSectionLabel("Selected Speech Stack")
+                    HudInset {
+                        VStack(alignment: .leading, spacing: HudSpacing.md) {
+                            HudKVRow("ASR", value: speechPreferences.effectiveTranscriptionModelId)
+                            HudKVRow("TTS", value: speechPreferences.effectiveSynthesisModelId)
+                            HudKVRow("Voice", value: speechPreferences.effectiveSynthesisVoiceLabel, valueColor: HudPalette.muted)
+                            HudKVRow("Input", value: speechPreferences.effectiveInputDeviceLabel, valueColor: HudPalette.muted)
+                        }
+                    }
+                }
+            }
+
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HudSectionLabel("Runtime Contract")
+                    VoxBodyText("Warm-up stays explicit, provider choice stays visible, and latency keeps client, route, and model dimensions.")
+                }
+            }
+        }
+        .onAppear {
+            launchAgentInstalled = LaunchAgentManager.isInstalled()
+        }
+        .task(id: monitor.isRunning) {
+            await speechPreferences.load()
+        }
+    }
+}
+
 struct GeneralTab: View {
     @EnvironmentObject var monitor: DaemonMonitor
     @State private var launchAgentInstalled = LaunchAgentManager.isInstalled()
@@ -316,6 +434,300 @@ struct GeneralTab: View {
             return voice.isDefault ? "\(voice.name) (\(language)) · default" : "\(voice.name) (\(language))"
         }
         return voice.isDefault ? "\(voice.name) · default" : voice.name
+    }
+}
+
+// MARK: - Doctor Tab
+
+struct RuntimeDoctorTab: View {
+    @EnvironmentObject var monitor: DaemonMonitor
+    @EnvironmentObject var bridgeState: BridgeState
+    @ObservedObject var speechPreferences: SpeechPreferencesState
+    @StateObject private var doctor = RuntimeDoctorState()
+    @State private var sessionMessage: String?
+    @State private var sessionMessageIsError = false
+
+    var body: some View {
+        VoxScreen(
+            title: "Doctor",
+            badge: "CURRENT STATE",
+            summary: "Inspect daemon health, active speech sessions, and the localhost HTTP API in one place."
+        ) {
+            runtimeGrid
+            doctorCard
+            sessionStateCard
+            httpEndpointCard
+            bridgeOriginsCard
+        }
+        .task {
+            await bridgeState.refreshOrigins()
+            await doctor.refresh()
+            monitor.checkNow()
+            await monitor.refreshSessionsNow()
+        }
+    }
+
+    private var runtimeGrid: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 220), spacing: HudSpacing.xl)],
+            alignment: .leading,
+            spacing: HudSpacing.xl
+        ) {
+            VoxMetricCard(
+                label: "Daemon",
+                value: monitor.isRunning ? "Running" : "Stopped",
+                detail: monitor.port.map { "WebSocket \(voxPortString($0))" } ?? "runtime unavailable",
+                tint: monitor.isRunning ? HudPalette.statusOk : HudPalette.statusError,
+                pulses: monitor.isRunning
+            )
+            VoxMetricCard(
+                label: "HTTP API",
+                value: bridgeState.isRunning ? "Listening" : "Stopped",
+                detail: "127.0.0.1:\(voxPortString(bridgeState.port))",
+                tint: bridgeState.isRunning ? HudPalette.statusInfo : HudPalette.statusWarn,
+                pulses: bridgeState.isRunning
+            )
+            VoxMetricCard(
+                label: "Speech",
+                value: speechPreferences.effectiveSynthesisAvailabilityLabel.capitalized,
+                detail: "\(speechPreferences.effectiveSynthesisModelId) · \(speechPreferences.effectiveTranscriptionModelId)",
+                tint: speechPreferences.effectiveSynthesisNeedsAPIKey ? HudPalette.statusWarn : HudPalette.muted
+            )
+        }
+    }
+
+    private var doctorCard: some View {
+        HudCard {
+            VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                HStack {
+                    HudSectionLabel("Doctor")
+                    Spacer()
+                    VoxStatusText(
+                        doctor.report?.ready == true ? "READY" : "CHECK",
+                        tint: doctor.report?.ready == true ? HudPalette.statusOk : HudPalette.statusWarn
+                    )
+                }
+
+                if let report = doctor.report {
+                    HudInset {
+                        VStack(alignment: .leading, spacing: HudSpacing.md) {
+                            ForEach(report.checks, id: \.name) { check in
+                                VoxIconKVRow(
+                                    label: check.name,
+                                    value: check.detail,
+                                    icon: doctorIcon(for: check.status),
+                                    tint: doctorTint(for: check.status)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    HudInset {
+                        VoxBodyText(doctor.statusMessage, tint: HudPalette.muted)
+                    }
+                }
+
+                HStack(spacing: HudSpacing.md) {
+                    HudButton("Run Doctor", icon: "stethoscope", style: .primary(.cyan)) {
+                        Task { await doctor.refresh() }
+                    }
+                    .disabled(doctor.isRefreshing)
+
+                    HudButton("Refresh State", icon: "arrow.clockwise", style: .secondary) {
+                        Task {
+                            monitor.checkNow()
+                            await monitor.refreshSessionsNow()
+                            await bridgeState.refreshOrigins()
+                            await speechPreferences.refreshOptions()
+                        }
+                    }
+                    .disabled(doctor.isRefreshing)
+
+                    Spacer(minLength: 0)
+                }
+
+                if !doctor.statusMessage.isEmpty {
+                    HudInset {
+                        VoxBodyText(doctor.statusMessage, tint: HudPalette.muted)
+                    }
+                }
+            }
+        }
+    }
+
+    private var sessionStateCard: some View {
+        HudCard {
+            VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                HStack {
+                    HudSectionLabel("Active Sessions")
+                    Spacer()
+                    VoxStatusText(activeSessionBadge, tint: activeSessionTint)
+                }
+
+                HudInset {
+                    VStack(alignment: .leading, spacing: HudSpacing.md) {
+                        if let session = monitor.liveSession {
+                            HudKVRow("Live Session", value: session.sessionId, valueLineLimit: 1)
+                            HudKVRow("Client", value: session.clientId, valueColor: HudPalette.ink)
+                            HudKVRow("ASR Model", value: session.modelId, valueColor: HudPalette.muted)
+                            HudKVRow("State", value: session.state.rawValue, valueColor: session.state == .recording ? HudPalette.statusError : HudPalette.statusWarn)
+                        } else {
+                            HudKVRow("Live Session", value: "idle", valueColor: HudPalette.muted)
+                        }
+
+                        if let session = monitor.synthesisSession {
+                            HudDivider()
+                            HudKVRow("Synthesis", value: session.sessionId, valueLineLimit: 1)
+                            HudKVRow("Client", value: session.clientId, valueColor: HudPalette.ink)
+                            HudKVRow("TTS Model", value: session.modelId, valueColor: HudPalette.muted)
+                            HudKVRow("Voice", value: session.voiceId ?? "provider default", valueColor: HudPalette.muted)
+                            HudKVRow("State", value: session.state.rawValue, valueColor: HudPalette.statusWarn)
+                        } else {
+                            HudKVRow("Synthesis", value: "idle", valueColor: HudPalette.muted)
+                        }
+                    }
+                }
+
+                HStack(spacing: HudSpacing.md) {
+                    HudButton("Refresh Sessions", icon: "arrow.clockwise", style: .secondary) {
+                        Task { await monitor.refreshSessionsNow() }
+                    }
+
+                    if monitor.hasLiveSession {
+                        HudButton("Cancel Capture", icon: "xmark.circle", style: .secondary) {
+                            Task { await cancelSession { await monitor.cancelLiveSession() } }
+                        }
+                    }
+
+                    if monitor.isSpeaking {
+                        HudButton("Cancel Speech", icon: "stop.fill", style: .secondary) {
+                            Task { await cancelSession { await monitor.cancelSynthesis() } }
+                        }
+                    }
+
+                    Spacer(minLength: 0)
+                }
+
+                if let sessionMessage, !sessionMessage.isEmpty {
+                    HudInset {
+                        VoxBodyText(sessionMessage, tint: sessionMessageIsError ? HudPalette.statusError : HudPalette.muted)
+                    }
+                }
+            }
+        }
+    }
+
+    private var httpEndpointCard: some View {
+        HudCard {
+            VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                HStack {
+                    HudSectionLabel("HTTP API")
+                    Spacer()
+                    VoxStatusText(
+                        bridgeState.isRunning ? "LISTENING" : "STOPPED",
+                        tint: bridgeState.isRunning ? HudPalette.statusInfo : HudPalette.statusWarn
+                    )
+                }
+
+                HudInset {
+                    VStack(alignment: .leading, spacing: HudSpacing.md) {
+                        HudKVRow("Address", value: "http://127.0.0.1:\(voxPortString(bridgeState.port))", valueLineLimit: 1)
+                        HudKVRow("User Origins", value: "\(bridgeState.userOrigins.count)")
+                        HudKVRow("Integration Origins", value: "\(bridgeState.integrationOrigins.count)")
+                        HudKVRow("Built-In Origins", value: "\(bridgeState.builtinOrigins.count)")
+                    }
+                }
+
+                if !bridgeState.isRunning, let statusDetail = bridgeState.statusDetail, !statusDetail.isEmpty {
+                    VoxBodyText(statusDetail, tint: HudPalette.statusError)
+                }
+            }
+        }
+    }
+
+    private var bridgeOriginsCard: some View {
+        VStack(alignment: .leading, spacing: HudSpacing.lg) {
+            HudCard {
+                VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                    HudSectionLabel("Allowed Origins")
+
+                    HStack(spacing: HudSpacing.md) {
+                        HudField(
+                            "https://app.example.com or http://localhost:*",
+                            text: Binding(
+                                get: { bridgeState.draftOrigin },
+                                set: { newValue in
+                                    bridgeState.draftOrigin = newValue
+                                    bridgeState.clearOriginError()
+                                }
+                            ),
+                            icon: "link"
+                        )
+
+                        HudButton("Add", icon: "plus", style: .primary(.cyan)) {
+                            bridgeState.addDraftOrigin()
+                        }
+                        .disabled(!bridgeState.canAddOrigin)
+                    }
+
+                    if let message = bridgeState.originsErrorMessage, !message.isEmpty {
+                        HudInset {
+                            VoxBodyText(message, tint: HudPalette.statusError)
+                        }
+                    }
+                }
+            }
+
+            OriginListCard(
+                title: "Added In Vox",
+                origins: bridgeState.userOrigins,
+                emptyTitle: "No user origins",
+                emptySubtitle: "Add an origin above to allow a browser app to use the local bridge.",
+                icon: "person.crop.circle.badge.plus",
+                removable: true
+            ) { origin in
+                bridgeState.removeOrigin(origin)
+            }
+        }
+    }
+
+    private var activeSessionBadge: String {
+        if monitor.isRecording { return "RECORDING" }
+        if monitor.isSpeaking { return "SPEAKING" }
+        if monitor.hasLiveSession { return "ACTIVE" }
+        return "IDLE"
+    }
+
+    private var activeSessionTint: Color {
+        if monitor.isRecording { return HudPalette.statusError }
+        if monitor.isSpeaking || monitor.hasLiveSession { return HudPalette.statusWarn }
+        return HudPalette.muted
+    }
+
+    private func cancelSession(_ action: () async -> String?) async {
+        if let error = await action() {
+            sessionMessage = error
+            sessionMessageIsError = true
+        } else {
+            sessionMessage = "Session cancelled."
+            sessionMessageIsError = false
+        }
+    }
+
+    private func doctorIcon(for status: String) -> String {
+        switch status {
+        case "ok": return "checkmark.circle.fill"
+        case "warning": return "exclamationmark.triangle.fill"
+        default: return "xmark.circle.fill"
+        }
+    }
+
+    private func doctorTint(for status: String) -> Color {
+        switch status {
+        case "ok": return HudPalette.statusOk
+        case "warning": return HudPalette.statusWarn
+        default: return HudPalette.statusError
+        }
     }
 }
 

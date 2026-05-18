@@ -7,30 +7,30 @@ import VoxCore
 
 enum VoxSection: String, CaseIterable, Identifiable {
     case welcome
-    case general
-    case speechCheck
-    case bridge
-    case about
+    case overview
+    case configureTTS
+    case configureASR
+    case doctor
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .welcome: return "Welcome"
-        case .general: return "General"
-        case .speechCheck: return "Speech Check"
-        case .bridge: return "HTTP API"
-        case .about: return "About"
+        case .overview: return "Overview"
+        case .configureTTS: return "TTS"
+        case .configureASR: return "ASR"
+        case .doctor: return "Doctor"
         }
     }
 
     var icon: String {
         switch self {
         case .welcome: return "sparkles"
-        case .general: return "gearshape"
-        case .speechCheck: return "waveform.and.mic"
-        case .bridge: return "network"
-        case .about: return "info.circle"
+        case .overview: return "info.circle"
+        case .configureTTS: return "speaker.wave.2"
+        case .configureASR: return "waveform.and.mic"
+        case .doctor: return "stethoscope"
         }
     }
 
@@ -62,7 +62,7 @@ struct VoxRootView: View {
         targetLabel: "Runtime"
     )
 
-    init(initialSection: VoxSection = .about) {
+    init(initialSection: VoxSection = .overview) {
         _section = State(initialValue: initialSection)
     }
 
@@ -109,7 +109,7 @@ struct VoxRootView: View {
     }
 
     private var navigationSections: [VoxSection] {
-        var sections: [VoxSection] = [.about, .general, .speechCheck, .bridge]
+        var sections: [VoxSection] = [.overview, .configureTTS, .configureASR, .doctor]
         if shouldShowWelcome {
             sections.insert(.welcome, at: 0)
         }
@@ -129,14 +129,14 @@ struct VoxRootView: View {
         switch section {
         case .welcome:
             WelcomeTab(speechPreferences: speechPreferences, onNavigate: { section = $0 })
-        case .general:
-            GeneralTab(speechPreferences: speechPreferences)
-        case .speechCheck:
-            SpeechCheckTab(speechPreferences: speechPreferences)
-        case .bridge:
-            BridgeTab()
-        case .about:
-            AboutTab()
+        case .overview:
+            OverviewTab(speechPreferences: speechPreferences)
+        case .configureTTS:
+            TTSConfigTab(speechPreferences: speechPreferences)
+        case .configureASR:
+            ASRConfigTab(speechPreferences: speechPreferences)
+        case .doctor:
+            RuntimeDoctorTab(speechPreferences: speechPreferences)
         }
     }
 
@@ -159,7 +159,7 @@ struct VoxRootView: View {
 
                     HStack(spacing: HudSpacing.md) {
                         HudButton("Open Runtime", icon: "gearshape", style: .secondary) {
-                            section = .general
+                            section = .doctor
                         }
                         Spacer(minLength: 0)
                     }

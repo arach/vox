@@ -34,6 +34,10 @@ final class SpeechPreferencesState: ObservableObject {
         normalizedPreferenceValue(preferredSynthesisModelId) ?? defaultSynthesisModelId
     }
 
+    var effectiveTranscriptionModelId: String {
+        normalizedPreferenceValue(preferredTranscriptionModelId) ?? "parakeet:v3"
+    }
+
     var effectiveSynthesisModel: TTSModelInfo? {
         ttsModels.first { $0.id == effectiveSynthesisModelId }
     }
@@ -71,6 +75,16 @@ final class SpeechPreferencesState: ObservableObject {
         return isRemoteSynthesisModel(model) && !(model.available && model.installed)
     }
 
+    var openAITTSModel: TTSModelInfo? {
+        ttsModels.first { $0.id == TTSDefaults.modelId }
+            ?? ttsModels.first { OpenAITTSProvider.supportedModelIDs.contains($0.id) }
+    }
+
+    var openAITTSReady: Bool {
+        guard let model = openAITTSModel else { return openAIKeyConfigured }
+        return model.available && model.installed
+    }
+
     var effectiveSynthesisVoiceLabel: String {
         effectiveSynthesisVoice.map { voiceLabel($0) } ?? "Provider default"
     }
@@ -87,6 +101,12 @@ final class SpeechPreferencesState: ObservableObject {
 
     func load() async {
         loadPreferencesFromDisk()
+        refreshInputDevices()
+        refreshCredentialState()
+        await refreshRemoteOptions()
+    }
+
+    func refreshOptions() async {
         refreshInputDevices()
         refreshCredentialState()
         await refreshRemoteOptions()
@@ -149,6 +169,11 @@ final class SpeechPreferencesState: ObservableObject {
             try credentialStore.setOpenAIAPIKey(openAIAPIKeyInput)
             openAIAPIKeyInput = ""
             refreshCredentialState()
+            if !OpenAITTSProvider.supportedModelIDs.contains(effectiveSynthesisModelId) {
+                preferredSynthesisModelId = TTSDefaults.modelId
+                preferredSynthesisVoiceId = ""
+                savePreferences()
+            }
             statusMessage = "Saved encrypted OpenAI API key for Vox."
             Task { await refreshRemoteOptions() }
         } catch {
@@ -165,6 +190,16 @@ final class SpeechPreferencesState: ObservableObject {
         } catch {
             statusMessage = error.localizedDescription
         }
+    }
+
+    func useOpenAITTS() async {
+        preferredSynthesisModelId = TTSDefaults.modelId
+        preferredSynthesisVoiceId = ""
+        savePreferences()
+        await refreshRemoteOptions()
+        statusMessage = openAIKeyConfigured
+            ? "OpenAI TTS is now the Vox synthesis default."
+            : "OpenAI TTS selected. Add an OpenAI API key before testing voice output."
     }
 
     private func loadPreferencesFromDisk() {

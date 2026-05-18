@@ -188,13 +188,13 @@ struct WelcomeTab: View {
                 }
             } else if !hasRequester {
                 HudButton("Manage Bridge", icon: "network", style: .secondary) {
-                    onNavigate(.bridge)
+                    onNavigate(.doctor)
                 }
             }
 
             if hasRequester {
                 HudButton("Open Bridge", icon: "network", style: .secondary) {
-                    onNavigate(.bridge)
+                    onNavigate(.doctor)
                 }
             }
 
@@ -272,7 +272,7 @@ struct WelcomeTab: View {
                     }
 
                     HudButton("Open Bridge tab", icon: "network", style: .secondary) {
-                        onNavigate(.bridge)
+                        onNavigate(.doctor)
                     }
 
                     Spacer()
@@ -300,7 +300,7 @@ struct WelcomeTab: View {
                 )
 
                 HudButton("Open Bridge tab", icon: "network", style: .secondary) {
-                    onNavigate(.bridge)
+                    onNavigate(.doctor)
                 }
             }
         }
@@ -351,7 +351,7 @@ struct WelcomeTab: View {
                     VoxBodyText("The default speech provider is OpenAI TTS. Add a Vox OpenAI key here, or let a caller lend credentials explicitly with its request.")
 
                     HudButton("Add OpenAI Key", icon: "key.fill", style: .secondary) {
-                        onNavigate(.general)
+                        onNavigate(.configureTTS)
                     }
                 }
             }
@@ -371,32 +371,32 @@ struct WelcomeTab: View {
                 .padding(.top, HudSpacing.xs)
 
                 HudListRow(
-                    title: "Inspect daemon and speech defaults",
-                    subtitle: "General · runtime, models, voices",
-                    icon: "gearshape",
-                    iconTint: .cyan,
-                    onTap: { onNavigate(.general) }
-                )
-                HudListRow(
-                    title: "Check voice and dictation",
-                    subtitle: "Speech Check · play voice, record, transcribe",
-                    icon: "waveform.and.mic",
-                    iconTint: .cyan,
-                    onTap: { onNavigate(.speechCheck) }
-                )
-                HudListRow(
-                    title: "Manage allowed origins",
-                    subtitle: "HTTP API · add or remove sites that may call Vox",
-                    icon: "network",
-                    iconTint: .cyan,
-                    onTap: { onNavigate(.bridge) }
-                )
-                HudListRow(
-                    title: "About Vox",
-                    subtitle: "About · version and runtime contract",
+                    title: "Review Vox and daemon state",
+                    subtitle: "Overview · version, launch agent, runtime",
                     icon: "info.circle",
                     iconTint: .cyan,
-                    onTap: { onNavigate(.about) }
+                    onTap: { onNavigate(.overview) }
+                )
+                HudListRow(
+                    title: "Configure speech output",
+                    subtitle: "TTS · provider credentials, model, voice, test",
+                    icon: "speaker.wave.2",
+                    iconTint: .cyan,
+                    onTap: { onNavigate(.configureTTS) }
+                )
+                HudListRow(
+                    title: "Configure transcription",
+                    subtitle: "ASR · model, input device, dictation check",
+                    icon: "waveform.and.mic",
+                    iconTint: .cyan,
+                    onTap: { onNavigate(.configureASR) }
+                )
+                HudListRow(
+                    title: "Run Doctor and manage API",
+                    subtitle: "Doctor · current state, sessions, HTTP API",
+                    icon: "stethoscope",
+                    iconTint: .cyan,
+                    onTap: { onNavigate(.doctor) }
                 )
             }
         }

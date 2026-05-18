@@ -8,7 +8,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../swift"),
-        .package(path: "../../hudson"),
+        .package(url: "git@github.com:arach/hudson.git", branch: "main"),
     ],
     targets: [
         .executableTarget(

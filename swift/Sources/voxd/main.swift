@@ -63,7 +63,7 @@ func bundledTTSModels() -> [String] {
 }
 
 func openAITTSAvailable() -> Bool {
-    hasEnvironmentValue("OPENAI_API_KEY")
+    hasEnvironmentValue("OPENAI_API_KEY") || VoxCredentialStore().state().openAIConfigured
 }
 
 func elevenLabsTTSAvailable() -> Bool {

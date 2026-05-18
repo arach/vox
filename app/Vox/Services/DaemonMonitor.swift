@@ -188,7 +188,22 @@ final class DaemonMonitor: ObservableObject {
     /// Returns nil on success, or an error message on failure.
     @discardableResult
     func cancelSynthesis() async -> String? {
-        nil
+        guard let sessionId = state.synthesisSession?.sessionId else {
+            return nil
+        }
+
+        do {
+            if !(await proxy.isConnected) {
+                try await proxy.connect()
+            }
+            _ = try await proxy.call("synthesize.cancel", params: ["sessionId": sessionId])
+            log.info("Cancelled synthesis session \(sessionId) from UI")
+            await refreshLiveSession()
+            return nil
+        } catch {
+            log.warning("Failed to cancel synthesis session \(sessionId): \(error.localizedDescription)")
+            return error.localizedDescription
+        }
     }
 
     private func markStopped() {
@@ -296,8 +311,9 @@ final class DaemonMonitor: ObservableObject {
             }
 
             let liveResult = try await proxy.call("transcribe.sessionStatus")
+            let synthesisResult = try await proxy.call("synthesize.sessionStatus")
             updateLiveSession(parseLiveSession(liveResult["session"]))
-            updateSynthesisSession(nil)
+            updateSynthesisSession(parseSynthesisSession(synthesisResult["session"]))
         } catch {
             await proxy.disconnect()
             updateLiveSession(nil)

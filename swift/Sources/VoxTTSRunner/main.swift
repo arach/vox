@@ -73,7 +73,8 @@ struct VoxTTSRunner {
                 voiceId: request.params["voiceId"] as? String,
                 format: format,
                 speed: request.params["speed"] as? Double,
-                instructions: request.params["instructions"] as? String
+                instructions: request.params["instructions"] as? String,
+                providerCredentials: providerCredentials(from: request.params)
             )
             let output = try await engine.synthesize(synthesisRequest)
             return output.dictionaryValue()
@@ -104,6 +105,23 @@ struct VoxTTSRunner {
             return nil
         }
         return object["id"] as? Int
+    }
+
+    private static func providerCredentials(from params: [String: Any]) -> [String: String] {
+        guard let raw = params["credentials"] as? [String: Any] else {
+            return [:]
+        }
+
+        var credentials: [String: String] = [:]
+        for (key, value) in raw {
+            if let stringValue = value as? String {
+                let trimmed = stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    credentials[key] = trimmed
+                }
+            }
+        }
+        return credentials
     }
 
     private static func writeResponse(id: Int, result: [String: Any]) {
