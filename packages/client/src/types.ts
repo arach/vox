@@ -36,6 +36,11 @@ export interface DoctorCheck {
   name: string;
   status: "ok" | "warning" | "error";
   detail: string;
+  remediation?: {
+    action: string;
+    label: string;
+    detail: string;
+  };
 }
 
 export interface DoctorReport {

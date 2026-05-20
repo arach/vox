@@ -510,6 +510,9 @@ function printDoctorReport(report: DoctorReport): void {
   console.log(`ready: ${report.ready}`);
   for (const check of report.checks) {
     console.log(`${check.status.padEnd(7)} ${check.name} ${check.detail}`);
+    if (check.remediation) {
+      console.log(`        action: ${check.remediation.label} - ${check.remediation.detail}`);
+    }
   }
 }
 

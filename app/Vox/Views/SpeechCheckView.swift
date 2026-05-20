@@ -388,28 +388,15 @@ struct ASRConfigTab: View {
         }
     }
 
-    private var microphoneTint: Color {
-        speechPreferences.microphonePermissionStatus == "authorized" ? HudPalette.statusOk : HudPalette.statusWarn
-    }
-
-    private var microphonePermissionIcon: String {
-        speechPreferences.microphonePermissionStatus == "authorized"
-            ? "checkmark.circle.fill"
-            : "exclamationmark.triangle.fill"
-    }
-
-    private var microphonePermissionLabel: String {
-        speechPreferences.microphonePermissionStatus == "authorized"
-            ? "Authorized"
-            : speechPreferences.microphonePermissionStatus
-    }
-
     private var micPermissionRow: some View {
-        VoxIconKVRow(
-            label: "Mic Permission",
-            value: microphonePermissionLabel,
-            icon: microphonePermissionIcon,
-            tint: microphoneTint
+        VoxMicrophonePermissionRow(
+            status: speechPreferences.microphonePermissionStatus,
+            requestAccess: {
+                Task { await speechPreferences.requestMicrophonePermission() }
+            },
+            openSettings: {
+                speechPreferences.openMicrophonePrivacySettings()
+            }
         )
     }
 }
@@ -556,28 +543,15 @@ struct SpeechCheckTab: View {
             : speechPreferences.preferredTranscriptionModelId
     }
 
-    private var microphoneTint: Color {
-        speechPreferences.microphonePermissionStatus == "authorized" ? HudPalette.statusOk : HudPalette.statusWarn
-    }
-
-    private var microphonePermissionIcon: String {
-        speechPreferences.microphonePermissionStatus == "authorized"
-            ? "checkmark.circle.fill"
-            : "exclamationmark.triangle.fill"
-    }
-
-    private var microphonePermissionLabel: String {
-        speechPreferences.microphonePermissionStatus == "authorized"
-            ? "Authorized"
-            : speechPreferences.microphonePermissionStatus
-    }
-
     private var micPermissionRow: some View {
-        VoxIconKVRow(
-            label: "Mic Permission",
-            value: microphonePermissionLabel,
-            icon: microphonePermissionIcon,
-            tint: microphoneTint
+        VoxMicrophonePermissionRow(
+            status: speechPreferences.microphonePermissionStatus,
+            requestAccess: {
+                Task { await speechPreferences.requestMicrophonePermission() }
+            },
+            openSettings: {
+                speechPreferences.openMicrophonePrivacySettings()
+            }
         )
     }
 }

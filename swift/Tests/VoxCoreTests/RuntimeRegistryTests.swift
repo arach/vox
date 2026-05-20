@@ -55,4 +55,25 @@ struct RuntimeRegistryTests {
         #expect(loaded == preferences)
         #expect(FileManager.default.fileExists(atPath: RuntimePaths.preferencesFileURL().path))
     }
+
+    @Test("Microphone permission doctor details include remediation")
+    func microphonePermissionDoctorDetails() {
+        let notDetermined = MicrophonePermission.remediation(for: "not_determined")
+        #expect(MicrophonePermission.detail(for: "not_determined") == "Microphone access has not been requested")
+        #expect(notDetermined?.action == "request_microphone_access")
+        #expect(notDetermined?.label == "Request Access")
+
+        let denied = MicrophonePermission.remediation(for: "denied")
+        #expect(MicrophonePermission.detail(for: "denied") == "Microphone access denied")
+        #expect(denied?.action == "open_microphone_privacy_settings")
+
+        let check = DoctorCheck(
+            name: "microphone",
+            status: "warning",
+            detail: MicrophonePermission.detail(for: "not_determined"),
+            remediation: notDetermined
+        )
+        let remediation = check.dictionaryValue()["remediation"] as? [String: Any]
+        #expect(remediation?["action"] as? String == "request_microphone_access")
+    }
 }

@@ -372,10 +372,19 @@ function HealthPanel({
           const icon = check.status === "ok" ? "✓" : check.status === "warning" ? "⚠" : "✗";
           const color = check.status === "ok" ? C.accent : check.status === "warning" ? C.yellow : C.red;
           return (
-            <box key={check.name} flexDirection="row" gap={1}>
-              <text fg={color}>{icon}</text>
-              <text fg={C.text}>{pad(check.name, 14)}</text>
-              <text fg={C.dim}>{check.detail}</text>
+            <box key={check.name} flexDirection="column">
+              <box flexDirection="row" gap={1}>
+                <text fg={color}>{icon}</text>
+                <text fg={C.text}>{pad(check.name, 14)}</text>
+                <text fg={C.dim}>{check.detail}</text>
+              </box>
+              {check.remediation && (
+                <box flexDirection="row" gap={1}>
+                  <text fg={C.dim}> </text>
+                  <text fg={C.dim}>{pad("action", 14)}</text>
+                  <text fg={C.dim}>{`${check.remediation.label} - ${check.remediation.detail}`}</text>
+                </box>
+              )}
             </box>
           );
         })}

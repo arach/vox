@@ -1318,9 +1318,15 @@ public final class VoxRuntimeService: @unchecked Sendable {
         let asrModel = asrModels.first
         let ttsModels = await ttsEngine.models()
         let ttsModel = ttsModels.first
+        let microphoneStatus = MicrophonePermission.statusString()
         let checks = [
             DoctorCheck(name: "runtime", status: runtimeExists ? "ok" : "error", detail: runtimeExists ? "runtime.json written" : "runtime.json missing"),
-            DoctorCheck(name: "microphone", status: microphoneStatusToLevel(MicrophonePermission.statusString()), detail: MicrophonePermission.statusString()),
+            DoctorCheck(
+                name: "microphone",
+                status: microphoneStatusToLevel(microphoneStatus),
+                detail: MicrophonePermission.detail(for: microphoneStatus),
+                remediation: MicrophonePermission.remediation(for: microphoneStatus)
+            ),
             DoctorCheck(name: "backend", status: (asrModel?.available ?? false) ? "ok" : "error", detail: (asrModel?.available ?? false) ? "Parakeet available" : "Parakeet unavailable"),
             DoctorCheck(name: "model", status: (asrModel?.installed ?? false) ? "ok" : "warning", detail: (asrModel?.installed ?? false) ? "Parakeet model installed" : "Parakeet model not installed"),
             DoctorCheck(name: "synthesis", status: (ttsModel?.available ?? false) ? "ok" : "warning", detail: (ttsModel?.available ?? false) ? "\(ttsModel?.name ?? "TTS") available" : "Speech synthesis unavailable")

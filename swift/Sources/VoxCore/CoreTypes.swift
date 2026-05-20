@@ -52,23 +52,49 @@ public enum RuntimeRegistry {
     }
 }
 
-public struct DoctorCheck: Codable, Sendable, Equatable {
-    public let name: String
-    public let status: String
+public struct DoctorRemediation: Codable, Sendable, Equatable {
+    public let action: String
+    public let label: String
     public let detail: String
 
-    public init(name: String, status: String, detail: String) {
-        self.name = name
-        self.status = status
+    public init(action: String, label: String, detail: String) {
+        self.action = action
+        self.label = label
         self.detail = detail
     }
 
     public func dictionaryValue() -> [String: Any] {
         [
+            "action": action,
+            "label": label,
+            "detail": detail
+        ]
+    }
+}
+
+public struct DoctorCheck: Codable, Sendable, Equatable {
+    public let name: String
+    public let status: String
+    public let detail: String
+    public let remediation: DoctorRemediation?
+
+    public init(name: String, status: String, detail: String, remediation: DoctorRemediation? = nil) {
+        self.name = name
+        self.status = status
+        self.detail = detail
+        self.remediation = remediation
+    }
+
+    public func dictionaryValue() -> [String: Any] {
+        var payload: [String: Any] = [
             "name": name,
             "status": status,
             "detail": detail
         ]
+        if let remediation {
+            payload["remediation"] = remediation.dictionaryValue()
+        }
+        return payload
     }
 }
 
@@ -1147,6 +1173,40 @@ public enum MicrophonePermission {
             return "not_determined"
         @unknown default:
             return "unknown"
+        }
+    }
+
+    public static func detail(for status: String) -> String {
+        switch status {
+        case "authorized":
+            return "Microphone access authorized"
+        case "not_determined":
+            return "Microphone access has not been requested"
+        case "denied":
+            return "Microphone access denied"
+        case "restricted":
+            return "Microphone access restricted"
+        default:
+            return "Microphone access unavailable"
+        }
+    }
+
+    public static func remediation(for status: String) -> DoctorRemediation? {
+        switch status {
+        case "not_determined":
+            return DoctorRemediation(
+                action: "request_microphone_access",
+                label: "Request Access",
+                detail: "Ask the system for microphone access from Vox."
+            )
+        case "denied", "restricted":
+            return DoctorRemediation(
+                action: "open_microphone_privacy_settings",
+                label: "Open Settings",
+                detail: "Enable Vox in system microphone privacy settings."
+            )
+        default:
+            return nil
         }
     }
 }

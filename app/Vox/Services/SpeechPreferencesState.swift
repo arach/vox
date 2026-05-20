@@ -3,6 +3,9 @@ import AVFoundation
 import VoxBridge
 import VoxCore
 import VoxEngine
+#if os(macOS)
+import AppKit
+#endif
 
 struct AudioInputDeviceInfo: Identifiable, Equatable {
     let id: String
@@ -162,6 +165,47 @@ final class SpeechPreferencesState: ObservableObject {
             preferredInputDeviceId = ""
             savePreferences()
         }
+    }
+
+    func requestMicrophonePermission() async {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            statusMessage = "Microphone access is already authorized."
+        case .notDetermined:
+            let granted = await AVCaptureDevice.requestAccess(for: .audio)
+            refreshInputDevices()
+            statusMessage = granted
+                ? "Microphone access granted."
+                : "Microphone access was not granted."
+        case .denied:
+            refreshInputDevices()
+            statusMessage = "Microphone access is denied. Enable Vox in System Settings."
+        case .restricted:
+            refreshInputDevices()
+            statusMessage = "Microphone access is restricted by macOS policy."
+        @unknown default:
+            refreshInputDevices()
+            statusMessage = "Microphone access is unavailable."
+        }
+    }
+
+    func openMicrophonePrivacySettings() {
+        #if os(macOS)
+        let settingsURLs = [
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
+            "x-apple.systempreferences:com.apple.preference.security"
+        ]
+        for rawURL in settingsURLs {
+            guard let url = URL(string: rawURL) else { continue }
+            if NSWorkspace.shared.open(url) {
+                statusMessage = "Opened microphone privacy settings."
+                return
+            }
+        }
+        statusMessage = "Unable to open microphone privacy settings."
+        #else
+        statusMessage = "Open Privacy & Security settings to enable microphone access."
+        #endif
     }
 
     func saveOpenAIAPIKey() {

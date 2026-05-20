@@ -329,10 +329,6 @@ struct GeneralTab: View {
         }
     }
 
-    private var microphonePermissionColor: Color {
-        speechPreferences.microphonePermissionStatus == "authorized" ? HudPalette.statusOk : HudPalette.statusWarn
-    }
-
     @ViewBuilder
     private var liveCaptureCard: some View {
         HudCard {
@@ -408,24 +404,15 @@ struct GeneralTab: View {
         }
     }
 
-    private var microphonePermissionIcon: String {
-        speechPreferences.microphonePermissionStatus == "authorized"
-            ? "checkmark.circle.fill"
-            : "exclamationmark.triangle.fill"
-    }
-
-    private var microphonePermissionLabel: String {
-        speechPreferences.microphonePermissionStatus == "authorized"
-            ? "Authorized"
-            : speechPreferences.microphonePermissionStatus
-    }
-
     private var micPermissionRow: some View {
-        VoxIconKVRow(
-            label: "Mic Permission",
-            value: microphonePermissionLabel,
-            icon: microphonePermissionIcon,
-            tint: microphonePermissionColor
+        VoxMicrophonePermissionRow(
+            status: speechPreferences.microphonePermissionStatus,
+            requestAccess: {
+                Task { await speechPreferences.requestMicrophonePermission() }
+            },
+            openSettings: {
+                speechPreferences.openMicrophonePrivacySettings()
+            }
         )
     }
 
@@ -512,12 +499,17 @@ struct RuntimeDoctorTab: View {
                     HudInset {
                         VStack(alignment: .leading, spacing: HudSpacing.md) {
                             ForEach(report.checks, id: \.name) { check in
-                                VoxIconKVRow(
-                                    label: check.name,
-                                    value: check.detail,
-                                    icon: doctorIcon(for: check.status),
-                                    tint: doctorTint(for: check.status)
-                                )
+                                VStack(alignment: .leading, spacing: HudSpacing.xs) {
+                                    VoxIconKVRow(
+                                        label: check.name,
+                                        value: check.detail,
+                                        icon: doctorIcon(for: check.status),
+                                        tint: doctorTint(for: check.status)
+                                    )
+                                    if let remediation = check.remediation {
+                                        doctorRemediationRow(remediation)
+                                    }
+                                }
                             }
                         }
                     }
@@ -727,6 +719,35 @@ struct RuntimeDoctorTab: View {
         case "ok": return HudPalette.statusOk
         case "warning": return HudPalette.statusWarn
         default: return HudPalette.statusError
+        }
+    }
+
+    private func doctorRemediationRow(_ remediation: DoctorRemediation) -> some View {
+        HStack(spacing: HudSpacing.md) {
+            VoxBodyText(remediation.detail, tint: HudPalette.muted)
+            Spacer(minLength: 0)
+            doctorRemediationButton(remediation)
+        }
+    }
+
+    @ViewBuilder
+    private func doctorRemediationButton(_ remediation: DoctorRemediation) -> some View {
+        switch remediation.action {
+        case "request_microphone_access":
+            HudButton(remediation.label, icon: "mic.fill", style: .secondary) {
+                Task {
+                    await speechPreferences.requestMicrophonePermission()
+                    await doctor.refresh()
+                }
+            }
+            .fixedSize(horizontal: true, vertical: false)
+        case "open_microphone_privacy_settings":
+            HudButton(remediation.label, icon: "gearshape", style: .secondary) {
+                speechPreferences.openMicrophonePrivacySettings()
+            }
+            .fixedSize(horizontal: true, vertical: false)
+        default:
+            EmptyView()
         }
     }
 }

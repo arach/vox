@@ -229,6 +229,68 @@ struct VoxIconKVRow: View {
     }
 }
 
+struct VoxMicrophonePermissionRow: View {
+    let status: String
+    var requestAccess: () -> Void
+    var openSettings: () -> Void
+
+    var body: some View {
+        HStack(spacing: HudSpacing.md) {
+            VoxIconKVRow(
+                label: "Mic Permission",
+                value: permissionLabel,
+                icon: permissionIcon,
+                tint: permissionTint
+            )
+
+            remediationButton
+        }
+    }
+
+    private var permissionLabel: String {
+        switch status {
+        case "authorized":
+            return "Authorized"
+        case "not_determined":
+            return "Not requested"
+        case "denied":
+            return "Denied"
+        case "restricted":
+            return "Restricted"
+        case "unknown", "":
+            return "Unknown"
+        default:
+            return status
+        }
+    }
+
+    private var permissionIcon: String {
+        status == "authorized" ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+    }
+
+    private var permissionTint: Color {
+        status == "authorized" ? HudPalette.statusOk : HudPalette.statusWarn
+    }
+
+    @ViewBuilder
+    private var remediationButton: some View {
+        switch status {
+        case "not_determined":
+            HudButton("Request Access", icon: "mic.fill", style: .secondary) {
+                requestAccess()
+            }
+                .fixedSize(horizontal: true, vertical: false)
+        case "denied", "restricted":
+            HudButton("Open Settings", icon: "gearshape", style: .secondary) {
+                openSettings()
+            }
+                .fixedSize(horizontal: true, vertical: false)
+        default:
+            EmptyView()
+        }
+    }
+}
+
 struct VoxEmptyList: View {
     let title: String
     let subtitle: String
