@@ -187,4 +187,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh workflow run publish-packages.yml --ref "${{ steps.version.outputs.tag }}"
+          gh workflow run publish-packages.yml --ref "$GITHUB_REF_NAME"
