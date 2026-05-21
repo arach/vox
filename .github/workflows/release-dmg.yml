@@ -34,6 +34,7 @@ jobs:
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      HUDSON_READ_TOKEN: ${{ secrets.HUDSON_READ_TOKEN }}
 
     steps:
       - name: Checkout
@@ -87,7 +88,8 @@ jobs:
           missing=0
           for name in \
             DEVELOPER_ID_APPLICATION_CERT_BASE64 \
-            DEVELOPER_ID_APPLICATION_CERT_PASSWORD; do
+            DEVELOPER_ID_APPLICATION_CERT_PASSWORD \
+            HUDSON_READ_TOKEN; do
             if [ -z "${!name}" ]; then
               echo "::error::Missing required release secret: $name"
               missing=1
@@ -150,6 +152,10 @@ jobs:
             exit 1
           fi
           echo "profile=$PROFILE" >> "$GITHUB_OUTPUT"
+
+      - name: Configure private SwiftPM access
+        run: |
+          git config --global url."https://x-access-token:${HUDSON_READ_TOKEN}@github.com/".insteadOf "git@github.com:"
 
       - name: Build DMG
         env:

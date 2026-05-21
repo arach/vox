@@ -179,6 +179,7 @@ Required release secrets:
 - `KEYCHAIN_PASSWORD`
 - `APP_STORE_CONNECT_API_KEY_P8`
 - `APP_STORE_CONNECT_KEY_ID` and `APP_STORE_CONNECT_ISSUER_ID` as repository variables, or secrets if needed
+- `HUDSON_READ_TOKEN` for the private SwiftPM dependency used by the macOS app bundle
 - `NPM_TOKEN` in the `PRODUCTION` environment for package publishing
 
 The DMG workflow also accepts the older Apple ID notarization secrets (`APPLE_ID`, `APPLE_APP_PASSWORD`, and `APPLE_TEAM_ID`) as a fallback, plus the legacy certificate names (`APPLE_SIGNING_CERT_BASE64` and `APPLE_SIGNING_CERT_PASSWORD`).
