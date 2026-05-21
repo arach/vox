@@ -174,10 +174,11 @@ Speech synthesis supports Apple system voices locally and OpenAI TTS (`gpt-4o-mi
 
 Required release secrets:
 
-- `APPLE_SIGNING_CERT_BASE64`
-- `APPLE_SIGNING_CERT_PASSWORD`
-- `APPLE_SIGN_IDENTITY`
-- `APPLE_ID`
-- `APPLE_APP_PASSWORD`
-- `APPLE_TEAM_ID`
+- `DEVELOPER_ID_APPLICATION_CERT_BASE64`
+- `DEVELOPER_ID_APPLICATION_CERT_PASSWORD`
+- `KEYCHAIN_PASSWORD`
+- `APP_STORE_CONNECT_API_KEY_P8`
+- `APP_STORE_CONNECT_KEY_ID` and `APP_STORE_CONNECT_ISSUER_ID` as repository variables, or secrets if needed
 - `NPM_TOKEN` for package publishing
+
+The DMG workflow also accepts the older Apple ID notarization secrets (`APPLE_ID`, `APPLE_APP_PASSWORD`, and `APPLE_TEAM_ID`) as a fallback, plus the legacy certificate names (`APPLE_SIGNING_CERT_BASE64` and `APPLE_SIGNING_CERT_PASSWORD`).
