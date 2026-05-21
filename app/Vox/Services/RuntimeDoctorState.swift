@@ -36,6 +36,19 @@ final class RuntimeDoctorState: ObservableObject {
         }
     }
 
+    func requestMicrophoneAccess() async {
+        do {
+            statusMessage = "Requesting microphone access from the Vox runtime..."
+            if !(await proxy.isConnected) {
+                try await proxy.connect()
+            }
+            _ = try await proxy.call("microphone.requestAccess")
+            await refresh()
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
     private func parseDoctorReport(_ result: [String: Any]) -> DoctorReport {
         let checks = (result["checks"] as? [[String: Any]] ?? []).compactMap { check -> DoctorCheck? in
             guard let name = check["name"] as? String,

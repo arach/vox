@@ -1,6 +1,6 @@
 {
   "name": "@voxd/cli",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "type": "module",
   "description": "CLI for the Vox local transcription runtime.",
   "bin": {
@@ -21,7 +21,7 @@
     "directory": "packages/cli"
   },
   "dependencies": {
-    "@voxd/sdk": "0.3.1"
+    "@voxd/sdk": "0.3.2"
   },
   "scripts": {
     "build": "bun build ./src/index.ts --outdir ./dist --target node --format esm"

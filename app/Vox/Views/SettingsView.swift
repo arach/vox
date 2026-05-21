@@ -3,7 +3,7 @@ import HudsonUI
 import VoxCore
 import VoxEngine
 
-// MARK: - General Tab
+// MARK: - Overview Tab
 
 struct OverviewTab: View {
     @EnvironmentObject var monitor: DaemonMonitor
@@ -16,103 +16,9 @@ struct OverviewTab: View {
             badge: "COMPANION",
             summary: "Vox is a local-first voice runtime for Apple apps, web companions, and developer tools."
         ) {
-            HudCard {
-                VStack(alignment: .leading, spacing: HudSpacing.lg) {
-                    HStack {
-                        HudSectionLabel("Vox Companion")
-                        Spacer()
-                        VoxStatusText(VoxVersion.current, tint: HudPalette.muted)
-                    }
-
-                    HudInset {
-                        VStack(alignment: .leading, spacing: HudSpacing.md) {
-                            HudKVRow("Version", value: VoxVersion.current)
-                            HudKVRow("Runtime", value: "macOS \(ProcessInfo.processInfo.operatingSystemVersionString)")
-                            HudKVRow("Data", value: "~/.vox/")
-                        }
-                    }
-                }
-            }
-
-            HudCard {
-                VStack(alignment: .leading, spacing: HudSpacing.lg) {
-                    HStack {
-                        HudSectionLabel("Daemon")
-                        Spacer()
-                        VoxStatusText(
-                            monitor.isRunning ? "RUNNING" : "STOPPED",
-                            tint: monitor.isRunning ? HudPalette.statusOk : HudPalette.statusError
-                        )
-                    }
-
-                    HudInset {
-                        VStack(alignment: .leading, spacing: HudSpacing.md) {
-                            if let port = monitor.port {
-                                HudKVRow("Daemon Port", value: voxPortString(port))
-                            }
-                            if let pid = monitor.pid {
-                                HudKVRow("PID", value: voxProcessIDString(pid))
-                            }
-                            if let startedAt = monitor.startedAt {
-                                HStack {
-                                    Text("UPTIME")
-                                        .font(HudFont.mono(9))
-                                        .tracking(0.8)
-                                        .foregroundStyle(HudPalette.dim)
-                                    Spacer()
-                                    UptimeText(startedAt: startedAt)
-                                        .font(HudFont.mono(11))
-                                        .foregroundStyle(HudPalette.ink)
-                                }
-                            }
-                            if monitor.port == nil, monitor.pid == nil, monitor.startedAt == nil {
-                                VoxBodyText("Runtime file unavailable.", tint: HudPalette.statusError)
-                            }
-                        }
-                    }
-
-                    HStack(spacing: HudSpacing.md) {
-                        HudButton("Restart", icon: "arrow.clockwise", style: .secondary) {
-                            LaunchAgentManager.restart()
-                        }
-
-                        if !launchAgentInstalled {
-                            HudButton("Install LaunchAgent", icon: "plus", style: .primary(.cyan)) {
-                                LaunchAgentManager.install()
-                                launchAgentInstalled = LaunchAgentManager.isInstalled()
-                            }
-                        }
-
-                        Spacer()
-
-                        VoxStatusText(
-                            launchAgentInstalled ? "STARTS AT LOGIN" : "MANUAL START",
-                            tint: HudPalette.muted
-                        )
-                    }
-                }
-            }
-
-            HudCard {
-                VStack(alignment: .leading, spacing: HudSpacing.lg) {
-                    HudSectionLabel("Selected Speech Stack")
-                    HudInset {
-                        VStack(alignment: .leading, spacing: HudSpacing.md) {
-                            HudKVRow("ASR", value: speechPreferences.effectiveTranscriptionModelId)
-                            HudKVRow("TTS", value: speechPreferences.effectiveSynthesisModelId)
-                            HudKVRow("Voice", value: speechPreferences.effectiveSynthesisVoiceLabel, valueColor: HudPalette.muted)
-                            HudKVRow("Input", value: speechPreferences.effectiveInputDeviceLabel, valueColor: HudPalette.muted)
-                        }
-                    }
-                }
-            }
-
-            HudCard {
-                VStack(alignment: .leading, spacing: HudSpacing.lg) {
-                    HudSectionLabel("Runtime Contract")
-                    VoxBodyText("Warm-up stays explicit, provider choice stays visible, and latency keeps client, route, and model dimensions.")
-                }
-            }
+            statusStrip
+            detailCard
+            controlStrip
         }
         .onAppear {
             launchAgentInstalled = LaunchAgentManager.isInstalled()
@@ -120,6 +26,158 @@ struct OverviewTab: View {
         .task(id: monitor.isRunning) {
             await speechPreferences.load()
         }
+    }
+
+    // MARK: Status strip — three operational chips at a glance.
+
+    private var statusStrip: some View {
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(), spacing: HudSpacing.xl),
+                GridItem(.flexible(), spacing: HudSpacing.xl),
+                GridItem(.flexible(), spacing: HudSpacing.xl)
+            ],
+            alignment: .leading,
+            spacing: HudSpacing.xl
+        ) {
+            VoxMetricCard(
+                label: "Daemon",
+                value: monitor.isRunning ? "Running" : "Stopped",
+                detail: daemonDetail,
+                tint: monitor.isRunning ? HudPalette.statusOk : HudPalette.statusError,
+                pulses: monitor.isRunning
+            )
+
+            VoxMetricCard(
+                label: "Speech",
+                value: speechPreferences.effectiveTranscriptionModelId,
+                detail: "tts · \(speechPreferences.effectiveSynthesisModelId)",
+                tint: speechPreferences.effectiveSynthesisNeedsAPIKey ? HudPalette.statusWarn : HudPalette.muted
+            )
+
+            uptimeCard
+        }
+    }
+
+    @ViewBuilder
+    private var uptimeCard: some View {
+        if let startedAt = monitor.startedAt {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                VoxMetricCard(
+                    label: "Uptime",
+                    value: Self.formatUptime(context.date.timeIntervalSince(startedAt)),
+                    detail: launchAgentInstalled ? "starts at login" : "manual start",
+                    tint: HudPalette.muted
+                )
+            }
+        } else {
+            VoxMetricCard(
+                label: "Uptime",
+                value: "—",
+                detail: monitor.isRunning ? "starting" : "runtime offline",
+                tint: HudPalette.statusError
+            )
+        }
+    }
+
+    // MARK: Detail card — two columns share one surface to cut dark-card stacking.
+
+    private var detailCard: some View {
+        HudCard {
+            HStack(alignment: .top, spacing: HudSpacing.xxxl) {
+                companionColumn
+                Rectangle()
+                    .fill(HudHairline.subtle)
+                    .frame(width: 1)
+                    .frame(maxHeight: .infinity)
+                speechColumn
+            }
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var companionColumn: some View {
+        VStack(alignment: .leading, spacing: HudSpacing.md) {
+            HudSectionLabel("Companion")
+                .padding(.bottom, HudSpacing.xs)
+            HudKVRow("Version", value: VoxVersion.current)
+            HudKVRow(
+                "Runtime",
+                value: "macOS \(ProcessInfo.processInfo.operatingSystemVersionString)",
+                valueColor: HudPalette.muted,
+                valueLineLimit: 1
+            )
+            HudKVRow("Data", value: "~/.vox/", valueColor: HudPalette.muted)
+            if let pid = monitor.pid {
+                HudKVRow("PID", value: voxProcessIDString(pid), valueColor: HudPalette.muted)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var speechColumn: some View {
+        VStack(alignment: .leading, spacing: HudSpacing.md) {
+            HudSectionLabel("Speech Stack")
+                .padding(.bottom, HudSpacing.xs)
+            HudKVRow("ASR", value: speechPreferences.effectiveTranscriptionModelId)
+            HudKVRow("TTS", value: speechPreferences.effectiveSynthesisModelId)
+            HudKVRow(
+                "Voice",
+                value: speechPreferences.effectiveSynthesisVoiceLabel,
+                valueColor: HudPalette.muted,
+                valueLineLimit: 1
+            )
+            HudKVRow(
+                "Input",
+                value: speechPreferences.effectiveInputDeviceLabel,
+                valueColor: HudPalette.muted,
+                valueLineLimit: 1
+            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: Control strip — slim action row, no nested card.
+
+    private var controlStrip: some View {
+        HStack(spacing: HudSpacing.md) {
+            HudButton("Restart Daemon", icon: "arrow.clockwise", style: .secondary) {
+                LaunchAgentManager.restart()
+            }
+
+            if !launchAgentInstalled {
+                HudButton("Install LaunchAgent", icon: "plus", style: .primary(.cyan)) {
+                    LaunchAgentManager.install()
+                    launchAgentInstalled = LaunchAgentManager.isInstalled()
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            if monitor.port == nil, monitor.pid == nil, monitor.startedAt == nil {
+                VoxStatusText("RUNTIME FILE UNAVAILABLE", tint: HudPalette.statusError)
+            } else {
+                VoxStatusText(
+                    launchAgentInstalled ? "STARTS AT LOGIN" : "MANUAL START",
+                    tint: HudPalette.muted
+                )
+            }
+        }
+    }
+
+    private var daemonDetail: String {
+        guard let port = monitor.port else { return "runtime unavailable" }
+        return "websocket \(voxPortString(port))"
+    }
+
+    private static func formatUptime(_ seconds: TimeInterval) -> String {
+        let total = max(Int(seconds), 0)
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let secs = total % 60
+        if hours > 0 { return "\(hours)h \(minutes)m" }
+        if minutes > 0 { return "\(minutes)m \(secs)s" }
+        return "\(secs)s"
     }
 }
 
@@ -237,8 +295,8 @@ struct GeneralTab: View {
                     VoxBodyText("Defaults are stored at the Vox user level. Apps can still override model, voice, and input choices per request.")
 
                     VStack(alignment: .leading, spacing: HudSpacing.md) {
-                        Picker(
-                            "Transcription Default",
+                        VoxPickerRow(
+                            label: "Transcription",
                             selection: Binding(
                                 get: { speechPreferences.preferredTranscriptionModelId },
                                 set: { newValue in
@@ -254,8 +312,8 @@ struct GeneralTab: View {
                             }
                         }
 
-                        Picker(
-                            "Synthesis Default",
+                        VoxPickerRow(
+                            label: "Synthesis",
                             selection: Binding(
                                 get: { speechPreferences.preferredSynthesisModelId },
                                 set: { newValue in
@@ -273,14 +331,15 @@ struct GeneralTab: View {
                             }
                         }
 
-                        Picker(
-                            "Voice Default",
+                        VoxPickerRow(
+                            label: "Voice",
                             selection: Binding(
                                 get: { speechPreferences.preferredSynthesisVoiceId },
                                 set: { newValue in
                                     speechPreferences.updatePreferredSynthesisVoiceId(newValue)
                                 }
-                            )
+                            ),
+                            isDisabled: speechPreferences.voices.isEmpty
                         ) {
                             Text("Provider Default")
                                 .tag("")
@@ -289,16 +348,16 @@ struct GeneralTab: View {
                                     .tag(voice.id)
                             }
                         }
-                        .disabled(speechPreferences.voices.isEmpty)
 
-                        Picker(
-                            "Input Device",
+                        VoxPickerRow(
+                            label: "Input Device",
                             selection: Binding(
                                 get: { speechPreferences.preferredInputDeviceId },
                                 set: { newValue in
                                     speechPreferences.updatePreferredInputDeviceId(newValue)
                                 }
-                            )
+                            ),
+                            isDisabled: speechPreferences.inputDevices.isEmpty
                         ) {
                             Text("System Default")
                                 .tag("")
@@ -307,11 +366,9 @@ struct GeneralTab: View {
                                     .tag(device.id)
                             }
                         }
-                        .disabled(speechPreferences.inputDevices.isEmpty)
 
                         micPermissionRow
                     }
-                    .pickerStyle(.menu)
 
                     if let statusMessage = speechPreferences.statusMessage, !statusMessage.isEmpty {
                         HudInset {
@@ -736,8 +793,7 @@ struct RuntimeDoctorTab: View {
         case "request_microphone_access":
             HudButton(remediation.label, icon: "mic.fill", style: .secondary) {
                 Task {
-                    await speechPreferences.requestMicrophonePermission()
-                    await doctor.refresh()
+                    await doctor.requestMicrophoneAccess()
                 }
             }
             .fixedSize(horizontal: true, vertical: false)

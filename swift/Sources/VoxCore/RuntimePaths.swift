@@ -1,7 +1,7 @@
 import Foundation
 
 public enum VoxVersion {
-    public static let current = "0.3.2.dev"
+    public static let current = "0.3.2"
 }
 
 public struct VoxPortDefinition: Sendable, Equatable {

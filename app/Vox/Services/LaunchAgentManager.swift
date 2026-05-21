@@ -16,11 +16,32 @@ enum LaunchAgentManager {
         FileManager.default.fileExists(atPath: plistURL.path)
     }
 
-    static func install() {
+    static func ensureInstalled() {
         evictLegacyAgents()
 
         let voxdPath = findVoxd()
+        if samePath(installedVoxdPath(), voxdPath) {
+            return
+        }
 
+        writeAndLoad(voxdPath: voxdPath)
+    }
+
+    static func install() {
+        evictLegacyAgents()
+        writeAndLoad(voxdPath: findVoxd())
+    }
+
+    static func uninstall() {
+        launchctl(["bootout", "gui/\(getuid())/\(label)"])
+        try? FileManager.default.removeItem(at: plistURL)
+    }
+
+    static func restart() {
+        launchctl(["kickstart", "-k", "gui/\(getuid())/\(label)"])
+    }
+
+    private static func writeAndLoad(voxdPath: String) {
         let plist: [String: Any] = [
             "Label": label,
             "ProgramArguments": [voxdPath, "--port", String(VoxDefaults.daemonPort)],
@@ -44,16 +65,8 @@ enum LaunchAgentManager {
         try? data?.write(to: plistURL, options: .atomic)
 
         // Load it
-        launchctl(["bootstrap", "gui/\(getuid())", plistURL.path])
-    }
-
-    static func uninstall() {
         launchctl(["bootout", "gui/\(getuid())/\(label)"])
-        try? FileManager.default.removeItem(at: plistURL)
-    }
-
-    static func restart() {
-        launchctl(["kickstart", "-k", "gui/\(getuid())/\(label)"])
+        launchctl(["bootstrap", "gui/\(getuid())", plistURL.path])
     }
 
     /// Boot out and remove plists for any pre-rename launch labels.
@@ -71,6 +84,24 @@ enum LaunchAgentManager {
     }
 
     // MARK: - Private
+
+    private static func installedVoxdPath() -> String? {
+        guard let data = try? Data(contentsOf: plistURL),
+              let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
+              let arguments = plist["ProgramArguments"] as? [String],
+              let path = arguments.first
+        else {
+            return nil
+        }
+        return path
+    }
+
+    private static func samePath(_ lhs: String?, _ rhs: String) -> Bool {
+        guard let lhs else {
+            return false
+        }
+        return URL(fileURLWithPath: lhs).standardizedFileURL.path == URL(fileURLWithPath: rhs).standardizedFileURL.path
+    }
 
     private static func findVoxd() -> String {
         // 1. Bundled in the app

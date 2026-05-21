@@ -300,3 +300,50 @@ struct VoxEmptyList: View {
         HudEmptyState(title: title, subtitle: subtitle, icon: icon)
     }
 }
+
+/// Mono uppercase-label row with a right-aligned `.menu` picker chip.
+/// Matches the visual rhythm of `HudKVRow` so editable form rows align with
+/// the read-only KV rows above them.
+struct VoxPickerRow<SelectionValue: Hashable, Options: View>: View {
+    let label: String
+    @Binding var selection: SelectionValue
+    var isDisabled: Bool = false
+    @ViewBuilder var options: () -> Options
+
+    var body: some View {
+        HStack(spacing: HudSpacing.md) {
+            Text(label.uppercased())
+                .font(HudFont.mono(9))
+                .tracking(0.8)
+                .foregroundStyle(HudPalette.dim)
+                .lineLimit(1)
+
+            Spacer(minLength: HudSpacing.md)
+
+            Picker("", selection: $selection) {
+                options()
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+            .disabled(isDisabled)
+        }
+    }
+}
+
+/// Discreet uppercase mono subhead used to separate a card's read-only header
+/// from its edit controls without introducing a new card.
+struct VoxSubsectionLabel: View {
+    let text: String
+
+    init(_ text: String) {
+        self.text = text
+    }
+
+    var body: some View {
+        Text(text.uppercased())
+            .font(HudFont.mono(9, weight: .semibold))
+            .tracking(1.2)
+            .foregroundStyle(HudPalette.dim)
+    }
+}

@@ -51,29 +51,38 @@ struct TTSConfigTab: View {
                     }
                 }
 
-                HudSecretField(
-                    "sk-...",
-                    text: $speechPreferences.openAIAPIKeyInput,
-                    icon: "key.fill"
-                )
+                HudDivider()
 
-                HStack(spacing: HudSpacing.md) {
-                    HudButton("Save Key", icon: "lock", style: .primary(.cyan)) {
-                        speechPreferences.saveOpenAIAPIKey()
-                    }
-                    .disabled(speechPreferences.openAIAPIKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                VStack(alignment: .leading, spacing: HudSpacing.md) {
+                    VoxSubsectionLabel("Update Key")
 
-                    HudButton("Use OpenAI TTS", icon: "speaker.wave.2", style: .secondary) {
-                        Task { await speechPreferences.useOpenAITTS() }
-                    }
+                    HudSecretField(
+                        "sk-...",
+                        text: $speechPreferences.openAIAPIKeyInput,
+                        icon: "key.fill"
+                    )
 
-                    if speechPreferences.openAIKeyConfigured {
-                        HudButton("Remove", icon: "trash", style: .ghost) {
-                            speechPreferences.deleteOpenAIAPIKey()
+                    HStack(spacing: HudSpacing.md) {
+                        HudButton("Save Key", icon: "lock", style: .primary(.cyan)) {
+                            speechPreferences.saveOpenAIAPIKey()
                         }
-                    }
+                        .disabled(speechPreferences.openAIAPIKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .fixedSize(horizontal: true, vertical: false)
 
-                    Spacer(minLength: 0)
+                        HudButton("Activate", icon: "speaker.wave.2", style: .secondary) {
+                            Task { await speechPreferences.useOpenAITTS() }
+                        }
+                        .fixedSize(horizontal: true, vertical: false)
+
+                        if speechPreferences.openAIKeyConfigured {
+                            HudButton("Remove", icon: "trash", style: .ghost) {
+                                speechPreferences.deleteOpenAIAPIKey()
+                            }
+                            .fixedSize(horizontal: true, vertical: false)
+                        }
+
+                        Spacer(minLength: 0)
+                    }
                 }
             }
         }
@@ -100,8 +109,8 @@ struct TTSConfigTab: View {
                 }
 
                 VStack(alignment: .leading, spacing: HudSpacing.md) {
-                    Picker(
-                        "Model",
+                    VoxPickerRow(
+                        label: "Model",
                         selection: Binding(
                             get: { speechPreferences.preferredSynthesisModelId },
                             set: { newValue in
@@ -119,14 +128,15 @@ struct TTSConfigTab: View {
                         }
                     }
 
-                    Picker(
-                        "Voice",
+                    VoxPickerRow(
+                        label: "Voice",
                         selection: Binding(
                             get: { speechPreferences.preferredSynthesisVoiceId },
                             set: { newValue in
                                 speechPreferences.updatePreferredSynthesisVoiceId(newValue)
                             }
-                        )
+                        ),
+                        isDisabled: speechPreferences.voices.isEmpty
                     ) {
                         Text("Provider Default")
                             .tag("")
@@ -135,14 +145,13 @@ struct TTSConfigTab: View {
                                 .tag(voice.id)
                         }
                     }
-                    .disabled(speechPreferences.voices.isEmpty)
                 }
-                .pickerStyle(.menu)
 
                 HStack(spacing: HudSpacing.md) {
                     HudButton("Refresh Models", icon: "arrow.clockwise", style: .secondary) {
                         Task { await speechPreferences.refreshOptions() }
                     }
+                    .fixedSize(horizontal: true, vertical: false)
                     Spacer(minLength: 0)
                 }
 
@@ -268,8 +277,8 @@ struct ASRConfigTab: View {
                 }
 
                 VStack(alignment: .leading, spacing: HudSpacing.md) {
-                    Picker(
-                        "Model",
+                    VoxPickerRow(
+                        label: "Model",
                         selection: Binding(
                             get: { speechPreferences.preferredTranscriptionModelId },
                             set: { newValue in
@@ -285,14 +294,15 @@ struct ASRConfigTab: View {
                         }
                     }
 
-                    Picker(
-                        "Input Device",
+                    VoxPickerRow(
+                        label: "Input Device",
                         selection: Binding(
                             get: { speechPreferences.preferredInputDeviceId },
                             set: { newValue in
                                 speechPreferences.updatePreferredInputDeviceId(newValue)
                             }
-                        )
+                        ),
+                        isDisabled: speechPreferences.inputDevices.isEmpty
                     ) {
                         Text("System Default")
                             .tag("")
@@ -301,14 +311,13 @@ struct ASRConfigTab: View {
                                 .tag(device.id)
                         }
                     }
-                    .disabled(speechPreferences.inputDevices.isEmpty)
                 }
-                .pickerStyle(.menu)
 
                 HStack(spacing: HudSpacing.md) {
                     HudButton("Refresh Inputs", icon: "arrow.clockwise", style: .secondary) {
                         Task { await speechPreferences.refreshOptions() }
                     }
+                    .fixedSize(horizontal: true, vertical: false)
                     Spacer(minLength: 0)
                 }
 

@@ -1,5 +1,11 @@
 // swift-tools-version: 6.2
+import Foundation
 import PackageDescription
+
+let packageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+let voxdInfoPlistPath = packageDirectory
+    .appendingPathComponent("Sources/voxd/Info.plist")
+    .path
 
 let package = Package(
     name: "Vox",
@@ -46,7 +52,16 @@ let package = Package(
         ),
         .executableTarget(
             name: "voxd",
-            dependencies: ["VoxCore", "VoxEngine", "VoxService"]
+            dependencies: ["VoxCore", "VoxEngine", "VoxService"],
+            exclude: ["Info.plist"],
+            linkerSettings: [
+                .unsafeFlags([
+                    "-Xlinker", "-sectcreate",
+                    "-Xlinker", "__TEXT",
+                    "-Xlinker", "__info_plist",
+                    "-Xlinker", voxdInfoPlistPath
+                ], .when(platforms: [.macOS]))
+            ]
         ),
         .testTarget(
             name: "VoxCoreTests",

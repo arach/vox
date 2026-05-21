@@ -10,27 +10,18 @@ actor MicrophoneRecorder {
     private var recordingDelegate: AudioFileRecordingDelegate?
     private var currentURL: URL?
 
-    func start() throws -> URL {
+    func start() async throws -> URL {
         guard session == nil else {
             throw NSError(domain: "VoxService", code: 20, userInfo: [
                 NSLocalizedDescriptionKey: "A recording is already in progress."
             ])
         }
 
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
-        case .authorized:
-            break
-        case .notDetermined:
-            throw NSError(domain: "VoxService", code: 26, userInfo: [
-                NSLocalizedDescriptionKey: "Microphone access has not been granted for Vox."
-            ])
-        case .denied, .restricted:
-            throw NSError(domain: "VoxService", code: 27, userInfo: [
-                NSLocalizedDescriptionKey: "Microphone access is not allowed for Vox."
-            ])
-        @unknown default:
-            throw NSError(domain: "VoxService", code: 28, userInfo: [
-                NSLocalizedDescriptionKey: "Microphone access is unavailable."
+        try await ensureMicrophoneAccess()
+
+        guard session == nil else {
+            throw NSError(domain: "VoxService", code: 20, userInfo: [
+                NSLocalizedDescriptionKey: "A recording is already in progress."
             ])
         }
 
@@ -118,6 +109,29 @@ actor MicrophoneRecorder {
         if let current {
             try? FileManager.default.removeItem(at: current)
             log.warning("Recording cancelled: \(current.lastPathComponent)")
+        }
+    }
+
+    private func ensureMicrophoneAccess() async throws {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            return
+        case .notDetermined:
+            let granted = await AVCaptureDevice.requestAccess(for: .audio)
+            if granted {
+                return
+            }
+            throw NSError(domain: "VoxService", code: 26, userInfo: [
+                NSLocalizedDescriptionKey: "Microphone access was not granted for Vox."
+            ])
+        case .denied, .restricted:
+            throw NSError(domain: "VoxService", code: 27, userInfo: [
+                NSLocalizedDescriptionKey: "Microphone access is not allowed for Vox."
+            ])
+        @unknown default:
+            throw NSError(domain: "VoxService", code: 28, userInfo: [
+                NSLocalizedDescriptionKey: "Microphone access is unavailable."
+            ])
         }
     }
 

@@ -697,6 +697,17 @@ public final class VoxRuntimeService: @unchecked Sendable {
             }
         }
 
+        bridge.handle("microphone.requestAccess") { _, reply in
+            Task {
+                let status = await MicrophonePermission.requestAccessStatusString()
+                reply([
+                    "status": status,
+                    "detail": MicrophonePermission.detail(for: status),
+                    "remediation": MicrophonePermission.remediation(for: status)?.dictionaryValue() ?? NSNull()
+                ], nil)
+            }
+        }
+
         bridge.handle("models.list") { [weak self] _, reply in
             guard let self else { return }
             Task {
@@ -968,6 +979,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
             Task {
                 var startingSession: LiveSessionCoordinator.Session?
                 do {
+                    try await self.ensureMicrophoneAccessForLiveSession()
                     let session = try self.sessions.begin(
                         connectionID: connectionID,
                         clientId: clientId,
@@ -1309,6 +1321,26 @@ public final class VoxRuntimeService: @unchecked Sendable {
                     "sessionId": session.sessionId
                 ], nil)
             }
+        }
+    }
+
+    private func ensureMicrophoneAccessForLiveSession() async throws {
+        let status = await MicrophonePermission.requestAccessStatusString()
+        switch status {
+        case "authorized":
+            return
+        case "denied", "restricted":
+            throw NSError(domain: "VoxService", code: 27, userInfo: [
+                NSLocalizedDescriptionKey: "Microphone access is not allowed for Vox."
+            ])
+        case "not_determined":
+            throw NSError(domain: "VoxService", code: 26, userInfo: [
+                NSLocalizedDescriptionKey: "Microphone access was not granted for Vox."
+            ])
+        default:
+            throw NSError(domain: "VoxService", code: 28, userInfo: [
+                NSLocalizedDescriptionKey: "Microphone access is unavailable."
+            ])
         }
     }
 

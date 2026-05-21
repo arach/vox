@@ -1176,6 +1176,16 @@ public enum MicrophonePermission {
         }
     }
 
+    public static func requestAccessStatusString() async -> String {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .notDetermined:
+            _ = await AVCaptureDevice.requestAccess(for: .audio)
+            return statusString()
+        default:
+            return statusString()
+        }
+    }
+
     public static func detail(for status: String) -> String {
         switch status {
         case "authorized":

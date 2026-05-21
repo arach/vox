@@ -58,10 +58,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
         setupMenuBar()
         startBridge()
 
-        // First launch: install LaunchAgent
-        if !LaunchAgentManager.isInstalled() {
-            LaunchAgentManager.install()
-        }
+        // Install or refresh the LaunchAgent when this bundle's helper path changes.
+        LaunchAgentManager.ensureInstalled()
 
         monitor.start()
 

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>cc.voxd.daemon</string>
+    <key>CFBundleName</key>
+    <string>Vox Companion</string>
+    <key>CFBundleDisplayName</key>
+    <string>Vox Companion</string>
+    <key>CFBundleExecutable</key>
+    <string>voxd</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Vox Companion uses the microphone for live transcription.</string>
+</dict>
+</plist>
