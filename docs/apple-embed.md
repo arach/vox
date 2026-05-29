@@ -27,6 +27,10 @@ There is not yet a polished one-object Apple SDK facade. Agents should usually c
 
 ## Package setup
 
+`VoxCore` and `VoxEngine` support direct transcription embedding on macOS 14+
+and iOS 17+. Higher-level demos that use Apple Intelligence still require the
+newer OS versions those Apple APIs require.
+
 For a sibling repo during local development, prefer a local SwiftPM dependency:
 
 ```swift

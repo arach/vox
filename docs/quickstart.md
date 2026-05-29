@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- macOS 26+ or iOS 26+ for Apple SDK consumers
+- macOS 14+ or iOS 17+ for direct Swift transcription embedding; macOS 26+ for the Vox menu app and Apple Intelligence demo paths
 - Node 22+
 - Vox Companion installed from the DMG, or `voxd` available at `~/.vox/bin/voxd`
 - Swift 6.2+ only if you plan to build Vox from a repo checkout

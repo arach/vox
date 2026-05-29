@@ -22,7 +22,7 @@ Apple apps can embed Vox directly. Bun and Node tools can connect to `voxd` over
 
 Requirements:
 
-- macOS 26+
+- macOS 14+ for the Swift transcription packages; macOS 26+ for the Hudson menu app and demo flows that use Apple Intelligence
 - Bun 1.2+
 - Node 22+
 - Swift 6.2+

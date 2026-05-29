@@ -1,6 +1,6 @@
 # Vox Facts
 
-- platforms: `macOS 26+`, `iOS 26+`
+- platforms: `macOS 14+` / `iOS 17+` for Swift transcription embedding; `macOS 26+` for the Hudson menu app and Apple Intelligence demo paths
 - deployment modes:
   - embed mode: Swift packages inside the app process
   - companion mode: `voxd` for web, browser, and shared-process clients
