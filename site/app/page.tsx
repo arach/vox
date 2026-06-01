@@ -2,6 +2,10 @@ import Link from "next/link";
 import { ArrowUpRight, Download, Github } from "lucide-react";
 import { CopyCommand } from "../components/copy-command";
 import { ScreenshotLightbox } from "../components/screenshot-lightbox";
+import cliPkg from "../../packages/cli/package.json";
+
+const VOX_VERSION = cliPkg.version;
+const VOX_RELEASE_URL = `https://github.com/arach/vox/releases/tag/v${VOX_VERSION}`;
 
 const featureRows = [
   { idx: "01", title: "Apple apps", body: "Swift owns the embed surface. If an Apple app can keep speech local and in process, Vox lets it do that." },
@@ -30,7 +34,14 @@ export default function Home() {
       {/* Sticky status strip */}
       <div className="sticky top-0 z-50 border-b border-line bg-canvas">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
-          <span className="text-secondary">vox v0.1.0</span>
+          <Link
+            href={VOX_RELEASE_URL}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-secondary transition-colors hover:text-accent"
+          >
+            vox v{VOX_VERSION}
+          </Link>
           <span className="hidden items-center gap-2 text-secondary sm:inline-flex">
             <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
             daemon · running
@@ -339,7 +350,7 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <span aria-hidden="true" className="inline-block h-2 w-2 rounded-sm bg-accent" />
             <span className="text-ink">vox</span>
-            <span>v0.1.0 · local-first</span>
+            <span>v{VOX_VERSION} · local-first</span>
           </div>
           <div className="flex gap-5">
             <Link href="/docs/overview" className="transition-colors hover:text-accent">/docs</Link>
