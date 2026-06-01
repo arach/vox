@@ -127,6 +127,20 @@ final class LiveSessionCoordinator: @unchecked Sendable {
         return activeSession.sessionId == id ? activeSession : nil
     }
 
+    func markProcessing(id: String?) -> Session? {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard let activeSession else { return nil }
+        if let id, activeSession.sessionId != id {
+            return nil
+        }
+
+        activeSession.state = .processing
+        cancelRecordingTimer()
+        return activeSession
+    }
+
     func status() -> SessionStatus? {
         lock.lock()
         defer { lock.unlock() }
@@ -207,10 +221,13 @@ final class LiveSessionCoordinator: @unchecked Sendable {
             guard let self else { return }
             self.lock.lock()
             let session = self.activeSession
-            self.activeSession = nil
+            let didTimeout = session?.state == .recording
+            if didTimeout {
+                self.activeSession = nil
+            }
             self.lock.unlock()
             self.cancelRecordingTimer()
-            if let session {
+            if didTimeout, let session {
                 self.onRecordingTimeout?(session)
             }
         }
