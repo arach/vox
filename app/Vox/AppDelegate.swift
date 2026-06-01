@@ -57,6 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
         startBridge()
+        LaunchAgentManager.reconcileLegacyAgents()
 
         // Install or refresh the LaunchAgent when this bundle's helper path changes.
         LaunchAgentManager.ensureInstalled()
@@ -214,10 +215,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
             .environmentObject(monitor)
             .environmentObject(bridgeState)
             .environmentObject(onboarding)
-            .frame(minWidth: 920, minHeight: 640)
+            .frame(minWidth: 1000, minHeight: 660)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 960, height: 680),
+            contentRect: NSRect(x: 0, y: 0, width: 1080, height: 720),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
@@ -260,7 +261,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSMe
     }
 
     @objc func restartDaemon() {
-        LaunchAgentManager.restart()
+        let result = LaunchAgentManager.restart()
+        DiagnosticLog.shared.log(result.summary, level: result.succeeded ? .success : .warning)
+        monitor.checkNow()
     }
 
     private func menuBarIconState() -> MenuBarIcon.State {

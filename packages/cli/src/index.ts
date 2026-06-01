@@ -31,8 +31,10 @@ const DEV_SWIFT_ROOT = join(DEV_REPO_ROOT, "swift");
 const DEV_DAEMON_BINARY = join(DEV_SWIFT_ROOT, ".build", "debug", "voxd");
 const DEV_TTS_BINARY = join(DEV_SWIFT_ROOT, ".build", "debug", "voxttsd");
 
-const LAUNCH_AGENT_LABEL = "com.vox.daemon";
-const PLIST_PATH = join(homedir(), "Library", "LaunchAgents", `${LAUNCH_AGENT_LABEL}.plist`);
+const LAUNCH_AGENT_LABEL = "cc.voxd.daemon";
+const LEGACY_LAUNCH_AGENT_LABELS = ["com.vox.daemon"];
+const LAUNCH_AGENTS_DIR = join(homedir(), "Library", "LaunchAgents");
+const PLIST_PATH = join(LAUNCH_AGENTS_DIR, `${LAUNCH_AGENT_LABEL}.plist`);
 const LOGS_DIR = join(homedir(), ".vox", "logs");
 
 async function main(argv: string[]): Promise<void> {
@@ -969,6 +971,7 @@ async function handleInstall(): Promise<void> {
     );
   }
 
+  evictLegacyLaunchAgents();
   mkdirSync(dirname(PLIST_PATH), { recursive: true });
   mkdirSync(LOGS_DIR, { recursive: true });
 
@@ -988,12 +991,20 @@ async function handleInstall(): Promise<void> {
 }
 
 async function handleUninstall(): Promise<void> {
+  launchctl(["bootout", `gui/${process.getuid?.() ?? 501}/${LAUNCH_AGENT_LABEL}`], { allowFail: true });
   if (existsSync(PLIST_PATH)) {
-    launchctl(["bootout", `gui/${process.getuid?.() ?? 501}/${LAUNCH_AGENT_LABEL}`], { allowFail: true });
     rmSync(PLIST_PATH, { force: true });
     console.log("Vox Companion uninstalled, LaunchAgent removed");
   } else {
     console.log("Vox Companion is not installed (no plist found).");
+  }
+  evictLegacyLaunchAgents();
+}
+
+function evictLegacyLaunchAgents(): void {
+  for (const label of LEGACY_LAUNCH_AGENT_LABELS) {
+    launchctl(["bootout", `gui/${process.getuid?.() ?? 501}/${label}`], { allowFail: true });
+    rmSync(join(LAUNCH_AGENTS_DIR, `${label}.plist`), { force: true });
   }
 }
 

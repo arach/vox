@@ -159,7 +159,11 @@ final class DiagnosticRuntimeSources: ObservableObject {
     }
 
     nonisolated private static func readDaemonEntries(from url: URL, limit: Int) -> [DiagnosticFileEntry] {
-        readTailLines(from: url, limit: limit).map { line in
+        readTailLines(from: url, limit: limit).filter {
+            $0.hasPrefix("[")
+                && !$0.contains("LaunchAgent launchctl start arguments=print")
+                && !$0.contains("LaunchAgent launchctl finished arguments=print")
+        }.map { line in
             DiagnosticFileEntry(
                 time: extractBracketedTime(from: line),
                 message: line,

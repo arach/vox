@@ -8,6 +8,8 @@ import VoxEngine
 struct OverviewTab: View {
     @EnvironmentObject var monitor: DaemonMonitor
     @State private var launchAgentInstalled = LaunchAgentManager.isInstalled()
+    @State private var launchAgentResult: LaunchAgentOperationResult?
+    @State private var launchAgentInFlight = false
     @ObservedObject var speechPreferences: SpeechPreferencesState
 
     var body: some View {
@@ -19,6 +21,9 @@ struct OverviewTab: View {
             statusStrip
             detailCard
             controlStrip
+            if let launchAgentResult {
+                LaunchAgentOperationView(result: launchAgentResult)
+            }
         }
         .onAppear {
             launchAgentInstalled = LaunchAgentManager.isInstalled()
@@ -33,9 +38,7 @@ struct OverviewTab: View {
     private var statusStrip: some View {
         LazyVGrid(
             columns: [
-                GridItem(.flexible(), spacing: HudSpacing.xl),
-                GridItem(.flexible(), spacing: HudSpacing.xl),
-                GridItem(.flexible(), spacing: HudSpacing.xl)
+                GridItem(.adaptive(minimum: 170), spacing: HudSpacing.xl)
             ],
             alignment: .leading,
             spacing: HudSpacing.xl
@@ -142,14 +145,23 @@ struct OverviewTab: View {
     private var controlStrip: some View {
         HStack(spacing: HudSpacing.md) {
             HudButton("Restart Daemon", icon: "arrow.clockwise", style: .secondary) {
-                LaunchAgentManager.restart()
+                runLaunchAgentAction(LaunchAgentManager.restart)
             }
+            .disabled(launchAgentInFlight)
 
             if !launchAgentInstalled {
                 HudButton("Install LaunchAgent", icon: "plus", style: .primary(.cyan)) {
-                    LaunchAgentManager.install()
-                    launchAgentInstalled = LaunchAgentManager.isInstalled()
+                    runLaunchAgentAction(LaunchAgentManager.install)
                 }
+                .disabled(launchAgentInFlight)
+            }
+
+            HudButton("Show Logs", icon: "doc.text.magnifyingglass", style: .secondary) {
+                DiagnosticWindow.shared.show()
+            }
+
+            if launchAgentInFlight {
+                VoxStatusText("WORKING", tint: HudPalette.statusWarn)
             }
 
             Spacer(minLength: 0)
@@ -170,6 +182,23 @@ struct OverviewTab: View {
         return "websocket \(voxPortString(port))"
     }
 
+    private func runLaunchAgentAction(_ action: @escaping @Sendable () -> LaunchAgentOperationResult) {
+        guard !launchAgentInFlight else { return }
+        launchAgentInFlight = true
+
+        Task {
+            let result = await Task.detached(priority: .userInitiated) {
+                action()
+            }.value
+
+            launchAgentResult = result
+            launchAgentInstalled = LaunchAgentManager.isInstalled()
+            monitor.checkNow()
+            await monitor.refreshSessionsNow()
+            launchAgentInFlight = false
+        }
+    }
+
     private static func formatUptime(_ seconds: TimeInterval) -> String {
         let total = max(Int(seconds), 0)
         let hours = total / 3600
@@ -184,6 +213,8 @@ struct OverviewTab: View {
 struct GeneralTab: View {
     @EnvironmentObject var monitor: DaemonMonitor
     @State private var launchAgentInstalled = LaunchAgentManager.isInstalled()
+    @State private var launchAgentResult: LaunchAgentOperationResult?
+    @State private var launchAgentInFlight = false
     @State private var liveSessionMessage: String?
     @State private var liveSessionMessageIsError = false
     @ObservedObject var speechPreferences: SpeechPreferencesState
@@ -225,15 +256,24 @@ struct GeneralTab: View {
                     }
 
                     HStack(spacing: HudSpacing.md) {
-                        HudButton("Restart", icon: "arrow.clockwise", style: .secondary) {
-                            LaunchAgentManager.restart()
+                        HudButton("Restart Daemon", icon: "arrow.clockwise", style: .secondary) {
+                            runLaunchAgentAction(LaunchAgentManager.restart)
                         }
+                        .disabled(launchAgentInFlight)
 
                         if !launchAgentInstalled {
                             HudButton("Install LaunchAgent", icon: "plus", style: .primary(.cyan)) {
-                                LaunchAgentManager.install()
-                                launchAgentInstalled = LaunchAgentManager.isInstalled()
+                                runLaunchAgentAction(LaunchAgentManager.install)
                             }
+                            .disabled(launchAgentInFlight)
+                        }
+
+                        HudButton("Show Logs", icon: "doc.text.magnifyingglass", style: .secondary) {
+                            DiagnosticWindow.shared.show()
+                        }
+
+                        if launchAgentInFlight {
+                            VoxStatusText("WORKING", tint: HudPalette.statusWarn)
                         }
 
                         Spacer()
@@ -242,6 +282,10 @@ struct GeneralTab: View {
                             launchAgentInstalled ? "STARTS AT LOGIN" : "MANUAL START",
                             tint: HudPalette.muted
                         )
+                    }
+
+                    if let launchAgentResult {
+                        LaunchAgentOperationView(result: launchAgentResult)
                     }
                 }
             }
@@ -479,6 +523,23 @@ struct GeneralTab: View {
         }
         return voice.isDefault ? "\(voice.name) · default" : voice.name
     }
+
+    private func runLaunchAgentAction(_ action: @escaping @Sendable () -> LaunchAgentOperationResult) {
+        guard !launchAgentInFlight else { return }
+        launchAgentInFlight = true
+
+        Task {
+            let result = await Task.detached(priority: .userInitiated) {
+                action()
+            }.value
+
+            launchAgentResult = result
+            launchAgentInstalled = LaunchAgentManager.isInstalled()
+            monitor.checkNow()
+            await monitor.refreshSessionsNow()
+            launchAgentInFlight = false
+        }
+    }
 }
 
 // MARK: - Doctor Tab
@@ -488,6 +549,10 @@ struct RuntimeDoctorTab: View {
     @EnvironmentObject var bridgeState: BridgeState
     @ObservedObject var speechPreferences: SpeechPreferencesState
     @StateObject private var doctor = RuntimeDoctorState()
+    @StateObject private var runtimeSources = DiagnosticRuntimeSources()
+    @State private var launchAgentStatus = LaunchAgentManager.status()
+    @State private var launchAgentResult: LaunchAgentOperationResult?
+    @State private var launchAgentInFlight = false
     @State private var sessionMessage: String?
     @State private var sessionMessageIsError = false
 
@@ -498,7 +563,9 @@ struct RuntimeDoctorTab: View {
             summary: "Inspect daemon health, active speech sessions, and the localhost HTTP API in one place."
         ) {
             runtimeGrid
+            daemonRecoveryCard
             doctorCard
+            daemonLogPreviewCard
             sessionStateCard
             httpEndpointCard
             bridgeOriginsCard
@@ -506,6 +573,8 @@ struct RuntimeDoctorTab: View {
         .task {
             await bridgeState.refreshOrigins()
             await doctor.refresh()
+            runtimeSources.refresh()
+            launchAgentStatus = LaunchAgentManager.status()
             monitor.checkNow()
             await monitor.refreshSessionsNow()
         }
@@ -578,7 +647,11 @@ struct RuntimeDoctorTab: View {
 
                 HStack(spacing: HudSpacing.md) {
                     HudButton("Run Doctor", icon: "stethoscope", style: .primary(.cyan)) {
-                        Task { await doctor.refresh() }
+                        Task {
+                            await doctor.refresh()
+                            runtimeSources.refresh()
+                            launchAgentStatus = LaunchAgentManager.status()
+                        }
                     }
                     .disabled(doctor.isRefreshing)
 
@@ -588,6 +661,8 @@ struct RuntimeDoctorTab: View {
                             await monitor.refreshSessionsNow()
                             await bridgeState.refreshOrigins()
                             await speechPreferences.refreshOptions()
+                            runtimeSources.refresh()
+                            launchAgentStatus = LaunchAgentManager.status()
                         }
                     }
                     .disabled(doctor.isRefreshing)
@@ -599,6 +674,127 @@ struct RuntimeDoctorTab: View {
                     HudInset {
                         VoxBodyText(doctor.statusMessage, tint: HudPalette.muted)
                     }
+                }
+            }
+        }
+    }
+
+    private var daemonLogPreviewCard: some View {
+        HudCard {
+            VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                HStack {
+                    HudSectionLabel("Recent Daemon Logs")
+                    Spacer()
+                    VoxStatusText("\(runtimeSources.daemonEntries.count) LINES", tint: HudPalette.muted)
+                }
+
+                HudInset {
+                    VStack(alignment: .leading, spacing: HudSpacing.sm) {
+                        let entries = Array(runtimeSources.daemonEntries.suffix(6))
+                        if entries.isEmpty {
+                            VoxBodyText("No daemon log lines found at \(RuntimePaths.daemonLogURL().path)", tint: HudPalette.statusWarn)
+                        } else {
+                            ForEach(entries) { entry in
+                                HStack(alignment: .top, spacing: HudSpacing.sm) {
+                                    Text(entry.time)
+                                        .font(HudFont.mono(9))
+                                        .foregroundStyle(HudPalette.dim)
+                                        .frame(width: 132, alignment: .leading)
+                                        .lineLimit(1)
+
+                                    Image(systemName: logIcon(entry.level))
+                                        .font(HudFont.ui(9, weight: .semibold))
+                                        .foregroundStyle(logTint(entry.level))
+                                        .frame(width: 12)
+
+                                    Text(entry.message)
+                                        .font(HudFont.mono(10))
+                                        .foregroundStyle(HudPalette.muted)
+                                        .lineLimit(2)
+                                        .truncationMode(.middle)
+                                        .textSelection(.enabled)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HStack(spacing: HudSpacing.md) {
+                    HudButton("Refresh Logs", icon: "arrow.clockwise", style: .secondary) {
+                        runtimeSources.refresh()
+                    }
+
+                    HudButton("Open Log Window", icon: "doc.text.magnifyingglass", style: .secondary) {
+                        DiagnosticWindow.shared.show()
+                    }
+
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+    }
+
+    private var daemonRecoveryCard: some View {
+        HudCard {
+            VStack(alignment: .leading, spacing: HudSpacing.lg) {
+                HStack {
+                    HudSectionLabel("Daemon Recovery")
+                    Spacer()
+                    VoxStatusText(launchAgentBadge, tint: launchAgentTint)
+                }
+
+                HudInset {
+                    VStack(alignment: .leading, spacing: HudSpacing.md) {
+                        HudKVRow(
+                            "LaunchAgent",
+                            value: launchAgentStatus.loaded ? "loaded" : (launchAgentStatus.plistExists ? "plist only" : "not installed"),
+                            valueColor: launchAgentStatus.loaded ? HudPalette.statusOk : HudPalette.statusWarn
+                        )
+                        HudKVRow(
+                            "Daemon Binary",
+                            value: launchAgentStatus.installedPath ?? launchAgentStatus.resolvedPath,
+                            valueColor: HudPalette.muted,
+                            valueLineLimit: 1
+                        )
+                        if let runtime = launchAgentStatus.runtime {
+                            HudKVRow(
+                                "Runtime File",
+                                value: "v\(runtime.version) · pid \(voxProcessIDString(runtime.pid)) · \(voxPortString(runtime.port))",
+                                valueColor: launchAgentStatus.runtimeProcessReachable ? HudPalette.statusOk : HudPalette.statusWarn,
+                                valueLineLimit: 1
+                            )
+                        } else {
+                            HudKVRow("Runtime File", value: "missing", valueColor: HudPalette.statusError)
+                        }
+                    }
+                }
+
+                HStack(spacing: HudSpacing.md) {
+                    HudButton("Restart Daemon", icon: "arrow.clockwise", style: .secondary) {
+                        runLaunchAgentAction(LaunchAgentManager.restart)
+                    }
+                    .disabled(launchAgentInFlight)
+
+                    HudButton("Repair LaunchAgent", icon: "wrench.adjustable", style: .secondary) {
+                        runLaunchAgentAction(LaunchAgentManager.ensureInstalled)
+                    }
+                    .disabled(launchAgentInFlight)
+
+                    HudButton("Show Logs", icon: "doc.text.magnifyingglass", style: .secondary) {
+                        DiagnosticWindow.shared.show()
+                    }
+
+                    if launchAgentInFlight {
+                        VoxStatusText("WORKING", tint: HudPalette.statusWarn)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+
+                if let launchAgentResult {
+                    LaunchAgentOperationView(result: launchAgentResult)
+                } else {
+                    VoxBodyText("Restart and repair attempts will show each launchd command, status code, and runtime check here.", tint: HudPalette.muted)
                 }
             }
         }
@@ -747,6 +943,29 @@ struct RuntimeDoctorTab: View {
         return "IDLE"
     }
 
+    private var launchAgentBadge: String {
+        if launchAgentStatus.runtimeProcessReachable {
+            return "REACHABLE"
+        }
+        if launchAgentStatus.loaded {
+            return "LAUNCHD ONLY"
+        }
+        if launchAgentStatus.plistExists {
+            return "NOT LOADED"
+        }
+        return "MISSING"
+    }
+
+    private var launchAgentTint: Color {
+        if launchAgentStatus.runtimeProcessReachable {
+            return HudPalette.statusOk
+        }
+        if launchAgentStatus.loaded || launchAgentStatus.plistExists {
+            return HudPalette.statusWarn
+        }
+        return HudPalette.statusError
+    }
+
     private var activeSessionTint: Color {
         if monitor.isRecording { return HudPalette.statusError }
         if monitor.isSpeaking || monitor.hasLiveSession { return HudPalette.statusWarn }
@@ -763,6 +982,23 @@ struct RuntimeDoctorTab: View {
         }
     }
 
+    private func runLaunchAgentAction(_ action: @escaping @Sendable () -> LaunchAgentOperationResult) {
+        guard !launchAgentInFlight else { return }
+        launchAgentInFlight = true
+
+        Task {
+            let result = await Task.detached(priority: .userInitiated) {
+                action()
+            }.value
+
+            launchAgentResult = result
+            launchAgentStatus = LaunchAgentManager.status()
+            monitor.checkNow()
+            await monitor.refreshSessionsNow()
+            launchAgentInFlight = false
+        }
+    }
+
     private func doctorIcon(for status: String) -> String {
         switch status {
         case "ok": return "checkmark.circle.fill"
@@ -776,6 +1012,32 @@ struct RuntimeDoctorTab: View {
         case "ok": return HudPalette.statusOk
         case "warning": return HudPalette.statusWarn
         default: return HudPalette.statusError
+        }
+    }
+
+    private func logIcon(_ level: DiagnosticLog.Entry.Level) -> String {
+        switch level {
+        case .info:
+            return "info.circle"
+        case .success:
+            return "checkmark.circle.fill"
+        case .warning:
+            return "exclamationmark.triangle.fill"
+        case .error:
+            return "xmark.circle.fill"
+        }
+    }
+
+    private func logTint(_ level: DiagnosticLog.Entry.Level) -> Color {
+        switch level {
+        case .info:
+            return HudPalette.muted
+        case .success:
+            return HudPalette.statusOk
+        case .warning:
+            return HudPalette.statusWarn
+        case .error:
+            return HudPalette.statusError
         }
     }
 
@@ -967,6 +1229,83 @@ private struct OriginListCard: View {
                     }
                 }
             }
+        }
+    }
+}
+
+private struct LaunchAgentOperationView: View {
+    let result: LaunchAgentOperationResult
+
+    var body: some View {
+        HudInset {
+            VStack(alignment: .leading, spacing: HudSpacing.md) {
+                HStack(alignment: .firstTextBaseline, spacing: HudSpacing.md) {
+                    Image(systemName: result.succeeded ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .font(HudFont.ui(12, weight: .semibold))
+                        .foregroundStyle(result.succeeded ? HudPalette.statusOk : HudPalette.statusWarn)
+
+                    Text(result.title)
+                        .font(HudFont.mono(11, weight: .semibold))
+                        .foregroundStyle(HudPalette.ink)
+
+                    Spacer(minLength: 0)
+
+                    VoxStatusText(result.succeeded ? "OK" : "CHECK", tint: result.succeeded ? HudPalette.statusOk : HudPalette.statusWarn)
+                }
+
+                VoxBodyText(result.summary, tint: result.succeeded ? HudPalette.muted : HudPalette.statusWarn)
+
+                VStack(alignment: .leading, spacing: HudSpacing.sm) {
+                    ForEach(result.steps) { step in
+                        HStack(alignment: .top, spacing: HudSpacing.sm) {
+                            Image(systemName: stepIcon(step.kind))
+                                .font(HudFont.ui(10, weight: .semibold))
+                                .foregroundStyle(stepTint(step.kind))
+                                .frame(width: 14)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(step.title)
+                                    .font(HudFont.mono(10, weight: .semibold))
+                                    .foregroundStyle(stepTint(step.kind))
+                                if let detail = step.detail, !detail.isEmpty {
+                                    Text(detail)
+                                        .font(HudFont.mono(10))
+                                        .foregroundStyle(HudPalette.muted)
+                                        .lineLimit(3)
+                                        .truncationMode(.middle)
+                                        .textSelection(.enabled)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func stepIcon(_ kind: LaunchAgentOperationStep.Kind) -> String {
+        switch kind {
+        case .info:
+            return "info.circle"
+        case .success:
+            return "checkmark.circle.fill"
+        case .warning:
+            return "exclamationmark.triangle.fill"
+        case .error:
+            return "xmark.circle.fill"
+        }
+    }
+
+    private func stepTint(_ kind: LaunchAgentOperationStep.Kind) -> Color {
+        switch kind {
+        case .info:
+            return HudPalette.muted
+        case .success:
+            return HudPalette.statusOk
+        case .warning:
+            return HudPalette.statusWarn
+        case .error:
+            return HudPalette.statusError
         }
     }
 }
