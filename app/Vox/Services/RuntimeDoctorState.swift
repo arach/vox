@@ -9,6 +9,7 @@ final class RuntimeDoctorState: ObservableObject {
     @Published private(set) var statusMessage = "Run Doctor to inspect daemon, microphone, ASR, and synthesis readiness."
 
     private let proxy = DaemonProxy()
+    private let diagnosticLog = DiagnosticLog.shared
 
     func refresh() async {
         guard !isRefreshing else { return }
@@ -16,6 +17,8 @@ final class RuntimeDoctorState: ObservableObject {
         defer { isRefreshing = false }
 
         do {
+            statusMessage = "Connecting to the daemon over WebSocket \(voxPortString(VoxDefaults.daemonPort))..."
+            diagnosticLog.info("Doctor: connecting to daemon on \(voxPortString(VoxDefaults.daemonPort))")
             if !(await proxy.isConnected) {
                 try await proxy.connect()
             }
@@ -25,13 +28,21 @@ final class RuntimeDoctorState: ObservableObject {
                 }
             }
 
+            statusMessage = "Running daemon doctor checks..."
+            diagnosticLog.info("Doctor: sending doctor.run")
             let result = try await proxy.call("doctor.run")
             report = parseDoctorReport(result)
+            let checkCount = report?.checks.count ?? 0
+            diagnosticLog.log(
+                "Doctor: completed \(checkCount) checks; ready=\(report?.ready == true)",
+                level: report?.ready == true ? .success : .warning
+            )
             statusMessage = report?.ready == true
-                ? "Doctor reports Vox is ready."
-                : "Doctor found warnings or errors."
+                ? "Doctor reports Vox is ready. Use Show Logs for the request and daemon trace."
+                : "Doctor found warnings or errors. Use Show Logs to inspect daemon output."
         } catch {
             report = nil
+            diagnosticLog.error("Doctor: failed - \(error.localizedDescription)")
             statusMessage = error.localizedDescription
         }
     }

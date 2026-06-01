@@ -1187,12 +1187,11 @@ public final class VoxRuntimeService: @unchecked Sendable {
             let requestedID = params?["sessionId"] as? String
             Task {
                 do {
-                    guard let session = self.sessions.current(id: requestedID) else {
+                    guard let session = self.sessions.markProcessing(id: requestedID) else {
                         reply(nil, "No active live session")
                         return
                     }
 
-                    session.state = .processing
                     session.progress("session.state", [
                         "sessionId": session.sessionId,
                         "state": SessionState.processing.rawValue,
@@ -1203,39 +1202,41 @@ public final class VoxRuntimeService: @unchecked Sendable {
                     defer { try? FileManager.default.removeItem(at: audioURL) }
 
                     let output = try await self.asrEngine.transcribe(url: audioURL, modelId: session.modelId)
-                    _ = self.sessions.finish(id: session.sessionId)
+                    guard let finished = self.sessions.finish(id: session.sessionId) else {
+                        return
+                    }
                     await self.performance.record(PerformanceSample(
-                        clientId: session.clientId,
+                        clientId: finished.clientId,
                         route: "transcribe.live",
-                        modelId: session.modelId,
+                        modelId: finished.modelId,
                         outcome: "ok",
                         textLength: output.text.count,
                         metrics: output.metrics.performanceMetrics
                     ))
 
-                    session.state = .done
-                    self.log.info("Completed live session \(session.sessionId) for client \(session.clientId) elapsed=\(output.elapsedMs)ms textLength=\(output.text.count)")
-                    session.progress("session.final", [
-                        "sessionId": session.sessionId,
+                    finished.state = .done
+                    self.log.info("Completed live session \(finished.sessionId) for client \(finished.clientId) elapsed=\(output.elapsedMs)ms textLength=\(output.text.count)")
+                    finished.progress("session.final", [
+                        "sessionId": finished.sessionId,
                         "text": output.text,
                         "elapsedMs": output.elapsedMs,
                         "metrics": output.metrics.dictionaryValue(),
                         "words": output.words.map { $0.dictionaryValue() }
                     ])
-                    session.progress("session.state", [
-                        "sessionId": session.sessionId,
+                    finished.progress("session.state", [
+                        "sessionId": finished.sessionId,
                         "state": SessionState.done.rawValue,
                         "previous": SessionState.processing.rawValue
                     ])
-                    session.reply([
-                        "sessionId": session.sessionId,
+                    finished.reply([
+                        "sessionId": finished.sessionId,
                         "text": output.text,
                         "elapsedMs": output.elapsedMs,
                         "metrics": output.metrics.dictionaryValue(),
                         "words": output.words.map { $0.dictionaryValue() }
                     ], nil)
 
-                    reply(["stopped": true, "sessionId": session.sessionId], nil)
+                    reply(["stopped": true, "sessionId": finished.sessionId], nil)
                 } catch {
                     if let session = self.sessions.current(id: requestedID) {
                         await self.performance.record(PerformanceSample(

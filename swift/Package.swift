@@ -10,8 +10,8 @@ let voxdInfoPlistPath = packageDirectory
 let package = Package(
     name: "Vox",
     platforms: [
-        .macOS(.v26),
-        .iOS(.v26)
+        .macOS(.v14),
+        .iOS(.v17)
     ],
     products: [
         .library(name: "VoxCore", targets: ["VoxCore"]),

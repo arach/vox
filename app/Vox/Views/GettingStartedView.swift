@@ -199,9 +199,8 @@ struct WelcomeTab: View {
             }
 
             if !monitor.isRunning {
-                HudButton("Restart Daemon", icon: "arrow.clockwise", style: .secondary) {
-                    LaunchAgentManager.restart()
-                    monitor.checkNow()
+                HudButton("Open Doctor", icon: "stethoscope", style: .secondary) {
+                    onNavigate(.doctor)
                 }
             }
 

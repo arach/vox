@@ -48,8 +48,8 @@ struct VoxRootView: View {
 
     @StateObject private var speechPreferences = SpeechPreferencesState()
     @State private var section: VoxSection
-    @State private var railExpanded = true
-    @State private var inspectorCollapsed = false
+    @AppStorage("vox.ui.railExpanded") private var railExpanded = false
+    @AppStorage("vox.ui.inspectorCollapsed") private var inspectorCollapsed = true
     @State private var stopFeedback: String?
     @State private var stopFeedbackIsError = false
     @State private var stopInFlight = false
@@ -59,7 +59,7 @@ struct VoxRootView: View {
         name: "vox",
         version: VoxVersion.current,
         tint: .cyan,
-        targetLabel: "Runtime"
+        targetLabel: "Companion"
     )
 
     init(initialSection: VoxSection = .overview) {
@@ -148,7 +148,7 @@ struct VoxRootView: View {
 
             HudCard {
                 VStack(alignment: .leading, spacing: HudSpacing.md) {
-                    HudSectionLabel("Runtime", tint: HudPalette.muted)
+                    HudSectionLabel("Daemon", tint: HudPalette.muted)
                     HudKVRow("State", value: runtimeSummary.label, valueColor: runtimeSummary.tint)
                     HudKVRow(
                         "Detail",
@@ -158,7 +158,7 @@ struct VoxRootView: View {
                     )
 
                     HStack(spacing: HudSpacing.md) {
-                        HudButton("Open Runtime", icon: "gearshape", style: .secondary) {
+                        HudButton("Open Doctor", icon: "stethoscope", style: .secondary) {
                             section = .doctor
                         }
                         Spacer(minLength: 0)

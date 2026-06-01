@@ -112,6 +112,34 @@ struct LiveSessionCoordinatorTests {
         #expect(coordinator.current(id: nil) == nil)
         #expect(probe.value() == session.sessionId)
     }
+
+    @Test("Recording timeout does not cancel a session already processing")
+    func recordingTimeoutIgnoresProcessingSession() async throws {
+        let coordinator = LiveSessionCoordinator()
+        let probe = TimeoutProbe()
+
+        coordinator.onRecordingTimeout = { session in
+            probe.record(session.sessionId)
+        }
+
+        let session = try coordinator.begin(
+            connectionID: "a",
+            clientId: "client-a",
+            modelId: "parakeet:v3",
+            progress: { _, _ in },
+            reply: { _, _ in }
+        )
+        session.state = .recording
+
+        coordinator.startRecordingTimer(timeout: 0.01)
+        let processing = coordinator.markProcessing(id: session.sessionId)
+        try await Task.sleep(for: .milliseconds(60))
+
+        #expect(processing?.sessionId == session.sessionId)
+        #expect(coordinator.current(id: nil)?.sessionId == session.sessionId)
+        #expect(coordinator.current(id: nil)?.state == .processing)
+        #expect(probe.value() == nil)
+    }
 }
 
 private final class TimeoutProbe: @unchecked Sendable {
