@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import VoxCore
 
@@ -304,3 +305,4 @@ public enum StdioTransportError: Error, LocalizedError {
         }
     }
 }
+#endif

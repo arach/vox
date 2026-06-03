@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 
 enum BuiltinExternalProviderKind: String {
@@ -180,3 +181,4 @@ struct BuiltinExternalProvider {
         return path
     }
 }
+#endif

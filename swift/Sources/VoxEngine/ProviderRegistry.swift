@@ -16,6 +16,7 @@ public actor ProviderRegistry: ASRProvider {
                     provider = ParakeetProvider()
                     log.info("Registered builtin provider: \(entry.id)")
                 case "mlx-audio", "mlx_audio", "mlx-audio-stt", "mlx_audio_stt":
+                    #if os(macOS)
                     do {
                         let env = BuiltinExternalProvider.mlxAudioEnvironment(entry.env)
                         let command = try BuiltinExternalProvider.mlxAudioCommand(kind: .asr, env: env)
@@ -25,13 +26,23 @@ public actor ProviderRegistry: ASRProvider {
                         log.error("Skipping builtin ASR provider \(entry.id): \(error.localizedDescription)")
                         continue
                     }
+                    #else
+                    // External subprocess providers require Process (macOS only).
+                    log.warning("mlx-audio ASR provider unavailable on this platform: \(entry.id)")
+                    continue
+                    #endif
                 default:
                     log.warning("Skipping unknown builtin ASR provider: \(entry.id)")
                     continue
                 }
             } else if entry.isExternal, let command = entry.command {
+                #if os(macOS)
                 provider = ExternalProvider(id: entry.id, command: command, env: entry.env)
                 log.info("Registered external provider: \(entry.id) → \(command.joined(separator: " "))")
+                #else
+                log.warning("External ASR providers unavailable on this platform: \(entry.id)")
+                continue
+                #endif
             } else {
                 log.warning("Skipping provider \(entry.id): no builtin flag or command specified")
                 continue
@@ -86,11 +97,13 @@ public actor ProviderRegistry: ASRProvider {
     }
 
     public func shutdown() async {
+        #if os(macOS)
         for (_, provider) in providers {
             if let externalProvider = provider as? ExternalProvider {
                 await externalProvider.shutdown()
             }
         }
+        #endif
     }
 
     private func resolveProvider(for modelId: String) async throws -> any ASRProvider {
