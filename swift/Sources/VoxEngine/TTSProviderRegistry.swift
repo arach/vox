@@ -21,6 +21,7 @@ public actor TTSProviderRegistry: TTSProvider {
                 case "minimax", "minimax-tts":
                     provider = MiniMaxTTSProvider(env: entry.env)
                 case "mlx-audio", "mlx_audio", "mlx-audio-tts", "mlx_audio_tts":
+                    #if os(macOS)
                     do {
                         let env = BuiltinExternalProvider.mlxAudioEnvironment(entry.env)
                         let command = try BuiltinExternalProvider.mlxAudioCommand(kind: .tts, env: env)
@@ -29,14 +30,24 @@ public actor TTSProviderRegistry: TTSProvider {
                         log.error("Skipping builtin TTS provider \(entry.id): \(error.localizedDescription)")
                         continue
                     }
+                    #else
+                    // External subprocess providers require Process (macOS only).
+                    log.warning("mlx-audio TTS provider unavailable on this platform: \(entry.id)")
+                    continue
+                    #endif
                 default:
                     log.warning("Skipping unknown builtin TTS provider: \(entry.id)")
                     continue
                 }
                 log.info("Registered builtin TTS provider: \(entry.id)")
             } else if entry.isExternal, let command = entry.command {
+                #if os(macOS)
                 provider = ExternalTTSProvider(id: entry.id, command: command, env: entry.env)
                 log.info("Registered external TTS provider: \(entry.id) → \(command.joined(separator: " "))")
+                #else
+                log.warning("External TTS providers unavailable on this platform: \(entry.id)")
+                continue
+                #endif
             } else {
                 log.warning("Skipping TTS provider \(entry.id): no builtin flag or command specified")
                 continue
@@ -56,6 +67,7 @@ public actor TTSProviderRegistry: TTSProvider {
         await withTaskGroup(of: [TTSModelInfo].self) { group in
             for (entry, provider) in providers {
                 group.addTask {
+                    #if os(macOS)
                     if let models = entry.models,
                        provider is ExternalTTSProvider {
                         return models.map { modelId in
@@ -69,6 +81,7 @@ public actor TTSProviderRegistry: TTSProvider {
                             )
                         }
                     }
+                    #endif
 
                     return await provider.models()
                 }
@@ -127,11 +140,13 @@ public actor TTSProviderRegistry: TTSProvider {
     }
 
     public func shutdown() async {
+        #if os(macOS)
         for (_, provider) in providers {
             if let externalProvider = provider as? ExternalTTSProvider {
                 await externalProvider.shutdown()
             }
         }
+        #endif
     }
 
     private func resolveProvider(for modelId: String) async throws -> any TTSProvider {

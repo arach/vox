@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import VoxCore
 
@@ -227,3 +228,4 @@ public enum ExternalProviderError: Error, LocalizedError {
         }
     }
 }
+#endif
