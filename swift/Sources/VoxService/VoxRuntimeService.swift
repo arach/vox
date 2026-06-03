@@ -27,12 +27,13 @@ public final class VoxRuntimeService: @unchecked Sendable {
         annotationEngine: AnnotationManager = AnnotationManager(),
         ttsEngine: TTSEngineManager = TTSEngineManager(),
         defaultSynthesisModelId: String = TTSDefaults.modelId,
+        authToken: String? = nil,
         preferencesLoader: @escaping @Sendable () -> VoxPreferences = {
             (try? VoxPreferences.load()) ?? VoxPreferences()
         }
     ) {
         self.port = port
-        self.bridge = ServiceBridge(port: port, serviceName: "Vox", bindAddress: bindAddress)
+        self.bridge = ServiceBridge(port: port, serviceName: "Vox", bindAddress: bindAddress, authToken: authToken)
         self.asrEngine = engine
         self.annotationEngine = annotationEngine
         self.ttsEngine = ttsEngine

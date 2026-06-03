@@ -57,6 +57,7 @@ public final class ServiceBridge: @unchecked Sendable {
     private let port: UInt16
     private let bindAddress: String
     private let serviceName: String
+    private let authToken: String?
     private let queue: DispatchQueue
     private let lock = NSLock()
     private var listener: NWListener?
@@ -64,10 +65,16 @@ public final class ServiceBridge: @unchecked Sendable {
     private var handlers: [String: Handler] = [:]
     private var streamingHandlers: [String: StreamingHandler] = [:]
 
-    public init(port: UInt16, serviceName: String, bindAddress: String = VoxDefaults.host) {
+    public init(
+        port: UInt16,
+        serviceName: String,
+        bindAddress: String = VoxDefaults.host,
+        authToken: String? = nil
+    ) {
         self.port = port
         self.bindAddress = bindAddress
         self.serviceName = serviceName
+        self.authToken = authToken?.isEmpty == false ? authToken : nil
         self.queue = DispatchQueue(label: "cc.voxd.bridge.\(serviceName.lowercased())")
     }
 
@@ -144,6 +151,12 @@ public final class ServiceBridge: @unchecked Sendable {
 
     private func accept(_ connection: NWConnection) {
         let connectionID = "\(ObjectIdentifier(connection).hashValue)"
+        if Self.isLoopbackHost(bindAddress) && !Self.isLoopbackEndpoint(connection.endpoint) {
+            log.warning("Bridge rejected non-loopback connection connectionId=\(connectionID) endpoint=\(String(describing: connection.endpoint))")
+            connection.cancel()
+            return
+        }
+
         log.info("Bridge accepted connection connectionId=\(connectionID)")
         queue.async {
             self.connections.append(connection)
@@ -233,6 +246,14 @@ public final class ServiceBridge: @unchecked Sendable {
         }
 
         var params = object["params"] as? [String: Any] ?? [:]
+        if let authToken, !Self.isAuthorized(object: object, params: params, token: authToken) {
+            sendError(id: id, message: "Unauthorized", on: connection)
+            return
+        }
+        params.removeValue(forKey: "authToken")
+        params.removeValue(forKey: "_authToken")
+        params.removeValue(forKey: "token")
+
         let connectionID = "\(ObjectIdentifier(connection).hashValue)"
         params["_connectionID"] = connectionID
         if shouldLogRequest(method) {
@@ -331,5 +352,50 @@ public final class ServiceBridge: @unchecked Sendable {
         let metadata = NWProtocolWebSocket.Metadata(opcode: .text)
         let context = NWConnection.ContentContext(identifier: "vox-response", metadata: [metadata])
         connection.send(content: data, contentContext: context, completion: .contentProcessed { _ in })
+    }
+
+    private static func isAuthorized(object: [String: Any], params: [String: Any], token: String) -> Bool {
+        let candidates = [
+            object["authToken"],
+            object["token"],
+            params["authToken"],
+            params["_authToken"],
+            params["token"]
+        ]
+        for candidate in candidates {
+            guard let value = candidate as? String else { continue }
+            if timingSafeEquals(value, token) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func timingSafeEquals(_ lhs: String, _ rhs: String) -> Bool {
+        let left = Array(lhs.utf8)
+        let right = Array(rhs.utf8)
+        var diff = left.count ^ right.count
+        let count = max(left.count, right.count)
+        for index in 0..<count {
+            let a = index < left.count ? left[index] : 0
+            let b = index < right.count ? right[index] : 0
+            diff |= Int(a ^ b)
+        }
+        return diff == 0
+    }
+
+    private static func isLoopbackEndpoint(_ endpoint: NWEndpoint) -> Bool {
+        guard case .hostPort(let host, _) = endpoint else {
+            return false
+        }
+        return isLoopbackHost(String(describing: host))
+    }
+
+    private static func isLoopbackHost(_ host: String) -> Bool {
+        let normalized = host.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized == "localhost"
+            || normalized == "::1"
+            || normalized == "0:0:0:0:0:0:0:1"
+            || normalized.hasPrefix("127.")
     }
 }

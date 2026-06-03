@@ -134,13 +134,15 @@ func loadEngines() -> (EngineManager, TTSEngineManager, String) {
 
 let port = parsePort()
 let host = VoxDefaults.resolvedHost()
+let authToken = ProcessInfo.processInfo.environment["VOX_AUTH_TOKEN"].flatMap { $0.isEmpty ? nil : $0 }
 let (engine, ttsEngine, defaultSynthesisModelId) = loadEngines()
 let service = VoxRuntimeService(
     port: port,
     bindAddress: host,
     engine: engine,
     ttsEngine: ttsEngine,
-    defaultSynthesisModelId: defaultSynthesisModelId
+    defaultSynthesisModelId: defaultSynthesisModelId,
+    authToken: authToken
 )
 
 do {
