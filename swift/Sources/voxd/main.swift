@@ -1,7 +1,7 @@
 import Dispatch
 import Foundation
 import VoxCore
-import VoxEngine
+import HudsonSpeechEngine
 import VoxService
 
 #if canImport(Darwin)

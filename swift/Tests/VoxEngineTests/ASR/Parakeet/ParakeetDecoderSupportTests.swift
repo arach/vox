@@ -1,7 +1,7 @@
 @preconcurrency import CoreML
 import Foundation
 import Testing
-@testable import VoxEngine
+@testable import HudsonSpeechEngine
 
 struct ParakeetDecoderSupportTests {
     @Test("Language filter chooses matching-script top-K candidates")

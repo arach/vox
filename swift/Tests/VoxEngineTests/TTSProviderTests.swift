@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import VoxCore
-@testable import VoxEngine
+@testable import HudsonSpeechEngine
 
 struct TTSProviderTests {
     @Test("TTSEngineManager allows concurrent synthesis requests")

@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import VoxEngine
+@testable import HudsonSpeechEngine
 
 struct ParakeetModelLoaderTests {
     @Test("Parakeet model loader resolves the expected v3 artifact paths")

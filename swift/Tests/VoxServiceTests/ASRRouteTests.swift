@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import VoxCore
-import VoxEngine
+import HudsonSpeechEngine
 @testable import VoxService
 
 private final class ProgressCollector: @unchecked Sendable {

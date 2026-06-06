@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import VoxCore
-@testable import VoxEngine
+@testable import HudsonSpeechEngine
 
 struct ParakeetModelStoreTests {
     @Test("Parakeet model store only reports installed when all required model files and vocabulary exist")

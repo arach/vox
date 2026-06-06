@@ -1,6 +1,6 @@
 import Foundation
 import VoxCore
-import VoxEngine
+import HudsonSpeechEngine
 
 actor WarmupCoordinator {
     enum WarmupState: String {

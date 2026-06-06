@@ -1,6 +1,6 @@
 import Testing
 import VoxCore
-@testable import VoxEngine
+@testable import HudsonSpeechEngine
 
 struct TTSDefaultModelSelectorTests {
     @Test("default selector falls back to AVSpeech when OpenAI has no API key")

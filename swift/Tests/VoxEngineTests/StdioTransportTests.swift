@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import VoxEngine
+@testable import HudsonSpeechEngine
 
 struct StdioTransportTests {
     @Test("fast provider responses are matched to pending calls")

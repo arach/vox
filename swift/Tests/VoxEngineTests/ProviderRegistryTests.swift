@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import VoxCore
-@testable import VoxEngine
+@testable import HudsonSpeechEngine
 
 @Suite(.serialized)
 struct ProviderRegistryTests {

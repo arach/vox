@@ -1,6 +1,6 @@
 import Foundation
 import VoxCore
-import VoxEngine
+import HudsonSpeechEngine
 
 private struct JSONRPCError: LocalizedError {
     let message: String

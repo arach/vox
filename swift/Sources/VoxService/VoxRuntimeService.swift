@@ -1,6 +1,6 @@
 import Foundation
 import VoxCore
-import VoxEngine
+import HudsonSpeechEngine
 
 public final class VoxRuntimeService: @unchecked Sendable {
     private let log = VoxLog.service

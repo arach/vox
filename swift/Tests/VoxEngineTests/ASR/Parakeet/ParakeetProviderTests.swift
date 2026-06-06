@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import VoxEngine
+@testable import HudsonSpeechEngine
 
 struct ParakeetProviderTests {
     @Test("Missing audio file fails before model loading")

@@ -1,5 +1,5 @@
 import Testing
-@testable import VoxEngine
+@testable import HudsonSpeechEngine
 
 struct ParakeetChunkMergerTests {
     @Test("Chunk merger preserves exact overlap only once")

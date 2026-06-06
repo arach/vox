@@ -1,7 +1,7 @@
 import AVFoundation
 import Foundation
 import Testing
-@testable import VoxEngine
+@testable import HudsonSpeechEngine
 
 struct ParakeetAudioLoaderTests {
     @Test("Parakeet audio loader resamples files to 16kHz mono float samples")

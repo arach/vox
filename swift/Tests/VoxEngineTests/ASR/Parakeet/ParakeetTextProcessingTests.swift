@@ -1,6 +1,6 @@
 import Testing
 import VoxCore
-@testable import VoxEngine
+@testable import HudsonSpeechEngine
 
 struct ParakeetTextProcessingTests {
     @Test("SentencePiece tokens join into readable text")
