@@ -1,4 +1,7 @@
-# Runtime
+---
+title: Runtime
+description: Companion request flow, warm-up, sessions, routes, ports, and runtime ownership boundaries.
+---
 
 ## Core Flow
 
@@ -117,3 +120,14 @@ CLI flag `--port` takes precedence over env vars for both `voxd` and `voxbridge`
 - `swift/Sources/VoxService/WarmupCoordinator.swift`
 - `swift/Sources/VoxEngine/ProviderRegistry.swift`
 - `swift/Sources/VoxEngine/TTSProviderRegistry.swift`
+
+Use the operator surface to inspect the runtime without guessing:
+
+```bash
+vox doctor
+vox warmup status parakeet:v3
+vox transcribe status
+vox logs daemon --tail 80
+```
+
+See [Architecture](./architecture.md) for layer ownership and [Observability](./observability.md) for performance sample interpretation.

@@ -1,4 +1,7 @@
-# VOX-003: Spoken Output and Runtime Events
+---
+title: "VOX-003: Spoken Output and Runtime Events"
+description: Draft contract for coherent spoken output, cue timing, and pushed runtime state.
+---
 
 Status: Draft
 Date: 2026-05-13
@@ -556,3 +559,5 @@ The root-cause fix is to align the protocol with the product shape:
 - TTS generation is normally one coherent utterance.
 - UI steps are cues, not TTS jobs.
 - Runtime state is pushed, not polled every few hundred milliseconds.
+
+Confirm shipped behavior against the [Runtime Guide](./runtime.md), SDK types, and current service implementation.

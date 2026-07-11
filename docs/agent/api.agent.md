@@ -1,0 +1,11 @@
+# API Facts
+
+- do not copy public type shapes without checking `packages/client/src/types.ts`
+- companion RPC dispatch is canonical in `swift/Sources/VoxService/VoxRuntimeService.swift`
+- current file routes: `transcribe.file`, `annotate.file`, `synthesize.generate`
+- warm-up routes: `warmup.status`, `warmup.start`, `warmup.schedule`
+- live transcription has start, status, stop, and cancel routes
+- synthesis has voices, generate, session start, status, and cancel routes
+- `createLiveSession()` is synchronous and returns `VoxLiveSession`
+- synthesis options include optional speech timing and credentials
+- performance samples preserve `clientId`, `route`, `modelId`, and optional `voiceId`

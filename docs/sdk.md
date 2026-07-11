@@ -1,4 +1,7 @@
-# SDK (Companion Client)
+---
+title: SDK (Companion Client)
+description: Typed Bun and Node access to Vox Companion over local WebSocket JSON-RPC.
+---
 
 > Use `@voxd/sdk` when you want a Bun or Node tool to talk to `voxd` over local WebSocket JSON-RPC. For Apple apps, embed the Swift packages directly. For web apps or browser extensions, use [`@voxd/client`](./web-integration.md) instead.
 
@@ -50,10 +53,11 @@ interface VoxClientSurface {
   startWarmup(modelId?: string): Promise<unknown>;
   scheduleWarmup(modelId?: string, delayMs?: number): Promise<unknown>;
   transcribeFile(path: string): Promise<FileTranscriptionResult>;
+  annotateFile(path: string, options?: AnnotationOptions): Promise<FileAnnotationResult>;
   synthesize(text: string, options?: SynthesisOptions): Promise<SynthesisResult>;
   getLiveSessionStatus(): Promise<LiveSessionStatus | null>;
   cancelLiveSession(sessionId?: string): Promise<{ cancelled: boolean; sessionId: string }>;
-  createLiveSession(): Promise<unknown>;
+  createLiveSession(): VoxLiveSession;
 }
 ```
 
@@ -81,6 +85,7 @@ interface SynthesisResult {
   audioBytes: number;
   elapsedMs: number;
   metrics?: SynthesisMetrics;
+  speechTiming?: SpeechTiming;
 }
 ```
 

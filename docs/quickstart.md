@@ -1,4 +1,7 @@
-# Quickstart
+---
+title: Quickstart
+description: Install Vox Companion, verify runtime health, and exercise transcription, synthesis, and performance tools.
+---
 
 ## Prerequisites
 

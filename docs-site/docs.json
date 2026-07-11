@@ -6,33 +6,35 @@
       "title": "Getting Started",
       "items": [
         { "id": "overview", "title": "Overview" },
-        { "id": "quickstart", "title": "Quickstart" },
-        { "id": "apple-embed", "title": "Swift Embed" }
-      ]
-    },
-    {
-      "id": "core",
-      "title": "Core",
-      "items": [
-        { "id": "observability", "title": "Observability" },
-        { "id": "architecture", "title": "Architecture" },
-        { "id": "providers", "title": "Provider Protocol" }
+        { "id": "quickstart", "title": "Quickstart" }
       ]
     },
     {
       "id": "integrations",
-      "title": "For Agents",
+      "title": "Integration Modes",
       "items": [
-        { "id": "api", "title": "API" },
-        { "id": "sdk", "title": "SDK" },
-        { "id": "skill", "title": "Operator Playbook" }
+        { "id": "apple-embed", "title": "Swift Embed" },
+        { "id": "sdk", "title": "Companion SDK" },
+        { "id": "web-integration", "title": "Web SDK" }
       ]
     },
     {
       "id": "runtime",
       "title": "Runtime",
       "items": [
-        { "id": "runtime", "title": "Runtime" }
+        { "id": "runtime", "title": "Runtime" },
+        { "id": "architecture", "title": "Architecture" },
+        { "id": "providers", "title": "Provider Protocol" },
+        { "id": "observability", "title": "Observability" },
+        { "id": "api", "title": "API" }
+      ]
+    },
+    {
+      "id": "agents",
+      "title": "For Agents",
+      "items": [
+        { "id": "agents", "title": "Agent Guide" },
+        { "id": "skill", "title": "Operator Playbook" }
       ]
     }
   ]

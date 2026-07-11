@@ -35,7 +35,7 @@ export default {
       { pattern: "site/*", instruction: "Maintain the clean, restrained Vox visual language. Avoid generic startup landing page patterns." },
     ],
 
-    sections: ["overview", "quickstart", "apple-embed", "runtime", "providers", "sdk", "web-integration", "observability", "architecture", "api"],
+    sections: ["overview", "quickstart", "apple-embed", "runtime", "providers", "sdk", "web-integration", "observability", "architecture", "api", "agents", "skill"],
   },
 
   docs: {
@@ -45,9 +45,9 @@ export default {
   },
 
   install: {
-    objective: "Clone Vox, build the runtime, and verify local transcription on macOS.",
+    objective: "Clone Vox, build the runtime, start the companion daemon, and verify local speech on macOS.",
     doneWhen: {
-      command: "bun packages/cli/src/index.ts doctor",
+      command: "node packages/cli/dist/index.js doctor",
       expectedOutput: "ready: true",
     },
     prerequisites: [
@@ -61,7 +61,8 @@ export default {
       { description: "Install dependencies", command: "bun install" },
       { description: "Build the SDK, CLI, and daemon", command: "bun run build" },
       { description: "Run tests", command: "bun run test" },
-      { description: "Verify runtime health", command: "bun packages/cli/src/index.ts doctor" },
+      { description: "Start the companion daemon", command: "node packages/cli/dist/index.js daemon start" },
+      { description: "Verify runtime health", command: "node packages/cli/dist/index.js doctor" },
     ],
   },
 }

@@ -4,8 +4,6 @@ description: How external STT and TTS engines plug into Vox via JSON-RPC over st
 order: 35
 ---
 
-# Provider Protocol
-
 Vox separates the runtime (mic capture, sessions, routing, telemetry, playback handoff) from the speech engine. Engines are called _providers_. They can be external processes or built-in bridges that speak JSON-RPC over stdin/stdout.
 
 Provider configuration plugs directly into the companion runtime's install, preload, and route-dispatch flow. Read [Runtime](./runtime.md) alongside this spec if you want the full daemon-side picture.

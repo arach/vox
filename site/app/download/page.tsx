@@ -48,7 +48,7 @@ export default function DownloadPage() {
       <section className="border-b border-line">
         <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">// download</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// download"}</p>
             <h1 className="mt-5 max-w-[16ch] text-[clamp(2rem,5vw,4rem)] font-medium leading-[1.05] tracking-[-0.04em] text-ink">
               Install Vox Companion for macOS<span className="text-accent">.</span>
             </h1>

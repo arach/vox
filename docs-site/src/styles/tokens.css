@@ -5,7 +5,7 @@
     --color-surface-muted: #f5f5f5;
     --color-border: #e5e5e5;
     --color-text: #171717;
-    --color-text-muted: #737373;
+    --color-text-muted: #666666;
     --color-accent: #059669;
     --color-accent-strong: #059669;
     --radius-sm: 6px;
@@ -23,7 +23,7 @@
     --color-surface-muted: #1a1a1a;
     --color-border: rgba(255, 255, 255, 0.09);
     --color-text: #e5e5e5;
-    --color-text-muted: #737373;
+    --color-text-muted: #858585;
     --color-accent: #34d399;
     --color-accent-strong: #6ee7b7;
     --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.35);

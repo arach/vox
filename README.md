@@ -13,7 +13,7 @@ Apple apps can embed Vox directly. Bun and Node tools can connect to `voxd` over
 
 ## Pick a surface
 
-- Build a native Apple app: start with `VoxCore`, `VoxEngine`, `VoxService`, and `VoxBridge`.
+- Build a native Apple app: start with `VoxCore` and `VoxEngine`; add `VoxService` or `VoxBridge` only for deliberate companion/runtime embedding.
 - Build a local tool or companion-connected service: start with `voxd` plus `@voxd/sdk`.
 - Build a browser integration: start with `@voxd/client` plus the local bridge path.
 - Operate or benchmark Vox itself: start with the `vox` CLI.

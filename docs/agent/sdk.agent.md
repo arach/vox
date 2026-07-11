@@ -5,9 +5,12 @@
 - companion client only: Apple apps should embed Swift packages directly instead
 - core result types:
   - `FileTranscriptionResult`
+  - `FileAnnotationResult`
   - `SynthesisResult`
 - voice metadata type: `VoiceInfo`
 - warmup methods exposed: `getWarmupStatus`, `startWarmup`, `scheduleWarmup`
 - synthesis methods exposed: `listVoices`, `synthesize`
 - ASR method exposed: `transcribeFile`
-- live session method exposed: `createLiveSession`
+- annotation method exposed: `annotateFile`
+- live session method exposed: `createLiveSession`; it returns `VoxLiveSession` synchronously
+- synthesis can return optional `speechTiming`; read the types in `packages/client/src/types.ts` before duplicating shapes

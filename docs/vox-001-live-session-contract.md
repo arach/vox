@@ -1,4 +1,7 @@
-# VOX-001: Browser Live Session Contract
+---
+title: "VOX-001: Browser Live Session Contract"
+description: Draft contract for browser live sessions over the local Vox HTTP bridge.
+---
 
 Status: Draft
 Date: 2026-04-16
@@ -413,3 +416,5 @@ Implementation order:
 ## Decision
 
 Adopt VOX-001 as the Phase 1 browser live-session contract, then make the bridge and browser client conform to it before adding any always-on voice processor surface.
+
+Confirm shipped behavior against the [Web Integration Guide](./web-integration.md) and current browser client source.

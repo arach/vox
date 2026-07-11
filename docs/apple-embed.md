@@ -3,8 +3,6 @@ title: Swift Embed Guide
 description: Agent-oriented instructions for integrating Vox directly into macOS and iOS apps such as Linea.
 ---
 
-# Swift Embed Guide
-
 Use this guide when you are integrating Vox into a macOS or iOS app and want the app to call Vox directly in process. This is the default path for Apple-native clients such as Linea.
 
 ## Choose the integration mode
@@ -217,3 +215,5 @@ For the first Linea integration, the default plan should be:
 5. Feed TTS output WAV data into the app playback layer.
 6. Emit `PerformanceSample` records with stable route names.
 7. Keep Companion mode out of the Apple app path unless the feature is genuinely web or cross-process.
+
+See [Observability](./observability.md) for metric interpretation and [Architecture](./architecture.md) for package ownership.

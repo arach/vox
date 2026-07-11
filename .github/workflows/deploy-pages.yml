@@ -39,6 +39,11 @@ jobs:
           NEXT_PUBLIC_SITE_URL: https://voxd.cc
         run: bun run site:build
 
+      - name: Verify generated agent artifacts
+        run: |
+          bun run docs:check
+          git diff --exit-code -- AGENTS.md llms.txt llms-full.txt docs.json install.md
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:

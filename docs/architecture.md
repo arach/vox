@@ -1,4 +1,7 @@
-# Architecture
+---
+title: Architecture
+description: Layer ownership and data flow across Swift engines, companion transports, TypeScript clients, and operator tools.
+---
 
 ## Layers
 
@@ -70,3 +73,11 @@ Daemon-side orchestration:
 4. `VoxEngine` prepares ASR input, annotation input, or TTS requests and dispatches them to the selected provider
 5. `VoxCore` types and trace utilities shape the result
 6. Runtime appends tagged performance samples for local inspection
+
+```text
+Apple app ───────────────▶ VoxEngine
+Bun/Node tool ─▶ voxd ──▶ VoxService ─▶ VoxEngine
+Browser ───────▶ VoxBridge ─▶ voxd ───▶ VoxService ─▶ VoxEngine
+```
+
+See [Runtime](./runtime.md) for route-level behavior and [Provider Protocol](./providers.md) for external engine boundaries.
