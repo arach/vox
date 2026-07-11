@@ -3,12 +3,31 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 
+async function copyText(value: string): Promise<boolean> {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {}
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.readOnly = true;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  return copied;
+}
+
 export function CopyCommand({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
-    await navigator.clipboard.writeText(command);
-    setCopied(true);
+    setCopied(await copyText(command));
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -30,8 +49,7 @@ export function CopyCommandBlock({ command, label }: { command: string; label: s
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
-    await navigator.clipboard.writeText(command);
-    setCopied(true);
+    setCopied(await copyText(command));
     setTimeout(() => setCopied(false), 2000);
   };
 

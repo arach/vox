@@ -1,4 +1,7 @@
-# Vox Overview
+---
+title: Vox Overview
+description: Choose the right Vox integration mode and understand the stack's runtime, package, and telemetry surfaces.
+---
 
 Vox is a local-first voice stack for macOS and iOS. It supports both speech-to-text (STT / ASR) and text-to-speech (TTS), and you can use it in two main ways:
 
@@ -60,21 +63,19 @@ Apple app teams embed the Swift packages directly and keep the same provider, wa
 These examples assume `vox` is on your `PATH`. In a repo checkout, replace `vox` with `node packages/cli/dist/index.js` after `bun run build`.
 
 ```bash
-# Build and verify
 bun install && bun run build
 vox daemon start
 vox doctor
 
-# Speech to text
 vox warmup start parakeet:v3
 vox transcribe file --model parakeet:v3 --metrics --timestamps /tmp/sample.wav
 
-# Text to speech
 vox voices --model gpt-4o-mini-tts
 vox speak --model gpt-4o-mini-tts --metrics "Hello from Vox"
 
-# Compare warm-path performance
 vox transcribe bench --model parakeet:v3 /tmp/sample.wav 5
 vox speak bench --model gpt-4o-mini-tts "Hello from Vox" 5
 vox perf dashboard --client vox-cli
 ```
+
+Continue with the [Quickstart](./quickstart.md), [Swift Embed Guide](./apple-embed.md), or [Web Integration Guide](./web-integration.md) for the surface you chose.

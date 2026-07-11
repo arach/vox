@@ -33,6 +33,10 @@ const fallbackTitle = fileName
   .join(' ')
 const title = frontmatter?.title ?? fallbackTitle
 const description = frontmatter?.description
+const isProposal = slug.startsWith('vox-')
+const isPrompt = slug.startsWith('prompts/')
+const searchable = !isProposal && !isPrompt
+const badge = frontmatter?.badge ?? (isProposal ? 'Engineering proposal' : isPrompt ? 'Prompt' : undefined)
 
 const rawMarkdownFiles = import.meta.glob('../../../../docs/**/*.md', {
   query: '?raw',
@@ -51,6 +55,6 @@ const agentLoader = agentMarkdownFiles[agentFilePath]
 const agentMarkdown = agentLoader ? await agentLoader() : ''
 ---
 
-<DocsLayout title={title} headings={headings} description={description} rawMarkdown={rawMarkdown} agentMarkdown={agentMarkdown}>
+<DocsLayout title={title} headings={headings} description={description} badge={badge} rawMarkdown={rawMarkdown} agentMarkdown={agentMarkdown} searchable={searchable}>
   <Content />
 </DocsLayout>

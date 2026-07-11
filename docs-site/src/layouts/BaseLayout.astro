@@ -4,6 +4,7 @@ import '../styles/global.css'
 const { title = 'Docs', description } = Astro.props
 const pageTitle = `${title} - vox`
 const pageDescription = description || 'vox documentation'
+const isProduction = import.meta.env.PROD
 ---
 <!doctype html>
 <html lang="en">
@@ -16,7 +17,7 @@ const pageDescription = description || 'vox documentation'
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/pagefind/pagefind-ui.css" />
+    {isProduction && <link rel="stylesheet" href="/pagefind/pagefind-ui.css" />}
     <script is:inline>
       ;(function () {
         try {
@@ -33,7 +34,7 @@ const pageDescription = description || 'vox documentation'
         <div class="dl-header-left">
           <a href="/" class="dl-header-brand">vox</a>
           <span class="dl-header-sep">/</span>
-          <a href="/" class="dl-header-brand dl-header-brand--active">Docs</a>
+          <a href="/docs/" class="dl-header-brand dl-header-brand--active">Docs</a>
         </div>
         <div class="dl-header-right">
           <a href="/llms.txt" class="dl-header-link">llms.txt</a>
@@ -45,8 +46,10 @@ const pageDescription = description || 'vox documentation'
             <svg class="dl-theme-icon-light" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
             <svg class="dl-theme-icon-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           </button>
+          <button class="dl-mobile-nav-btn" type="button" data-mobile-nav-toggle aria-expanded="false">Menu</button>
         </div>
       </header>
+      <button class="dl-mobile-nav-overlay" type="button" data-mobile-nav-overlay aria-label="Close navigation"></button>
       <div class="dl-body">
         <slot />
       </div>
@@ -62,7 +65,7 @@ const pageDescription = description || 'vox documentation'
         </div>
         <div id="search-modal" class="dl-search-dialog-body"></div>
         <p id="search-modal-fallback" class="dl-search-dialog-fallback" style="display:none;">
-          Search index is generated on build. Run <code>pnpm build</code> to enable Pagefind locally.
+          Search index is generated on build. Run <code>bun run docs:build</code> to enable Pagefind locally.
         </p>
       </div>
     </div>
@@ -181,13 +184,45 @@ const pageDescription = description || 'vox documentation'
 
       .dl-theme-btn:hover { color: var(--color-text); }
 
+      .dl-mobile-nav-btn {
+        display: none;
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        background: var(--color-surface);
+        color: var(--color-text-muted);
+        padding: 5px 8px;
+        font-family: 'Geist Mono', monospace;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+      }
+
+      .dl-mobile-nav-overlay { display: none; }
+
+      @media (max-width: 768px) {
+        .dl-mobile-nav-btn { display: inline-flex; }
+        .dl[data-mobile-nav-open='true'] .dl-mobile-nav-overlay {
+          display: block;
+          position: fixed;
+          inset: 48px 0 0;
+          z-index: 40;
+          border: 0;
+          background: rgba(0, 0, 0, 0.55);
+        }
+      }
+
       /* Sun/moon icon toggling */
       .dl-theme-icon-dark { display: none; }
       [data-theme='dark'] .dl-theme-icon-light { display: none; }
       [data-theme='dark'] .dl-theme-icon-dark { display: block; }
 
       @media (max-width: 640px) {
-        .dl-search-btn { display: none; }
+        .dl-header { padding: 0 12px; }
+        .dl-header-right { gap: 8px; }
+        .dl-header-link { display: none; }
+        .dl-search-key { display: none; }
+        .dl-search-btn { padding: 4px 8px; }
       }
 
       /* Search modal */
@@ -335,6 +370,22 @@ const pageDescription = description || 'vox documentation'
               if (event.target === searchModal) closeSearch()
             })
             window.addEventListener('open-search', openSearch)
+
+            var mobileNavToggle = document.querySelector('[data-mobile-nav-toggle]')
+            var mobileNavOverlay = document.querySelector('[data-mobile-nav-overlay]')
+            var themeRoot = document.querySelector('[data-theme-root]')
+            var setMobileNav = function (open) {
+              if (!themeRoot || !mobileNavToggle) return
+              themeRoot.dataset.mobileNavOpen = String(open)
+              mobileNavToggle.setAttribute('aria-expanded', String(open))
+            }
+            mobileNavToggle && mobileNavToggle.addEventListener('click', function () {
+              setMobileNav(themeRoot?.dataset.mobileNavOpen !== 'true')
+            })
+            mobileNavOverlay && mobileNavOverlay.addEventListener('click', function () { setMobileNav(false) })
+            document.querySelectorAll('.dl-sidebar a').forEach(function (link) {
+              link.addEventListener('click', function () { setMobileNav(false) })
+            })
           } catch (error) {
             console.error('UI init failed', error)
           }

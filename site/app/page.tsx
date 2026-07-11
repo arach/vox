@@ -23,7 +23,7 @@ const surfaceCards = [
 ];
 
 const relatedProjects = [
-  { name: "TALKLIE", href: "https://usetalklie.com", body: "A related product built around the same local voice ideas." },
+  { name: "TALKIE", href: "https://usetalkie.com", body: "A related product built around the same local voice ideas." },
   { name: "LINEA", href: "https://uselinea.com", body: "Another native client direction built around the same local-first approach." },
   { name: "LATTICES", href: "https://lattices.dev", body: "Related infrastructure work for local agent workflows." },
 ];
@@ -44,9 +44,9 @@ export default function Home() {
           </Link>
           <span className="hidden items-center gap-2 text-secondary sm:inline-flex">
             <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-            daemon · running
+            local-first · observable
           </span>
-          <span>p50 132ms · 35× rt</span>
+          <span>warm-up · metrics · multi-client</span>
         </div>
       </div>
 
@@ -57,7 +57,7 @@ export default function Home() {
             <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-sm bg-accent" />
             <span className="text-[15px] font-medium tracking-tight text-ink">Vox</span>
           </Link>
-          <nav className="flex flex-wrap items-center gap-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
+          <nav aria-label="Primary" className="hidden items-center gap-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted sm:flex">
             <Link href="/docs/overview" className="px-2.5 py-1.5 transition-colors hover:text-accent">Docs</Link>
             <Link href="/download" className="px-2.5 py-1.5 transition-colors hover:text-accent">Download</Link>
             <Link href="/blog" className="px-2.5 py-1.5 transition-colors hover:text-accent">Blog</Link>
@@ -67,6 +67,11 @@ export default function Home() {
             <Link href="#perf" className="px-2.5 py-1.5 transition-colors hover:text-accent">Perf</Link>
             <Link href="https://github.com/arach/vox" target="_blank" rel="noreferrer noopener" className="px-2.5 py-1.5 transition-colors hover:text-accent">GitHub</Link>
           </nav>
+          <nav aria-label="Primary mobile" className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted sm:hidden">
+            <Link href="/docs/overview" className="px-2 py-1.5 transition-colors hover:text-accent">Docs</Link>
+            <Link href="/download" className="px-2 py-1.5 transition-colors hover:text-accent">Download</Link>
+            <Link href="https://github.com/arach/vox" target="_blank" rel="noreferrer noopener" className="px-2 py-1.5 transition-colors hover:text-accent">GitHub</Link>
+          </nav>
         </div>
       </header>
 
@@ -74,28 +79,28 @@ export default function Home() {
       <section className="border-b border-line">
         <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 lg:grid-cols-[1.25fr_1fr] lg:gap-16">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">// hero</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// hero"}</p>
             <h1 className="mt-5 max-w-[22ch] text-[clamp(1.75rem,3.8vw,2.75rem)] font-medium leading-[1.15] tracking-[-0.03em] text-ink">
               Local voice runtime for Apple apps, companion clients, and tools<span className="text-accent">.</span>
             </h1>
             <p className="mt-6 max-w-md text-[15px] leading-7 text-secondary">
-              Vox provides Swift packages for direct Apple embed mode, voxd for the local companion runtime, @voxd/sdk for local tools, @voxd/client for browser apps, and a CLI for checks and benchmarks.
+              Add local speech without rebuilding model lifecycle, warm-up, and telemetry for every integration. Embed the Swift engine in Apple apps, or run Vox Companion for browser and tooling workflows.
             </p>
 
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
-                href="/download"
+                href="/docs/apple-embed"
                 className="inline-flex h-10 items-center gap-2 rounded-sm border border-accent bg-accent px-5 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-canvas"
               >
-                <Download className="h-3.5 w-3.5" />
-                $ download Vox.dmg
+                <ArrowUpRight className="h-3.5 w-3.5" />
+                Swift embed guide
               </Link>
               <Link
-                href="/docs/overview"
+                href="/download"
                 className="inline-flex h-10 items-center gap-2 rounded-sm border border-line-strong bg-panel px-4 font-mono text-[12px] uppercase tracking-[0.06em] text-ink transition-colors hover:text-accent"
               >
-                Documentation
-                <ArrowUpRight className="h-3 w-3" />
+                Download Companion
+                <Download className="h-3 w-3" />
               </Link>
             </div>
 
@@ -116,11 +121,11 @@ export default function Home() {
               <span className="ml-auto font-mono text-[11px] text-muted">vox-operator</span>
             </div>
             <div className="p-4 font-mono text-[12.5px] leading-7">
-              <div className="text-muted">$ vox perf --client cli</div>
+              <div className="text-muted">$ vox perf dashboard --client vox-cli</div>
               <div className="text-ink">p50=132ms p95=197ms 35x realtime</div>
-              <div className="mt-2.5 text-muted">$ vox transcribe /tmp/sample.wav</div>
+              <div className="mt-2.5 text-muted">$ vox transcribe file --metrics /tmp/sample.wav</div>
               <div className="text-ink">done · 127ms (35x realtime)</div>
-              <div className="mt-2.5 text-muted">$ vox warmup --voice parakeet</div>
+              <div className="mt-2.5 text-muted">$ vox warmup start parakeet:v3</div>
               <div className="text-ink">warm · ready=412ms</div>
             </div>
           </div>
@@ -131,7 +136,7 @@ export default function Home() {
       <section id="packages" className="border-b border-line">
         <div className="mx-auto max-w-6xl px-6 py-20">
           <div className="flex items-baseline justify-between">
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">// packages</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// packages"}</p>
             <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">5 surfaces</span>
           </div>
           <h2 className="mt-4 max-w-[26ch] text-[clamp(1.5rem,2.6vw,2rem)] font-semibold leading-tight tracking-[-0.02em] text-ink">
@@ -173,7 +178,7 @@ export default function Home() {
       <section id="runtime" className="border-b border-line">
         <div className="mx-auto max-w-6xl px-6 py-20">
           <div className="flex items-baseline justify-between">
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">// runtime</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// runtime"}</p>
             <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">4 principles</span>
           </div>
           <h2 className="mt-4 max-w-[30ch] text-[clamp(1.5rem,2.6vw,2rem)] font-semibold leading-tight tracking-[-0.02em] text-ink">
@@ -201,7 +206,7 @@ export default function Home() {
       <section id="companion" className="border-b border-line bg-panel">
         <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 lg:grid-cols-[1fr_1.4fr] lg:items-start">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">// companion</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// companion"}</p>
             <h2 className="mt-4 max-w-[22ch] text-[clamp(1.5rem,2.6vw,2rem)] font-semibold leading-tight tracking-[-0.02em] text-ink">
               Manage Vox from the menu bar.
             </h2>
@@ -244,7 +249,7 @@ export default function Home() {
       {/* Related */}
       <section className="border-b border-line">
         <div className="mx-auto max-w-6xl px-6 py-20">
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">// related</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// related"}</p>
           <h2 className="mt-4 text-[clamp(1.5rem,2.6vw,2rem)] font-semibold tracking-[-0.02em] text-ink">
             A few related projects.
           </h2>
@@ -276,7 +281,7 @@ export default function Home() {
       <section id="perf" className="border-b border-line bg-panel">
         <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 lg:grid-cols-2 lg:items-start">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">// observability</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// observability"}</p>
             <h2 className="mt-4 max-w-[22ch] text-[clamp(1.5rem,2.6vw,2rem)] font-semibold leading-tight tracking-[-0.02em] text-ink">
               See where the time goes.
             </h2>
@@ -307,7 +312,7 @@ export default function Home() {
       {/* Get started */}
       <section className="border-b border-line">
         <div className="mx-auto max-w-6xl px-6 py-20">
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">// install</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// install"}</p>
           <h2 className="mt-4 max-w-[30ch] text-[clamp(1.5rem,2.6vw,2rem)] font-semibold leading-tight tracking-[-0.02em] text-ink">
             Get the companion running for the web and local tools.
           </h2>

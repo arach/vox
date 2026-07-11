@@ -1,4 +1,7 @@
-# Web Integration (Companion Client)
+---
+title: Web Integration (Companion Client)
+description: Probe and use Vox Companion from web apps through the origin-gated local HTTP bridge.
+---
 
 > For Apple apps, embed Vox's Swift packages directly. For Bun/Node companion clients, use [`@voxd/sdk`](./sdk.md) instead. It connects to `voxd` over local WebSocket JSON-RPC.
 

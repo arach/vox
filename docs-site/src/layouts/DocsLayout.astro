@@ -10,6 +10,7 @@ const {
   badge,
   rawMarkdown = '',
   agentMarkdown = '',
+  searchable = true,
 } = Astro.props
 ---
 
@@ -21,10 +22,10 @@ const {
   <main class="dl-main">
     <div class="dl-content-area">
       <div class="dl-page-actions">
-        {rawMarkdown && (
+        {agentMarkdown && (
           <button class="dl-copy-btn" data-copy-agent-button>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            Copy for agent
+            Copy agent brief
           </button>
         )}
         {rawMarkdown && (
@@ -35,7 +36,11 @@ const {
         )}
       </div>
 
-      <article class="doc-content" data-pagefind-body>
+      <article
+        class="doc-content"
+        data-pagefind-body={searchable ? true : undefined}
+        data-pagefind-ignore={searchable ? undefined : true}
+      >
         {badge && (
           <span class="dl-badge">{badge}</span>
         )}
@@ -76,6 +81,17 @@ const {
 
     @media (max-width: 768px) {
       .dl-sidebar { display: none; }
+
+      .dl[data-mobile-nav-open='true'] .dl-sidebar {
+        display: block;
+        position: fixed;
+        inset: 48px auto 0 0;
+        width: min(320px, 88vw);
+        height: calc(100vh - 48px);
+        z-index: 45;
+        background: var(--color-bg);
+        box-shadow: var(--shadow-soft);
+      }
     }
 
     .dl-main {
@@ -97,6 +113,14 @@ const {
       display: flex;
       gap: 8px;
       z-index: 5;
+    }
+
+    @media (max-width: 640px) {
+      .dl-page-actions {
+        position: static;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+      }
     }
 
     .dl-copy-btn {
@@ -188,20 +212,37 @@ const {
   </style>
 
   <script is:inline define:vars={{ rawMarkdown, agentMarkdown }}>
+    const writeClipboard = async (content) => {
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(content)
+          return true
+        } catch {}
+      }
+
+      const textarea = document.createElement('textarea')
+      textarea.value = content
+      textarea.setAttribute('readonly', '')
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      const copied = document.execCommand('copy')
+      textarea.remove()
+      return copied
+    }
+
     const safeCopy = async (content, btn) => {
       if (!content) return
-      try {
-        await navigator.clipboard.writeText(content)
-        if (btn) {
-          const orig = btn.textContent
-          btn.textContent = ' Copied!'
-          setTimeout(() => { btn.textContent = orig }, 2000)
-        }
-      } catch {}
+      const copied = await writeClipboard(content)
+      if (!btn) return
+      const orig = btn.textContent
+      btn.textContent = copied ? 'Copied!' : 'Copy failed'
+      setTimeout(() => { btn.textContent = orig }, 2000)
     }
 
     document.querySelector('[data-copy-agent-button]')?.addEventListener('click', function() {
-      safeCopy(agentMarkdown || rawMarkdown, this)
+      safeCopy(agentMarkdown, this)
     })
 
     document.querySelector('[data-copy-markdown-button]')?.addEventListener('click', function() {

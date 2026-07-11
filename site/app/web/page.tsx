@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, AudioLines, Globe, Radar, ShieldCheck, TerminalSquare, Waypoints } from "lucide-react";
+import { ArrowUpRight, AudioLines, Globe, Radar, ShieldCheck, TerminalSquare } from "lucide-react";
 import { CopyCommand, CopyCommandBlock } from "../../components/copy-command";
 
 export const metadata: Metadata = {
@@ -80,14 +80,12 @@ export default function WebSdkPage() {
         </div>
       </header>
 
-      <section className="relative overflow-hidden px-6 pb-20 pt-16 sm:px-8 lg:px-12">
-        <div className="hero-mesh pointer-events-none absolute inset-0" />
-        <div className="hero-grid pointer-events-none absolute inset-x-0 top-0 h-[38rem]" />
+      <section className="relative overflow-hidden border-b border-line px-6 pb-20 pt-16 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-6xl">
           <div className="grid gap-12 py-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent">Web SDK</p>
-              <h1 className="mt-5 max-w-[13ch] font-display text-4xl leading-[1.04] tracking-[-0.04em] sm:text-6xl lg:text-[5.4rem]">
+              <h1 className="mt-5 max-w-[16ch] text-[clamp(2.4rem,5vw,4.5rem)] font-medium leading-[1.02] tracking-[-0.045em]">
                 Local transcription for apps that already live in the browser.
               </h1>
               <p className="mt-8 max-w-2xl text-base leading-8 text-secondary sm:text-lg">
@@ -106,13 +104,13 @@ export default function WebSdkPage() {
               </div>
             </div>
 
-            <div className="signal-panel rounded-xl border border-line-strong bg-panel p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+            <div className="signal-panel rounded-sm border border-line-strong bg-panel p-5">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">SDK flow</span>
                 <TerminalSquare className="h-4 w-4 text-accent" />
               </div>
-              <div className="mt-4 rounded-lg border border-line bg-canvas p-4 font-mono text-[12px] leading-6 text-secondary">
-                <div className="text-muted">import {"{ createVoxdClient }"} from "@voxd/client"</div>
+              <div className="mt-4 rounded-sm border border-line bg-canvas p-4 font-mono text-[12px] leading-6 text-secondary">
+                <div className="text-muted">import {"{ createVoxdClient }"} from &quot;@voxd/client&quot;</div>
                 <div className="mt-3 text-ink">const client = createVoxdClient()</div>
                 <div className="text-ink">if (await client.probe()) {"{"}</div>
                 <div className="pl-4 text-ink">await client.transcribe({"{"} audio: blob {"}"})</div>
@@ -136,13 +134,13 @@ export default function WebSdkPage() {
       <section className="border-y border-line bg-panel px-6 py-20 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-6xl">
           <div className="mb-14">
-            <h2 className="max-w-[18ch] font-display text-3xl italic leading-tight tracking-[-0.03em] sm:text-5xl">
+            <h2 className="max-w-[24ch] text-3xl font-semibold leading-tight tracking-[-0.03em] sm:text-4xl">
               A clean browser story, without pretending the browser owns the runtime.
             </h2>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             {featureCards.map(({ icon: Icon, title, body }) => (
-              <article key={title} className="rounded-xl border border-line bg-canvas px-5 py-6 transition-transform duration-300 hover:-translate-y-1">
+              <article key={title} className="rounded-sm border border-line bg-canvas px-5 py-6 transition-colors hover:border-line-strong">
                 <Icon className="h-5 w-5 text-accent" strokeWidth={1.7} />
                 <h3 className="mt-4 text-lg font-semibold tracking-tight">{title}</h3>
                 <p className="mt-3 text-sm leading-7 text-secondary">{body}</p>
@@ -157,7 +155,7 @@ export default function WebSdkPage() {
           <div className="grid gap-12 lg:grid-cols-[0.88fr_1.12fr]">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent">How it works</p>
-              <h2 className="mt-4 max-w-[16ch] font-display text-3xl leading-tight tracking-[-0.03em] sm:text-5xl">
+              <h2 className="mt-4 max-w-[20ch] text-3xl font-semibold leading-tight tracking-[-0.03em] sm:text-4xl">
                 Install the package, detect the companion, then choose the right local path.
               </h2>
               <p className="mt-6 max-w-md text-[15px] leading-7 text-secondary">
@@ -176,9 +174,9 @@ export default function WebSdkPage() {
 
       <section className="border-t border-line bg-panel px-6 py-20 sm:px-8 lg:px-12">
         <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="rounded-xl border border-line-strong bg-canvas p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+          <div className="rounded-sm border border-line-strong bg-canvas p-6">
             <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Design constraints</p>
-            <h2 className="mt-4 max-w-[16ch] font-display text-3xl italic leading-tight tracking-[-0.03em] sm:text-4xl">
+            <h2 className="mt-4 max-w-[20ch] text-3xl font-semibold leading-tight tracking-[-0.03em] sm:text-4xl">
               The browser SDK should stay boring where boring is correct.
             </h2>
             <div className="mt-6 grid gap-5 text-[15px] leading-7 text-secondary">
@@ -188,7 +186,7 @@ export default function WebSdkPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-line-strong bg-canvas p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+          <div className="rounded-sm border border-line-strong bg-canvas p-6">
             <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Next stops</p>
             <div className="mt-6 grid gap-4">
               <Link

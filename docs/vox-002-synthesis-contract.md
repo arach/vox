@@ -1,4 +1,7 @@
-# VOX-002: Synthesis Contract
+---
+title: "VOX-002: Synthesis Contract"
+description: Draft contract for synthesis generation, sessions, cancellation, telemetry, and bridge behavior.
+---
 
 Status: Draft
 Date: 2026-04-24
@@ -426,3 +429,5 @@ The SDK keeps the same host and port configuration story as transcription.
 - additional output formats beyond `wav`
 - structured error objects instead of Phase 1 string errors
 - remote runtime discovery and Tailscale-aware routing
+
+Confirm shipped behavior against the [Runtime Guide](./runtime.md) and current `VoxRuntimeService` implementation.

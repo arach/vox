@@ -8,11 +8,11 @@ installation commands.
 
 ## OBJECTIVE
 
-Clone Vox, build the runtime, and verify local transcription on macOS.
+Clone Vox, build the runtime, start the companion daemon, and verify local speech on macOS.
 
 ## DONE WHEN
 
-`bun packages/cli/src/index.ts doctor` returns ready: true
+`node packages/cli/dist/index.js doctor` returns ready: true
 
 ## TODO
 
@@ -20,6 +20,7 @@ Clone Vox, build the runtime, and verify local transcription on macOS.
 - [ ] Install dependencies
 - [ ] Build the SDK, CLI, and daemon
 - [ ] Run tests
+- [ ] Start the companion daemon
 - [ ] Verify runtime health
 
 ## Prerequisites
@@ -53,10 +54,16 @@ bun run build
 bun run test
 ```
 
-## Step 5: Verify runtime health
+## Step 5: Start the companion daemon
 
 ```bash
-bun packages/cli/src/index.ts doctor
+node packages/cli/dist/index.js daemon start
+```
+
+## Step 6: Verify runtime health
+
+```bash
+node packages/cli/dist/index.js doctor
 ```
 
 ## EXECUTE NOW

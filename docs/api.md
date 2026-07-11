@@ -1,4 +1,7 @@
-# API
+---
+title: API
+description: Current companion RPC routes, TypeScript SDK entrypoints, result types, and performance shapes.
+---
 
 Public protocol and SDK-facing type shapes.
 
@@ -261,6 +264,23 @@ interface SynthesisOptions {
   format?: string;
   speed?: number;
   instructions?: string;
+  speechTiming?: boolean | SpeechTimingRequest;
+  credentials?: {
+    OPENAI_API_KEY?: string;
+    openaiApiKey?: string;
+    openai_api_key?: string;
+  };
+}
+
+interface SpeechTimingRequest {
+  enabled?: boolean;
+  modelId?: string;
+  cues?: Array<{
+    id: string;
+    text?: string;
+    textStart?: number;
+    textEnd?: number;
+  }>;
 }
 
 interface SynthesisMetrics {
@@ -287,6 +307,15 @@ interface SynthesisResult {
   audioBytes: number;
   elapsedMs: number;
   metrics?: SynthesisMetrics;
+  speechTiming?: SpeechTiming;
+}
+
+interface SpeechTiming {
+  source: "asr" | "native" | "estimated" | string;
+  modelId: string;
+  elapsedMs: number;
+  words: SpeechTimingWord[];
+  cues: SpeechTimingCue[];
 }
 ```
 
@@ -297,3 +326,5 @@ type WarmupState = "idle" | "scheduled" | "warming" | "ready" | "failed";
 ```
 
 Apps use this to tell whether the runtime is cold, warming, or ready for hot-path speech.
+
+See the [SDK Guide](./sdk.md) for usage patterns and [Runtime](./runtime.md) for route ownership and session semantics.

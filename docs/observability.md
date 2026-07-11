@@ -1,4 +1,7 @@
-# Observability
+---
+title: Observability
+description: Read Vox performance samples, stage timings, client dimensions, and operator dashboards.
+---
 
 Telemetry is built into the runtime for both transcription and synthesis. Each performance sample includes:
 
@@ -100,3 +103,5 @@ vox perf dashboard --client vox-cli
 - Use `synthesisMs` for loaded-model TTS speed.
 - Use `totalMs` for end-user latency.
 - Large `modelLoadMs` spikes are warm-up events, not inference regressions.
+
+See [Runtime](./runtime.md) for emitted routes and [API](./api.md) for the current performance sample shape.

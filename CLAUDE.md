@@ -4,15 +4,15 @@ Project guidance for AI coding agents working in Vox.
 
 ## Project Identity
 
-Vox is a local-first transcription runtime for macOS apps and developer tools.
+Vox is a local-first voice stack for Apple apps, browser companions, and developer tools. It supports both transcription and synthesis.
 
 It combines:
 
 - Swift runtime services and daemon code in `swift/`
 - a TypeScript SDK in `packages/client/`
 - a Bun CLI in `packages/cli/`
-- Dewey docs in `docs/`
-- a public site and docs UI in `site/`
+- Dewey source docs in `docs/`
+- a public Next.js site in `site/` and Astro docs UI in `docs-site/`
 
 ## Non-Negotiables
 
