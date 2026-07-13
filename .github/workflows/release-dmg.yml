@@ -153,9 +153,13 @@ jobs:
           fi
           echo "profile=$PROFILE" >> "$GITHUB_OUTPUT"
 
-      - name: Configure private SwiftPM access
+      - name: Configure and validate private SwiftPM access
         run: |
           git config --global url."https://x-access-token:${HUDSON_READ_TOKEN}@github.com/".insteadOf "git@github.com:"
+          if ! GIT_TERMINAL_PROMPT=0 git ls-remote --exit-code git@github.com:arach/hudson.git HEAD >/dev/null 2>&1; then
+            echo "::error::HUDSON_READ_TOKEN cannot read the private arach/hudson repository"
+            exit 1
+          fi
 
       - name: Build DMG
         env:
