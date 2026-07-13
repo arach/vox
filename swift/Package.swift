@@ -14,7 +14,14 @@ let package = Package(
         .iOS(.v17)
     ],
     products: [
+        .library(name: "VoxCore", targets: ["VoxCore"]),
+        .library(name: "VoxEngine", targets: ["VoxEngine"]),
         .library(name: "HudsonSpeechEngine", targets: ["HudsonSpeechEngine"]),
+        .library(name: "VoxService", targets: ["VoxService"]),
+        .library(name: "VoxBridge", targets: ["VoxBridge"]),
+        .executable(name: "voxbridge", targets: ["VoxBridgeRunner"]),
+        .executable(name: "voxttsd", targets: ["VoxTTSRunner"]),
+        .executable(name: "voxd", targets: ["voxd"])
     ],
     dependencies: [],
     targets: [
@@ -28,6 +35,10 @@ let package = Package(
             resources: [
                 .copy("Resources/mlx_audio_provider.py")
             ]
+        ),
+        .target(
+            name: "VoxEngine",
+            dependencies: ["HudsonSpeechEngine"]
         ),
         .target(
             name: "VoxService",
