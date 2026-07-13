@@ -176,14 +176,17 @@ jobs:
           path: dist/Vox.dmg
 
       - name: Create GitHub release and attach DMG
+        id: release
         if: ${{ steps.version.outputs.release_requested == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ steps.version.outputs.tag }}"
+          echo "created_tag=false" >> "$GITHUB_OUTPUT"
           if ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
             git tag "$TAG" "$GITHUB_SHA"
             git push origin "refs/tags/$TAG"
+            echo "created_tag=true" >> "$GITHUB_OUTPUT"
           fi
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" \
@@ -193,7 +196,7 @@ jobs:
           gh release upload "$TAG" dist/Vox.dmg --clobber
 
       - name: Dispatch package publishing workflow
-        if: ${{ github.event_name == 'workflow_dispatch' && steps.version.outputs.release_requested == 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.version.outputs.release_requested == 'true' && steps.release.outputs.created_tag == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
