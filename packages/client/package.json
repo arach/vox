@@ -1,6 +1,6 @@
 {
   "name": "@voxd/sdk",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "type": "module",
   "description": "TypeScript client for the Vox local transcription runtime.",
   "main": "./dist/index.js",
