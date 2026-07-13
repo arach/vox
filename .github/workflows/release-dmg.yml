@@ -34,7 +34,7 @@ jobs:
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      HUDSON_READ_TOKEN: ${{ secrets.HUDSON_READ_TOKEN }}
+      HUDSON_DEPLOY_KEY: ${{ secrets.HUDSON_DEPLOY_KEY }}
 
     steps:
       - name: Checkout
@@ -89,7 +89,7 @@ jobs:
           for name in \
             DEVELOPER_ID_APPLICATION_CERT_BASE64 \
             DEVELOPER_ID_APPLICATION_CERT_PASSWORD \
-            HUDSON_READ_TOKEN; do
+            HUDSON_DEPLOY_KEY; do
             if [ -z "${!name}" ]; then
               echo "::error::Missing required release secret: $name"
               missing=1
@@ -155,9 +155,23 @@ jobs:
 
       - name: Configure and validate private SwiftPM access
         run: |
-          git config --global url."https://x-access-token:${HUDSON_READ_TOKEN}@github.com/".insteadOf "git@github.com:"
+          KEY_PATH="$RUNNER_TEMP/hudson-deploy-key"
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$HUDSON_DEPLOY_KEY" > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          ssh-keyscan -H github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null
+          chmod 600 "$HOME/.ssh/known_hosts"
+          cat >> "$HOME/.ssh/config" <<EOF
+          Host github.com
+            HostName github.com
+            User git
+            IdentityFile $KEY_PATH
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 "$HOME/.ssh/config"
           if ! GIT_TERMINAL_PROMPT=0 git ls-remote --exit-code git@github.com:arach/hudson.git HEAD >/dev/null 2>&1; then
-            echo "::error::HUDSON_READ_TOKEN cannot read the private arach/hudson repository"
+            echo "::error::HUDSON_DEPLOY_KEY cannot read the private arach/hudson repository"
             exit 1
           fi
 
