@@ -88,10 +88,10 @@ final class MinivoxModel: ObservableObject {
         guard !isCapturingShortcut else { return }
         shortcutController?.register(nil)
         isCapturingShortcut = true
-        statusMessage = "Press any key or key combination."
+        statusMessage = "Press a shortcut. Hold Fn/Globe for a function key."
         NSApplication.shared.activate(ignoringOtherApps: true)
 
-        shortcutEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        shortcutEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .systemDefined]) { [weak self] event in
             self?.captureShortcut(event)
             return nil
         }
@@ -108,6 +108,12 @@ final class MinivoxModel: ObservableObject {
     func captureShortcut(_ event: NSEvent) {
         guard isCapturingShortcut else { return }
 
+        if event.type == .systemDefined {
+            NSSound.beep()
+            statusMessage = "That was a media key. Hold Fn/Globe and press it again to record F1–F12."
+            return
+        }
+
         switch Int(event.keyCode) {
         case kVK_Escape:
             cancelShortcutCapture()
@@ -122,7 +128,7 @@ final class MinivoxModel: ObservableObject {
 
         guard let shortcut = DictationShortcut(event: event) else {
             NSSound.beep()
-            statusMessage = "That key cannot be used as a shortcut."
+            statusMessage = "Use a modifier, or hold Fn/Globe and press a function key."
             return
         }
 

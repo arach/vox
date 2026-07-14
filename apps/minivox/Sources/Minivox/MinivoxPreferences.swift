@@ -77,7 +77,8 @@ struct DictationShortcut: Equatable {
             modifierTitle += "⌘"
         }
 
-        guard let keyTitle = Self.keyTitle(for: event) else {
+        guard let keyTitle = Self.keyTitle(for: event),
+              carbonModifiers != 0 || Self.isFunctionKey(event.keyCode) else {
             return nil
         }
 
@@ -113,11 +114,31 @@ struct DictationShortcut: Equatable {
         case kVK_F10: return "F10"
         case kVK_F11: return "F11"
         case kVK_F12: return "F12"
+        case kVK_F13: return "F13"
+        case kVK_F14: return "F14"
+        case kVK_F15: return "F15"
+        case kVK_F16: return "F16"
+        case kVK_F17: return "F17"
+        case kVK_F18: return "F18"
+        case kVK_F19: return "F19"
+        case kVK_F20: return "F20"
         default:
             let value = event.charactersIgnoringModifiers?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .uppercased()
             return value?.isEmpty == false ? value : nil
+        }
+    }
+
+    private static func isFunctionKey(_ keyCode: UInt16) -> Bool {
+        switch Int(keyCode) {
+        case kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5,
+             kVK_F6, kVK_F7, kVK_F8, kVK_F9, kVK_F10,
+             kVK_F11, kVK_F12, kVK_F13, kVK_F14, kVK_F15,
+             kVK_F16, kVK_F17, kVK_F18, kVK_F19, kVK_F20:
+            return true
+        default:
+            return false
         }
     }
 }
