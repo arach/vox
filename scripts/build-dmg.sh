@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$SCRIPT_DIR/.."
-APP_DIR="$ROOT/app"
+APP_DIR="$ROOT/apps/vox"
 BUILD_DIR="$ROOT/dist"
 APP_NAME="Vox.app"
 DMG_NAME="Vox.dmg"
@@ -63,7 +63,7 @@ if [ -f "$VOXTTS_PATH" ]; then
 fi
 
 # Generate .icns from iconset
-ICNS="$ROOT/app/Vox/Assets.xcassets/AppIcon.appiconset"
+ICNS="$ROOT/apps/vox/Vox/Assets.xcassets/AppIcon.appiconset"
 if [ -d "$ICNS" ]; then
     ICONSET_DIR=$(mktemp -d)/AppIcon.iconset
     mkdir -p "$ICONSET_DIR"

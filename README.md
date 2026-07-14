@@ -8,6 +8,7 @@ Vox is a local-first voice stack for Apple platforms. This repo brings together 
 - `@voxd/client`: Browser SDK. HTTP bridge client for local web integrations.
 - `vox`: Node CLI. Health checks, benchmarks, warm-up scheduling, dashboards.
 - `Vox.app`: Hudson-based macOS menu bar app, packaged as a signed and notarized DMG by release automation.
+- `Minivox`: tiny macOS menu-bar dictation example that embeds Vox directly and copies each transcript.
 
 Apple apps can embed Vox directly. Bun and Node tools can connect to `voxd` over local WebSocket JSON-RPC. Browser clients can connect through the companion HTTP bridge with `@voxd/client`.
 
@@ -22,7 +23,7 @@ Apple apps can embed Vox directly. Bun and Node tools can connect to `voxd` over
 
 Requirements:
 
-- macOS 14+ for the Swift transcription packages; macOS 26+ for the Hudson menu app and demo flows that use Apple Intelligence
+- macOS 14+ for the Swift transcription packages and Minivox; macOS 26+ for the Hudson menu app
 - Bun 1.2+
 - Node 22+
 - Swift 6.2+
@@ -74,36 +75,36 @@ If you are writing a local client, start here:
 - `packages/web-client/` for the browser SDK
 - `swift/` for direct Apple embed mode
 
-### c. demo
+### c. Minivox
 
-To run the standalone macOS demo app:
+To run the tiny menu-bar dictation app:
 
 ```bash
 git clone https://github.com/arach/vox.git
 cd vox
 bun install
-swift run --package-path examples/macos-minimal VoxMinimalExample
+swift run --package-path apps/minivox Minivox
 ```
 
-What the demo does:
+What Minivox does:
 
 - records locally from the mic
 - transcribes with Parakeet
-- replies with Apple Intelligence when available
-- falls back to local Qwen 0.6B when Apple Intelligence is not ready
-- speaks back with Kokoro through the MLX audio provider
+- copies the finished dictation to the clipboard
+- keeps Parakeet warm-up and transcription timing visible
 
 Notes:
 
-- The first run may download Parakeet, Kokoro, or the Qwen fallback model.
+- The first dictation may download Parakeet.
 - The app will ask for microphone access.
-- Apple Intelligence is optional for the demo, not required.
 
-The current standalone demo lives in `examples/macos-minimal/` and is a good reference app for direct embed mode.
+Minivox lives in `apps/minivox/` and is the small, single-purpose Vox dictation app.
 
 ## Layout
 
 - `swift/` contains `VoxCore`, `VoxEngine`, `VoxService`, and the `voxd` daemon.
+- `apps/vox` contains the full Vox companion app.
+- `apps/minivox` contains the small menu-bar dictation app.
 - `packages/client` contains the TypeScript SDK for talking to `voxd` over local WebSocket JSON-RPC.
 - `packages/web-client` contains the browser SDK for talking to the local HTTP bridge.
 - `packages/cli` contains the `vox` CLI.

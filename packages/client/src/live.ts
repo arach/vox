@@ -40,8 +40,9 @@ export class VoxLiveSession extends Emitter<LiveSessionEvents> {
     }
   }
 
-  async stop(): Promise<void> {
-    await this.client.call("transcribe.stopSession", this.sessionId ? { sessionId: this.sessionId } : undefined);
+  async stop(): Promise<SessionFinalEvent | void> {
+    const result = await this.client.stopLiveSession(this.sessionId ?? undefined);
+    return result.result;
   }
 
   async cancel(): Promise<void> {

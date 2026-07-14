@@ -5,7 +5,7 @@ description: Install Vox Companion, verify runtime health, and exercise transcri
 
 ## Prerequisites
 
-- macOS 14+ or iOS 17+ for direct Swift transcription embedding; macOS 26+ for the Vox menu app and Apple Intelligence demo paths
+- macOS 14+ or iOS 17+ for direct Swift transcription embedding; macOS 14+ for Minivox; macOS 26+ for the Vox menu app
 - Node 22+
 - Vox Companion installed from the DMG, or `voxd` available at `~/.vox/bin/voxd`
 - Swift 6.2+ only if you plan to build Vox from a repo checkout
@@ -78,4 +78,4 @@ If you are integrating Vox into a macOS or iOS app, read the [Swift Embed Guide]
 
 If you are wiring external STT or TTS engines into Vox Companion, read the [Provider Protocol](./providers.md).
 
-Try the [minimal macOS demo app](https://github.com/arach/vox/tree/main/examples/macos-minimal) for the current Apple embed reference, or the [transcribe TUI](https://github.com/arach/vox/tree/main/examples/transcribe-tui) for a companion-connected terminal sample.
+Try [Minivox](https://github.com/arach/vox/tree/main/apps/minivox), the small menu-bar dictation app built directly on Vox. The [transcribe TUI](https://github.com/arach/vox/tree/main/examples/transcribe-tui) remains the companion-connected terminal sample.

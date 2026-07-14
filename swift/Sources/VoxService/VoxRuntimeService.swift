@@ -11,6 +11,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
     private let ttsEngine: TTSEngineManager
     private let warmup: WarmupCoordinator
     private let performance = PerformanceRecorder()
+    private let history: SpeechHistoryRecorder
     private let recorder = MicrophoneRecorder()
     private let sessions = LiveSessionCoordinator()
     private let synthesisSessions = SynthesisSessionCoordinator()
@@ -26,6 +27,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
         engine: EngineManager = EngineManager(),
         annotationEngine: AnnotationManager = AnnotationManager(),
         ttsEngine: TTSEngineManager = TTSEngineManager(),
+        history: SpeechHistoryRecorder = SpeechHistoryRecorder(),
         defaultSynthesisModelId: String = TTSDefaults.modelId,
         authToken: String? = nil,
         preferencesLoader: @escaping @Sendable () -> VoxPreferences = {
@@ -37,6 +39,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
         self.asrEngine = engine
         self.annotationEngine = annotationEngine
         self.ttsEngine = ttsEngine
+        self.history = history
         self.warmup = WarmupCoordinator(asrEngine: engine, ttsEngine: ttsEngine)
         self.preferencesLoader = preferencesLoader
         self.defaultSynthesisModelId = defaultSynthesisModelId
@@ -357,6 +360,44 @@ public final class VoxRuntimeService: @unchecked Sendable {
             return nil
         }
         return trimmed
+    }
+
+    private func historyListFilter(from params: [String: Any]?) -> SpeechHistoryListFilter {
+        let limit = intParam(params?["limit"]) ?? 50
+        return SpeechHistoryListFilter(
+            kind: speechHistoryKind(params?["kind"] as? String),
+            source: speechHistorySource(params?["source"] as? String),
+            clientId: normalizePreferenceValue(params?["clientId"] as? String),
+            modelId: normalizePreferenceValue(params?["modelId"] as? String),
+            sessionId: normalizePreferenceValue(params?["sessionId"] as? String),
+            outcome: normalizePreferenceValue(params?["outcome"] as? String),
+            query: normalizePreferenceValue(params?["query"] as? String),
+            before: normalizePreferenceValue(params?["before"] as? String),
+            limit: limit
+        )
+    }
+
+    private func speechHistoryKind(_ raw: String?) -> SpeechHistoryKind? {
+        guard let raw = normalizePreferenceValue(raw) else { return nil }
+        return SpeechHistoryKind(rawValue: raw)
+    }
+
+    private func speechHistorySource(_ raw: String?) -> SpeechHistorySource? {
+        guard let raw = normalizePreferenceValue(raw) else { return nil }
+        return SpeechHistorySource(rawValue: raw)
+    }
+
+    private func intParam(_ value: Any?) -> Int? {
+        switch value {
+        case let int as Int:
+            return int
+        case let double as Double:
+            return Int(double)
+        case let string as String:
+            return Int(string)
+        default:
+            return nil
+        }
     }
 
     private func providerCredentials(from params: [String: Any]?) -> [String: String] {
@@ -778,6 +819,69 @@ public final class VoxRuntimeService: @unchecked Sendable {
             }
         }
 
+        bridge.handle("history.list") { [weak self] params, reply in
+            guard let self else { return }
+            let filter = self.historyListFilter(from: params)
+            Task {
+                do {
+                    let records = try await self.history.list(filter: filter)
+                    reply([
+                        "records": records.map { $0.dictionaryValue() },
+                        "nextCursor": NSNull()
+                    ], nil)
+                } catch {
+                    reply(nil, error.localizedDescription)
+                }
+            }
+        }
+
+        bridge.handle("history.get") { [weak self] params, reply in
+            guard let self else { return }
+            let id = self.normalizePreferenceValue(params?["id"] as? String)
+            Task {
+                do {
+                    guard let id else {
+                        reply(nil, "Missing history id")
+                        return
+                    }
+                    let record = try await self.history.get(id: id)
+                    reply(["record": record?.dictionaryValue() ?? NSNull()], nil)
+                } catch {
+                    reply(nil, error.localizedDescription)
+                }
+            }
+        }
+
+        bridge.handle("history.delete") { [weak self] params, reply in
+            guard let self else { return }
+            let id = self.normalizePreferenceValue(params?["id"] as? String)
+            Task {
+                do {
+                    guard let id else {
+                        reply(nil, "Missing history id")
+                        return
+                    }
+                    let deleted = try await self.history.delete(id: id)
+                    reply(["deleted": deleted, "id": id], nil)
+                } catch {
+                    reply(nil, error.localizedDescription)
+                }
+            }
+        }
+
+        bridge.handle("history.clear") { [weak self] params, reply in
+            guard let self else { return }
+            let filter = self.historyListFilter(from: params)
+            Task {
+                do {
+                    let deleted = try await self.history.clear(filter: filter)
+                    reply(["deleted": deleted], nil)
+                } catch {
+                    reply(nil, error.localizedDescription)
+                }
+            }
+        }
+
         bridge.handle("transcribe.file") { [weak self] params, reply in
             guard let self else { return }
             let path = params?["path"] as? String
@@ -792,7 +896,18 @@ public final class VoxRuntimeService: @unchecked Sendable {
                     }
                     let result = try await self.performTranscribeFile(path: path, modelId: modelId, clientId: clientId)
                     await self.performance.record(result.performanceSample)
-                    reply(result.output.dictionaryValue(), nil)
+                    let historyRecord = SpeechHistoryRecord.transcription(
+                        source: .file,
+                        route: "transcribe.file",
+                        clientId: clientId,
+                        modelId: result.output.modelId,
+                        output: result.output,
+                        completedAt: result.performanceSample.timestamp
+                    )
+                    await self.history.record(historyRecord)
+                    var payload = result.output.dictionaryValue()
+                    payload["historyId"] = historyRecord.id
+                    reply(payload, nil)
                 } catch {
                     await self.performance.record(PerformanceSample(
                         clientId: clientId,
@@ -1206,38 +1321,51 @@ public final class VoxRuntimeService: @unchecked Sendable {
                     guard let finished = self.sessions.finish(id: session.sessionId) else {
                         return
                     }
-                    await self.performance.record(PerformanceSample(
+                    let sample = PerformanceSample(
                         clientId: finished.clientId,
                         route: "transcribe.live",
                         modelId: finished.modelId,
                         outcome: "ok",
                         textLength: output.text.count,
                         metrics: output.metrics.performanceMetrics
-                    ))
+                    )
+                    await self.performance.record(sample)
+                    let historyRecord = SpeechHistoryRecord.transcription(
+                        source: .live,
+                        route: "transcribe.live",
+                        sessionId: finished.sessionId,
+                        clientId: finished.clientId,
+                        modelId: output.modelId,
+                        output: output,
+                        startedAt: finished.startedAt,
+                        completedAt: sample.timestamp
+                    )
+                    await self.history.record(historyRecord)
 
                     finished.state = .done
                     self.log.info("Completed live session \(finished.sessionId) for client \(finished.clientId) elapsed=\(output.elapsedMs)ms textLength=\(output.text.count)")
-                    finished.progress("session.final", [
+                    let finalPayload: [String: Any] = [
                         "sessionId": finished.sessionId,
                         "text": output.text,
                         "elapsedMs": output.elapsedMs,
                         "metrics": output.metrics.dictionaryValue(),
-                        "words": output.words.map { $0.dictionaryValue() }
-                    ])
+                        "words": output.words.map { $0.dictionaryValue() },
+                        "historyId": historyRecord.id
+                    ]
+                    finished.progress("session.final", finalPayload)
                     finished.progress("session.state", [
                         "sessionId": finished.sessionId,
                         "state": SessionState.done.rawValue,
                         "previous": SessionState.processing.rawValue
                     ])
-                    finished.reply([
-                        "sessionId": finished.sessionId,
-                        "text": output.text,
-                        "elapsedMs": output.elapsedMs,
-                        "metrics": output.metrics.dictionaryValue(),
-                        "words": output.words.map { $0.dictionaryValue() }
-                    ], nil)
+                    finished.reply(finalPayload, nil)
 
-                    reply(["stopped": true, "sessionId": finished.sessionId], nil)
+                    reply([
+                        "stopped": true,
+                        "sessionId": finished.sessionId,
+                        "historyId": historyRecord.id,
+                        "result": finalPayload
+                    ], nil)
                 } catch {
                     if let session = self.sessions.current(id: requestedID) {
                         await self.performance.record(PerformanceSample(

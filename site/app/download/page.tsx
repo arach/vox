@@ -22,9 +22,9 @@ export const metadata: Metadata = {
 };
 
 const checks = [
-  "Signed and notarized DMG from the latest GitHub Release",
-  "Bundles Vox.app, voxd, and the separate voxttsd speech worker",
-  "Works with the CLI, @voxd/sdk, and @voxd/client",
+  "Latest signed and notarized Mac installer",
+  "Includes Vox, its local service, and the speech worker",
+  "Works with the CLI, Node SDK, and browser client",
 ];
 
 export default function DownloadPage() {
@@ -39,6 +39,7 @@ export default function DownloadPage() {
           <nav className="flex flex-wrap items-center gap-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
             <Link href="/docs/overview" className="px-2.5 py-1.5 transition-colors hover:text-accent">Docs</Link>
             <Link href="/web" className="px-2.5 py-1.5 transition-colors hover:text-accent">Web SDK</Link>
+            <Link href="/minivox" className="px-2.5 py-1.5 transition-colors hover:text-accent">Minivox</Link>
             <Link href="/blog" className="px-2.5 py-1.5 transition-colors hover:text-accent">Blog</Link>
             <Link href="https://github.com/arach/vox" target="_blank" rel="noreferrer noopener" className="px-2.5 py-1.5 transition-colors hover:text-accent">GitHub</Link>
           </nav>
@@ -53,7 +54,7 @@ export default function DownloadPage() {
               Install Vox Companion for macOS<span className="text-accent">.</span>
             </h1>
             <p className="mt-6 max-w-xl text-[15px] leading-7 text-secondary">
-              Vox Companion gives local web apps, the CLI, and Hudson-powered native surfaces a shared voice runtime on your Mac. Install once, then connect from the browser SDK or operator tools.
+              Vox Companion lets web apps and developer tools use speech models running on your Mac. Install it once, then connect from the browser client, Node SDK, or CLI.
             </p>
 
             <div className="mt-9 flex flex-wrap items-center gap-3">
@@ -101,7 +102,7 @@ export default function DownloadPage() {
               <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">Mac app</span>
             </div>
             <p className="text-[14px] leading-7 text-secondary">
-              Open the DMG, drag Vox to Applications, and launch it from there. The menu bar app manages the companion runtime used by local web and CLI clients.
+              Open the DMG, drag Vox to Applications, and launch it. Vox lives in the menu bar and connects web apps and developer tools to local speech.
             </p>
           </div>
 
@@ -112,7 +113,7 @@ export default function DownloadPage() {
             </div>
             <CopyCommand command="npm install -g @voxd/cli@latest" />
             <p className="mt-4 text-[14px] leading-7 text-secondary">
-              Use the CLI for doctor checks, warm-up, benchmarks, logs, and speech synthesis from terminal workflows.
+              Use the CLI to check your setup, warm up models, run benchmarks, view logs, and generate speech.
             </p>
           </div>
         </div>

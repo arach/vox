@@ -1,7 +1,8 @@
 # Quickstart Facts
 
 - Swift embed minimums: macOS 14+, iOS 17+
-- packaged Vox menu app and Apple Intelligence demos can require macOS 26+
+- Minivox direct-embed dictation app: `apps/minivox/`, macOS 14+
+- packaged Vox menu app requires macOS 26+
 - published CLI requires Node 22+
 - install CLI: `npm install -g @voxd/cli`
 - install Companion from the DMG before `vox install`, or provide `~/.vox/bin/voxd`

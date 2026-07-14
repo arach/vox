@@ -23,22 +23,22 @@ const featureCards = [
   {
     icon: Globe,
     title: "Browser-native API",
-    body: "Send a Blob, File, or ArrayBuffer straight from the browser. No backend proxy needed when the companion is present.",
+    body: "Send audio from the browser as a Blob, File, or ArrayBuffer. When Vox Companion is installed, you do not need a backend proxy.",
   },
   {
     icon: Radar,
-    title: "Probe first",
-    body: "Call probe() on page load, fail fast, and degrade cleanly when the companion is not installed or not running.",
+    title: "Check first",
+    body: "Call probe() when your page loads. If Vox Companion is unavailable, show a clear way to install or open it.",
   },
   {
     icon: AudioLines,
     title: "Transcribe or align",
-    body: "Use transcribe() for local audio and align() when the companion should fetch audio from a URL and return word timings.",
+    body: "Use transcribe() for audio already in the browser. Use align() when Vox should download audio and return word timings.",
   },
   {
     icon: ShieldCheck,
     title: "Private by default",
-    body: "Audio stays on the user's Mac when the companion handles the work. That makes the web SDK a strong fit for internal tools and pro workflows.",
+    body: "Vox Companion processes audio on the user's Mac. This works well for internal tools and other privacy-sensitive apps.",
   },
 ];
 
@@ -70,6 +70,9 @@ export default function WebSdkPage() {
             <Link href="/download" className="rounded-md px-3 py-2 transition-colors hover:bg-wave hover:text-ink">
               Download
             </Link>
+            <Link href="/minivox" className="rounded-md px-3 py-2 transition-colors hover:bg-wave hover:text-ink">
+              Minivox
+            </Link>
             <Link href="/blog" className="rounded-md px-3 py-2 transition-colors hover:bg-wave hover:text-ink">
               Blog
             </Link>
@@ -86,10 +89,10 @@ export default function WebSdkPage() {
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent">Web SDK</p>
               <h1 className="mt-5 max-w-[16ch] text-[clamp(2.4rem,5vw,4.5rem)] font-medium leading-[1.02] tracking-[-0.045em]">
-                Local transcription for apps that already live in the browser.
+                Local transcription for web apps.
               </h1>
               <p className="mt-8 max-w-2xl text-base leading-8 text-secondary sm:text-lg">
-                <code className="rounded bg-wave px-2 py-1 font-mono text-[0.95em] text-accent">@voxd/client</code> gives web apps a direct path to Vox Companion on the user&apos;s Mac: probe availability, transcribe blobs, align remote audio, and fall back gracefully when the local bridge is unavailable.
+                <code className="rounded bg-wave px-2 py-1 font-mono text-[0.95em] text-accent">@voxd/client</code> connects your web app to Vox Companion on the user&apos;s Mac. Check whether it is available, transcribe audio, add word timings, and show a clear fallback when it is offline.
               </p>
 
               <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
@@ -135,7 +138,7 @@ export default function WebSdkPage() {
         <div className="mx-auto max-w-6xl">
           <div className="mb-14">
             <h2 className="max-w-[24ch] text-3xl font-semibold leading-tight tracking-[-0.03em] sm:text-4xl">
-              A clean browser story, without pretending the browser owns the runtime.
+              Connect the browser to a local speech engine.
             </h2>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -156,10 +159,10 @@ export default function WebSdkPage() {
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent">How it works</p>
               <h2 className="mt-4 max-w-[20ch] text-3xl font-semibold leading-tight tracking-[-0.03em] sm:text-4xl">
-                Install the package, detect the companion, then choose the right local path.
+                Install the package. Check for Vox Companion. Send audio.
               </h2>
               <p className="mt-6 max-w-md text-[15px] leading-7 text-secondary">
-                The package is intentionally narrow. It does not try to own media capture or browser permissions. It just gives your app a clean bridge to the local Vox runtime.
+                The package only handles the connection to Vox. Your app still controls recording and browser permissions.
               </p>
             </div>
 
@@ -175,14 +178,14 @@ export default function WebSdkPage() {
       <section className="border-t border-line bg-panel px-6 py-20 sm:px-8 lg:px-12">
         <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="rounded-sm border border-line-strong bg-canvas p-6">
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Design constraints</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">What the SDK does</p>
             <h2 className="mt-4 max-w-[20ch] text-3xl font-semibold leading-tight tracking-[-0.03em] sm:text-4xl">
-              The browser SDK should stay boring where boring is correct.
+              A small, predictable bridge to Vox Companion.
             </h2>
             <div className="mt-6 grid gap-5 text-[15px] leading-7 text-secondary">
-              <p>It should not hide runtime availability. Call <code className="rounded bg-wave px-2 py-1 font-mono text-[0.95em] text-accent">probe()</code>, show a clear install or launch path, and degrade when the companion is unavailable.</p>
-              <p>It should not pretend every app wants the same audio path. Use <code className="rounded bg-wave px-2 py-1 font-mono text-[0.95em] text-accent">transcribe()</code> for local blobs and <code className="rounded bg-wave px-2 py-1 font-mono text-[0.95em] text-accent">align()</code> when the runtime should fetch audio itself.</p>
-              <p>And it should preserve the local-first story: audio stays on the Mac, while the web app gets a small, typed bridge instead of another heavyweight backend dependency.</p>
+              <p>Call <code className="rounded bg-wave px-2 py-1 font-mono text-[0.95em] text-accent">probe()</code> so your app knows whether Vox Companion is available. If it is not, show a clear install or launch option.</p>
+              <p>Use <code className="rounded bg-wave px-2 py-1 font-mono text-[0.95em] text-accent">transcribe()</code> for audio already in the browser. Use <code className="rounded bg-wave px-2 py-1 font-mono text-[0.95em] text-accent">align()</code> when Vox should download the audio and return word timings.</p>
+              <p>Audio stays on the Mac. Your web app gets a small, typed client instead of another speech backend.</p>
             </div>
           </div>
 
@@ -197,7 +200,7 @@ export default function WebSdkPage() {
                   <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Guide</span>
                   <ArrowUpRight className="h-3.5 w-3.5 text-muted transition-all group-hover:text-accent group-hover:-translate-y-px group-hover:translate-x-px" />
                 </div>
-                <p className="mt-2 text-[15px] leading-7 text-secondary">Open the web integration docs and copy the full install and probe flow.</p>
+                <p className="mt-2 text-[15px] leading-7 text-secondary">Follow the full setup guide for installation and availability checks.</p>
               </Link>
 
               <Link
@@ -210,7 +213,7 @@ export default function WebSdkPage() {
                   <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Package</span>
                   <ArrowUpRight className="h-3.5 w-3.5 text-muted transition-all group-hover:text-accent group-hover:-translate-y-px group-hover:translate-x-px" />
                 </div>
-                <p className="mt-2 text-[15px] leading-7 text-secondary">Inspect the browser client source and current API surface in the repo.</p>
+                <p className="mt-2 text-[15px] leading-7 text-secondary">Browse the browser client source and its current API.</p>
               </Link>
 
               <Link
@@ -221,7 +224,7 @@ export default function WebSdkPage() {
                   <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Companion</span>
                   <ArrowUpRight className="h-3.5 w-3.5 text-muted transition-all group-hover:text-accent group-hover:-translate-y-px group-hover:translate-x-px" />
                 </div>
-                <p className="mt-2 text-[15px] leading-7 text-secondary">Download the macOS companion that the browser SDK probes and talks to locally.</p>
+                <p className="mt-2 text-[15px] leading-7 text-secondary">Download the Mac app that connects the browser SDK to Vox.</p>
               </Link>
             </div>
           </div>

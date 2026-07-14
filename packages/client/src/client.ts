@@ -9,12 +9,17 @@ import type {
   DoctorReport,
   FileAnnotationResult,
   FileTranscriptionResult,
+  HistoryListOptions,
+  HistoryListResult,
   LiveSessionStatus,
   ModelInfo,
   ModelProgress,
   SynthesisOptions,
   SynthesisResult,
+  SessionFinalEvent,
+  SpeechHistoryRecord,
   SpeechTiming,
+  StopLiveSessionResult,
   VoiceInfo,
   WarmupStatus,
   VoxClientOptions,
@@ -154,6 +159,7 @@ export class VoxClient {
       elapsedMs: Number(result.elapsedMs ?? 0),
       metrics: parseTranscriptionMetrics(result.metrics, Number(result.elapsedMs ?? 0)),
       words: parseWordTimings(result.words),
+      historyId: optionalString(result.historyId) ?? undefined,
     };
   }
 
@@ -235,6 +241,28 @@ export class VoxClient {
     };
   }
 
+  async listHistory(options: HistoryListOptions = {}): Promise<HistoryListResult> {
+    const result = await this.transport.call("history.list", compactRecord(options));
+    return {
+      records: Array.isArray(result.records) ? result.records.map(parseHistoryRecord) : [],
+      nextCursor: optionalString(result.nextCursor) ?? undefined,
+    };
+  }
+
+  async getHistoryRecord(id: string): Promise<SpeechHistoryRecord | null> {
+    const result = await this.transport.call("history.get", { id });
+    const raw = result.record;
+    if (!raw || typeof raw !== "object") {
+      return null;
+    }
+    return parseHistoryRecord(raw);
+  }
+
+  async deleteHistoryRecord(id: string): Promise<boolean> {
+    const result = await this.transport.call("history.delete", { id });
+    return Boolean(result.deleted);
+  }
+
   async getLiveSessionStatus(): Promise<LiveSessionStatus | null> {
     const result = await this.call("transcribe.sessionStatus");
     const raw = result.session;
@@ -253,6 +281,17 @@ export class VoxClient {
     };
   }
 
+  async stopLiveSession(sessionId?: string): Promise<StopLiveSessionResult> {
+    const result = await this.call("transcribe.stopSession", sessionId ? { sessionId } : undefined);
+    const rawResult = result.result;
+    return {
+      stopped: Boolean(result.stopped),
+      sessionId: String(result.sessionId ?? sessionId ?? ""),
+      historyId: optionalString(result.historyId) ?? undefined,
+      result: rawResult && typeof rawResult === "object" ? parseSessionFinalEvent(rawResult) : undefined,
+    };
+  }
+
   async cancelLiveSession(sessionId?: string): Promise<{ cancelled: boolean; sessionId: string }> {
     const result = await this.call("transcribe.cancelSession", sessionId ? { sessionId } : undefined);
     return {
@@ -264,6 +303,64 @@ export class VoxClient {
   createLiveSession(): VoxLiveSession {
     return new VoxLiveSession(this);
   }
+}
+
+function parseSessionFinalEvent(value: unknown): SessionFinalEvent {
+  const raw = isRecord(value) ? value : {};
+  return {
+    sessionId: String(raw.sessionId ?? ""),
+    text: String(raw.text ?? ""),
+    elapsedMs: Number(raw.elapsedMs ?? 0),
+    metrics: parseTranscriptionMetrics(raw.metrics, Number(raw.elapsedMs ?? 0)),
+    words: parseWordTimings(raw.words),
+    historyId: optionalString(raw.historyId) ?? undefined,
+  };
+}
+
+function parseHistoryRecord(value: unknown): SpeechHistoryRecord {
+  const raw = isRecord(value) ? value : {};
+  const elapsedMs = Number(raw.elapsedMs ?? 0);
+  const kind = String(raw.kind ?? "transcription") as SpeechHistoryRecord["kind"];
+  return {
+    schemaVersion: Number(raw.schemaVersion ?? 1),
+    id: String(raw.id ?? ""),
+    kind,
+    source: (optionalString(raw.source) as SpeechHistoryRecord["source"]) ?? undefined,
+    route: String(raw.route ?? ""),
+    sessionId: optionalString(raw.sessionId) ?? undefined,
+    requestId: optionalString(raw.requestId) ?? undefined,
+    clientId: String(raw.clientId ?? ""),
+    originAppId: optionalString(raw.originAppId) ?? undefined,
+    modelId: String(raw.modelId ?? ""),
+    voiceId: optionalString(raw.voiceId) ?? undefined,
+    text: optionalString(raw.text) ?? undefined,
+    textLength: Number(raw.textLength ?? 0),
+    words: parseWordTimings(raw.words),
+    elapsedMs,
+    metrics: kind === "synthesis"
+      ? parseSynthesisMetrics(raw.metrics, elapsedMs)
+      : parseTranscriptionMetrics(raw.metrics, elapsedMs),
+    outcome: String(raw.outcome ?? ""),
+    error: optionalString(raw.error) ?? undefined,
+    startedAt: optionalString(raw.startedAt) ?? undefined,
+    completedAt: String(raw.completedAt ?? ""),
+    metadata: isRecord(raw.metadata) ? Object.fromEntries(
+      Object.entries(raw.metadata).map(([key, value]) => [key, String(value)]),
+    ) : undefined,
+  };
+}
+
+function compactRecord(value: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined && entry !== null && entry !== ""),
+  );
+}
+
+function optionalString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  return value.length > 0 ? value : null;
 }
 
 function parseSpeechTiming(value: unknown): SpeechTiming | undefined {

@@ -16,6 +16,7 @@ import {
   type FileTranscriptionResult,
   type ModelInfo,
   type RuntimeInfo,
+  type SpeechHistoryRecord,
   type SynthesisMetrics,
   type SynthesisResult,
   type TranscriptionMetrics,
@@ -58,6 +59,9 @@ async function main(argv: string[]): Promise<void> {
       return;
     case "perf":
       await handlePerf(subcommand, rest);
+      return;
+    case "history":
+      await handleHistory(subcommand, rest);
       return;
     case "logs":
       handleLogs(subcommand, rest);
@@ -376,6 +380,53 @@ async function handlePerf(subcommand: string | undefined, rest: string[]): Promi
   }
 }
 
+async function handleHistory(subcommand: string | undefined, rest: string[]): Promise<void> {
+  const command = !subcommand || subcommand.startsWith("--") ? "list" : subcommand;
+  const args = subcommand?.startsWith("--") ? [subcommand, ...rest] : rest;
+
+  switch (command) {
+    case "list": {
+      const limit = Number(readOption(args, "--limit") ?? 20);
+      if (!Number.isInteger(limit) || limit < 1) {
+        throw new Error(`Expected a positive integer limit, received: ${readOption(args, "--limit") ?? "(missing)"}`);
+      }
+      const clientId = readOption(args, "--client");
+      const modelId = readOption(args, "--model");
+      const source = readOption(args, "--source") as "file" | "live" | undefined;
+      const json = args.includes("--json");
+      await withClient(async (client) => {
+        const result = await client.listHistory({
+          kind: "transcription",
+          clientId,
+          modelId,
+          source,
+          limit,
+        });
+        if (json) {
+          console.log(JSON.stringify(result.records, null, 2));
+        } else {
+          printHistoryRecords(result.records);
+        }
+      });
+      return;
+    }
+    case "delete": {
+      const id = rest.find((value) => !value.startsWith("--"));
+      if (!id) {
+        throw new Error("Usage: vox history delete <id>");
+      }
+      await withClient(async (client) => {
+        const deleted = await client.deleteHistoryRecord(id);
+        console.log(`deleted: ${deleted}`);
+        console.log(`id: ${id}`);
+      });
+      return;
+    }
+    default:
+      throw new Error(`Unknown history command: ${command}`);
+  }
+}
+
 function handleLogs(subcommand: string | undefined, rest: string[]): void {
   const args = subcommand?.startsWith("--") ? [subcommand, ...rest] : rest;
   const tail = Number(readOption(args, "--tail") ?? 80);
@@ -575,6 +626,31 @@ function printLiveSessionStatus(status: Awaited<ReturnType<VoxClient["getLiveSes
   console.log(`model: ${status.modelId}`);
   console.log(`state: ${status.state}`);
   console.log(`started: ${status.startedAt}`);
+}
+
+function printHistoryRecords(records: SpeechHistoryRecord[]): void {
+  if (records.length === 0) {
+    console.log("No transcript history.");
+    return;
+  }
+
+  for (const record of records) {
+    const parts = [
+      record.completedAt,
+      record.source ?? record.kind,
+      `client=${record.clientId}`,
+      `model=${record.modelId}`,
+      `elapsed=${formatMs(record.elapsedMs)}`,
+      `id=${record.id}`,
+    ];
+    if (record.sessionId) {
+      parts.splice(2, 0, `session=${record.sessionId}`);
+    }
+    console.log(parts.join("  "));
+    if (record.text) {
+      console.log(`  ${record.text}`);
+    }
+  }
 }
 
 interface PerformanceSample {
@@ -826,6 +902,8 @@ function resolveLogPath(target: string): string {
       return join(home, "performance.jsonl");
     case "voice":
       return join(home, "voice.jsonl");
+    case "history":
+      return join(home, "history.jsonl");
     default:
       throw new Error(`Unknown logs target: ${target}`);
   }
@@ -1168,7 +1246,9 @@ Usage:
   vox warmup status|start [modelId]
   vox warmup schedule [delayMs] [modelId]
   vox perf dashboard [--client <clientId>] [--route <route>] [--last <n>]
-  vox logs [daemon|performance|voice] [--tail <n>]
+  vox history [list] [--client <clientId>] [--model <id>] [--source file|live] [--limit <n>] [--json]
+  vox history delete <id>
+  vox logs [daemon|performance|voice|history] [--tail <n>]
   vox transcribe file [--model <id>] [--metrics] [--timestamps] <path>
   vox transcribe bench [--model <id>] <path> [runs]
   vox transcribe status

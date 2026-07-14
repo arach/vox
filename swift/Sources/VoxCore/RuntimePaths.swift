@@ -115,6 +115,10 @@ public enum RuntimePaths {
         voxHomeURL().appendingPathComponent("voice.jsonl")
     }
 
+    public static func historyLogURL() -> URL {
+        voxHomeURL().appendingPathComponent("history.jsonl")
+    }
+
     public static func logsDirectoryURL() -> URL {
         voxHomeURL().appendingPathComponent("logs", isDirectory: true)
     }

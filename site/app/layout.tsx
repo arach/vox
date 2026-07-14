@@ -32,11 +32,11 @@ export const metadata: Metadata = {
     icon: "/logo.svg",
   },
   title: "Vox",
-  description: "Local speech for Apple apps, browser products, and developer tools with explicit warm-up and measurable performance.",
+  description: "Vox powers transcription and text-to-speech for macOS, iOS, and web apps.",
   metadataBase: new URL(siteUrl),
   openGraph: {
-    title: "Vox — Local voice runtime for apps and tools",
-    description: "Apple voice stack with embeddable Swift packages and Vox Companion for web and shared-process integrations.",
+    title: "Vox — macOS transcription and text-to-speech",
+    description: "For macOS, iOS, and web apps. Embed Vox directly or integrate through Vox Companion.",
     url: siteUrl,
     siteName: "Vox",
     type: "website",
@@ -44,8 +44,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Vox — Local voice runtime for apps and tools",
-    description: "Apple voice stack with embeddable Swift packages and Vox Companion for web and shared-process integrations.",
+    title: "Vox — macOS transcription and text-to-speech",
+    description: "For macOS, iOS, and web apps. Embed Vox directly or integrate through Vox Companion.",
     images: ["/og.png"],
   },
 };

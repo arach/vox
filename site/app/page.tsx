@@ -8,24 +8,24 @@ const VOX_VERSION = cliPkg.version;
 const VOX_RELEASE_URL = `https://github.com/arach/vox/releases/tag/v${VOX_VERSION}`;
 
 const featureRows = [
-  { idx: "01", title: "Apple apps", body: "Swift owns the embed surface. If an Apple app can keep speech local and in process, Vox lets it do that." },
-  { idx: "02", title: "Warm-up is part of the product", body: "Cold and warm state stay visible. Apps and tools schedule, inspect, and reason about model readiness instead of guessing where the delay comes from." },
-  { idx: "03", title: "Companion, not cloud", body: "Vox Companion serves browser integrations, local tools, and the CLI on the same machine. You do not need to turn every voice workflow into a cloud service." },
-  { idx: "04", title: "Shared surfaces", body: "Swift packages, voxd, @voxd/sdk, @voxd/client, and @voxd/cli all share the same runtime ideas, telemetry, and lifecycle semantics." },
+  { idx: "01", title: "Transcription", body: "Turn recorded files or live microphone audio into text, with word timings when you need them." },
+  { idx: "02", title: "Text-to-speech", body: "Turn text into spoken audio with Apple system voices, local models, or a configured speech provider." },
+  { idx: "03", title: "Local by design", body: "Run Vox inside an Apple app, or connect browser and Node clients through Vox Companion on the same Mac." },
+  { idx: "04", title: "Warm and measurable", body: "Prepare models before the first request and see how long loading, inference, and synthesis take." },
 ];
 
 const surfaceCards = [
-  { eyebrow: "SWIFT PACKAGES", title: "VoxCore · VoxEngine · VoxService · VoxBridge", body: "The embed surface for Apple apps that want speech in process, with explicit warm-up and easy-to-follow runtime behavior.", href: "/docs/overview", cta: "Open the overview" },
-  { eyebrow: "COMPANION RUNTIME", title: "voxd", body: "The local daemon that stays warm for shared-process clients and gives tools a steady WebSocket JSON-RPC runtime to talk to.", href: "/docs/runtime", cta: "Read runtime docs" },
-  { eyebrow: "BUN AND NODE SDK", title: "@voxd/sdk", body: "Typed companion client for local tools, agents, and app-side flows that want direct access to the daemon surface.", href: "/docs/sdk", cta: "See the SDK" },
-  { eyebrow: "BROWSER SDK", title: "@voxd/client", body: "HTTP bridge client for browser apps that need local speech while keeping the runtime on the same machine.", href: "/web", cta: "Explore the web SDK" },
-  { eyebrow: "OPERATOR CLI", title: "@voxd/cli", body: "Doctor, voices, benchmarks, warm-up controls, and dashboards for day-to-day work with the stack.", href: "/docs/quickstart", cta: "Quickstart" },
+  { eyebrow: "SWIFT PACKAGES", title: "VoxCore · VoxEngine · VoxService · VoxBridge", body: "Embed transcription and text-to-speech directly in macOS and iOS apps.", href: "/docs/overview", cta: "Open the overview" },
+  { eyebrow: "COMPANION SERVICE", title: "voxd", body: "Keep speech models ready on your Mac and share them with browser apps, Node tools, and the CLI.", href: "/docs/runtime", cta: "Read runtime docs" },
+  { eyebrow: "BUN AND NODE SDK", title: "@voxd/sdk", body: "Transcribe audio and generate speech from typed Bun and Node clients.", href: "/docs/sdk", cta: "See the SDK" },
+  { eyebrow: "BROWSER SDK", title: "@voxd/client", body: "Add local transcription to web apps through Vox Companion.", href: "/web", cta: "Explore the web SDK" },
+  { eyebrow: "COMMAND-LINE TOOLS", title: "@voxd/cli", body: "Transcribe files, generate speech, warm up models, and measure performance from the terminal.", href: "/docs/quickstart", cta: "Quickstart" },
 ];
 
 const relatedProjects = [
-  { name: "TALKIE", href: "https://usetalkie.com", body: "A related product built around the same local voice ideas." },
-  { name: "LINEA", href: "https://uselinea.com", body: "Another native client direction built around the same local-first approach." },
-  { name: "LATTICES", href: "https://lattices.dev", body: "Related infrastructure work for local agent workflows." },
+  { name: "TALKIE", href: "https://usetalkie.com", body: "A voice app built on the same local-first foundation." },
+  { name: "LINEA", href: "https://uselinea.com", body: "A native client for local, private workflows." },
+  { name: "LATTICES", href: "https://lattices.dev", body: "Tools for running agent workflows locally." },
 ];
 
 export default function Home() {
@@ -44,9 +44,9 @@ export default function Home() {
           </Link>
           <span className="hidden items-center gap-2 text-secondary sm:inline-flex">
             <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-            local-first · observable
+            transcription · text-to-speech
           </span>
-          <span>warm-up · metrics · multi-client</span>
+          <span>local · ready · measurable</span>
         </div>
       </div>
 
@@ -61,15 +61,15 @@ export default function Home() {
             <Link href="/docs/overview" className="px-2.5 py-1.5 transition-colors hover:text-accent">Docs</Link>
             <Link href="/download" className="px-2.5 py-1.5 transition-colors hover:text-accent">Download</Link>
             <Link href="/blog" className="px-2.5 py-1.5 transition-colors hover:text-accent">Blog</Link>
+            <Link href="#capabilities" className="px-2.5 py-1.5 transition-colors hover:text-accent">Capabilities</Link>
             <Link href="#packages" className="px-2.5 py-1.5 transition-colors hover:text-accent">Packages</Link>
-            <Link href="#runtime" className="px-2.5 py-1.5 transition-colors hover:text-accent">Runtime</Link>
-            <Link href="#companion" className="px-2.5 py-1.5 transition-colors hover:text-accent">Companion</Link>
+            <Link href="/minivox" className="px-2.5 py-1.5 transition-colors hover:text-accent">Minivox</Link>
             <Link href="#perf" className="px-2.5 py-1.5 transition-colors hover:text-accent">Perf</Link>
             <Link href="https://github.com/arach/vox" target="_blank" rel="noreferrer noopener" className="px-2.5 py-1.5 transition-colors hover:text-accent">GitHub</Link>
           </nav>
           <nav aria-label="Primary mobile" className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted sm:hidden">
             <Link href="/docs/overview" className="px-2 py-1.5 transition-colors hover:text-accent">Docs</Link>
-            <Link href="/download" className="px-2 py-1.5 transition-colors hover:text-accent">Download</Link>
+            <Link href="/minivox" className="px-2 py-1.5 transition-colors hover:text-accent">Minivox</Link>
             <Link href="https://github.com/arach/vox" target="_blank" rel="noreferrer noopener" className="px-2 py-1.5 transition-colors hover:text-accent">GitHub</Link>
           </nav>
         </div>
@@ -81,10 +81,10 @@ export default function Home() {
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// hero"}</p>
             <h1 className="mt-5 max-w-[22ch] text-[clamp(1.75rem,3.8vw,2.75rem)] font-medium leading-[1.15] tracking-[-0.03em] text-ink">
-              Local voice runtime for Apple apps, companion clients, and tools<span className="text-accent">.</span>
+              Vox powers macOS transcription and text-to-speech<span className="text-accent">.</span>
             </h1>
             <p className="mt-6 max-w-md text-[15px] leading-7 text-secondary">
-              Add local speech without rebuilding model lifecycle, warm-up, and telemetry for every integration. Embed the Swift engine in Apple apps, or run Vox Companion for browser and tooling workflows.
+              For macOS, iOS, and web apps. Embed Vox directly or integrate through Vox Companion.
             </p>
 
             <div className="mt-9 flex flex-wrap items-center gap-3">
@@ -93,21 +93,21 @@ export default function Home() {
                 className="inline-flex h-10 items-center gap-2 rounded-sm border border-accent bg-accent px-5 font-mono text-[12px] font-medium uppercase tracking-[0.06em] text-canvas"
               >
                 <ArrowUpRight className="h-3.5 w-3.5" />
-                Swift embed guide
+                Explore the docs
               </Link>
               <Link
-                href="/download"
+                href="/minivox"
                 className="inline-flex h-10 items-center gap-2 rounded-sm border border-line-strong bg-panel px-4 font-mono text-[12px] uppercase tracking-[0.06em] text-ink transition-colors hover:text-accent"
               >
-                Download Companion
-                <Download className="h-3 w-3" />
+                Try Minivox
+                <ArrowUpRight className="h-3 w-3" />
               </Link>
             </div>
 
             <div className="mt-8 max-w-md">
               <CopyCommand command="npm install -g @voxd/cli@latest" />
               <p className="mt-2 font-mono text-[10px] tracking-wide text-muted">
-                register · doctor · warm-up · benchmarks
+                transcribe · speak · warm-up · measure
               </p>
             </div>
           </div>
@@ -121,13 +121,41 @@ export default function Home() {
               <span className="ml-auto font-mono text-[11px] text-muted">vox-operator</span>
             </div>
             <div className="p-4 font-mono text-[12.5px] leading-7">
-              <div className="text-muted">$ vox perf dashboard --client vox-cli</div>
-              <div className="text-ink">p50=132ms p95=197ms 35x realtime</div>
-              <div className="mt-2.5 text-muted">$ vox transcribe file --metrics /tmp/sample.wav</div>
-              <div className="text-ink">done · 127ms (35x realtime)</div>
-              <div className="mt-2.5 text-muted">$ vox warmup start parakeet:v3</div>
-              <div className="text-ink">warm · ready=412ms</div>
+              <div className="text-muted">$ vox transcribe file --metrics /tmp/sample.wav</div>
+              <div className="text-ink">done · 127ms · &quot;hello from Vox&quot;</div>
+              <div className="mt-2.5 text-muted">$ vox speak --model avspeech:system &quot;Ready when you are.&quot;</div>
+              <div className="text-ink">played · default voice · 182ms</div>
+              <div className="mt-2.5 text-muted">$ vox perf dashboard --client vox-cli</div>
+              <div className="text-ink">transcription + synthesis metrics</div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Capabilities */}
+      <section id="capabilities" className="border-b border-line">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <div className="flex items-baseline justify-between">
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// capabilities"}</p>
+            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">4 capabilities</span>
+          </div>
+          <h2 className="mt-4 max-w-[30ch] text-[clamp(1.5rem,2.6vw,2rem)] font-semibold leading-tight tracking-[-0.02em] text-ink">
+            Audio to text. Text back to audio.
+          </h2>
+
+          <div className="mt-10 rounded-sm border border-line">
+            {featureRows.map(({ idx, title, body }, i) => (
+              <article
+                key={title}
+                className={`grid items-start grid-cols-[3.5rem_1fr] sm:grid-cols-[3.5rem_minmax(0,260px)_1fr] ${i === featureRows.length - 1 ? "" : "border-b border-line"}`}
+              >
+                <div className="border-r border-line px-3 py-5 text-right font-mono text-[11px] text-muted">{idx}</div>
+                <div className="px-6 py-5 font-medium text-ink sm:border-r sm:border-line">{title}</div>
+                <p className="col-span-2 border-t border-line px-6 py-5 text-[14px] leading-7 text-secondary sm:col-span-1 sm:border-l-0 sm:border-t-0">
+                  {body}
+                </p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
@@ -140,10 +168,10 @@ export default function Home() {
             <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">5 surfaces</span>
           </div>
           <h2 className="mt-4 max-w-[26ch] text-[clamp(1.5rem,2.6vw,2rem)] font-semibold leading-tight tracking-[-0.02em] text-ink">
-            Pick the surface that fits your app.
+            Build with Vox wherever your voice workflow lives.
           </h2>
           <p className="mt-4 max-w-2xl text-[15px] leading-7 text-secondary">
-            The same runtime ideas show up in different forms depending on where the voice work lives: in-process Swift, the local companion, the browser bridge, or operator tooling.
+            Apple apps can run the engine directly. Browser apps and local tools connect through Vox Companion. Each surface keeps transcription and speech generation explicit.
           </p>
 
           <div className="mt-10 rounded-sm border border-line">
@@ -174,74 +202,69 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Runtime */}
-      <section id="runtime" className="border-b border-line">
-        <div className="mx-auto max-w-6xl px-6 py-20">
-          <div className="flex items-baseline justify-between">
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// runtime"}</p>
-            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">4 principles</span>
-          </div>
-          <h2 className="mt-4 max-w-[30ch] text-[clamp(1.5rem,2.6vw,2rem)] font-semibold leading-tight tracking-[-0.02em] text-ink">
-            Embed in apps. Run companion mode for the web and local tools.
-          </h2>
-
-          <div className="mt-10 rounded-sm border border-line">
-            {featureRows.map(({ idx, title, body }, i) => (
-              <article
-                key={title}
-                className={`grid items-start grid-cols-[3.5rem_1fr] sm:grid-cols-[3.5rem_minmax(0,260px)_1fr] ${i === featureRows.length - 1 ? "" : "border-b border-line"}`}
-              >
-                <div className="border-r border-line px-3 py-5 text-right font-mono text-[11px] text-muted">{idx}</div>
-                <div className="px-6 py-5 font-medium text-ink sm:border-r sm:border-line">{title}</div>
-                <p className="col-span-2 border-t border-line px-6 py-5 text-[14px] leading-7 text-secondary sm:col-span-1 sm:border-l-0 sm:border-t-0">
-                  {body}
-                </p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Companion app */}
-      <section id="companion" className="border-b border-line bg-panel">
+      {/* Minivox */}
+      <section id="minivox" className="border-b border-line bg-panel">
         <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 lg:grid-cols-[1fr_1.4fr] lg:items-start">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// companion"}</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// minivox"}</p>
             <h2 className="mt-4 max-w-[22ch] text-[clamp(1.5rem,2.6vw,2rem)] font-semibold leading-tight tracking-[-0.02em] text-ink">
-              Manage Vox from the menu bar.
+              Minivox is tiny, fast dictation from the menu bar.
             </h2>
             <p className="mt-4 max-w-md text-[15px] leading-7 text-secondary">
-              The companion app lives in the menu bar. Open it for daemon health, allowed origins, and the trust state of any app calling the local bridge.
+              Click the microphone, speak, and stop. Minivox transcribes locally with Parakeet and copies the finished text to your clipboard.
             </p>
             <p className="mt-4 max-w-md text-[14px] leading-7 text-secondary">
-              When a third-party app deep-links into Vox, you get a co-branded landing — verified callers go straight to work, unverified ones get a one-click allow path. No remembering JSON files.
+              It embeds Vox directly in one small Swift app—no daemon, browser bridge, reply engine, or extra steps.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
               <span className="inline-flex items-center gap-2 rounded-sm border border-line-strong bg-canvas px-3 py-1.5">
                 <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                Hudson Kit
+                Parakeet
               </span>
               <span className="inline-flex items-center gap-2 rounded-sm border border-line-strong bg-canvas px-3 py-1.5">
-                Origin allowlist
+                Auto-copy
               </span>
               <span className="inline-flex items-center gap-2 rounded-sm border border-line-strong bg-canvas px-3 py-1.5">
-                Local-first
+                Menu bar
               </span>
             </div>
+            <Link
+              href="/minivox"
+              className="mt-7 inline-flex h-10 items-center gap-2 rounded-sm border border-accent bg-accent px-5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-canvas"
+            >
+              Meet Minivox
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
-          <div className="overflow-hidden rounded-sm border border-line-strong bg-canvas">
+          <div className="overflow-hidden rounded-sm border border-line-strong bg-canvas shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
             <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
               <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-line-strong" />
               <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-line-strong" />
               <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-line-strong" />
-              <span className="ml-auto font-mono text-[11px] text-muted">Vox · welcome</span>
+              <span className="ml-auto font-mono text-[11px] text-muted">Minivox</span>
             </div>
-            <ScreenshotLightbox
-              src="/screenshots/welcome.png"
-              alt="Vox companion app welcome screen with brand mark, status grid, and trust state"
-              title="Vox · welcome"
-              caption="The welcome view: caller branding on the left, runtime status sidebar on the right, navigable rail to General, Bridge, Embed, and About."
-            />
+            <div className="p-6">
+              <div className="flex flex-wrap gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+                <span className="rounded-full border border-line px-3 py-1">Parakeet ready</span>
+                <span className="rounded-full border border-line px-3 py-1">Microphone ready</span>
+                <span className="rounded-full border border-line px-3 py-1">Auto-copy on</span>
+              </div>
+              <div className="mt-6 flex justify-center">
+                <div className="grid h-28 w-28 place-items-center rounded-full border-[7px] border-accent/70 bg-panel text-center font-mono text-[10px] uppercase tracking-[0.12em] text-secondary shadow-[0_0_50px_rgba(239,92,80,0.12)]">
+                  Press<br />to talk
+                </div>
+              </div>
+              <div className="mt-6 grid gap-3">
+                <div className="rounded-sm border border-line bg-panel px-4 py-3">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">You · transcript</p>
+                  <p className="mt-2 text-[13px] leading-6 text-secondary">Meet me outside the studio at half past three.</p>
+                </div>
+                <div className="rounded-sm border border-line bg-panel px-4 py-3">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-accent">Copied to clipboard</p>
+                  <p className="mt-2 text-[13px] leading-6 text-secondary">Ready to paste into any app.</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -286,7 +309,7 @@ export default function Home() {
               See where the time goes.
             </h2>
             <p className="mt-4 max-w-md text-[15px] leading-7 text-secondary">
-              Every voice request carries stage timings. Slice by client, route, model, and voice.
+              See how long each part of a voice request takes. Filter results by app, route, model, or voice.
             </p>
             <div className="mt-7 max-w-xs">
               <CopyCommand command="vox tui" />
@@ -314,17 +337,17 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-6 py-20">
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// install"}</p>
           <h2 className="mt-4 max-w-[30ch] text-[clamp(1.5rem,2.6vw,2rem)] font-semibold leading-tight tracking-[-0.02em] text-ink">
-            Get the companion running for the web and local tools.
+            Add Vox Companion to your Mac.
           </h2>
           <p className="mt-4 max-w-2xl text-[15px] leading-7 text-secondary">
-            Apple apps can embed Vox directly. For browser and shared-process workflows, install the companion app first. The Node CLI can then register, inspect, and benchmark the same local runtime from terminal workflows.
+            Apple apps can use Vox directly. For web apps and local tools, install Vox Companion, then use the CLI to check that it is ready or measure performance.
           </p>
 
           <div className="mt-10 grid grid-cols-1 rounded-sm border border-line lg:grid-cols-2">
             <div className="border-b border-line px-6 py-7 lg:border-b-0 lg:border-r">
               <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">DOWNLOAD</p>
               <p className="mt-3 text-[14px] leading-7 text-secondary">
-                Drag Vox to Applications. The companion starts automatically on login, so web and tooling integrations have a local bridge ready on the machine.
+                Drag Vox to Applications. It opens at login so web apps and local tools can connect when needed.
               </p>
               <Link
                 href="/download"
@@ -359,6 +382,7 @@ export default function Home() {
           </div>
           <div className="flex gap-5">
             <Link href="/docs/overview" className="transition-colors hover:text-accent">/docs</Link>
+            <Link href="/minivox" className="transition-colors hover:text-accent">/minivox</Link>
             <Link href="/download" className="transition-colors hover:text-accent">/download</Link>
             <Link href="/blog" className="transition-colors hover:text-accent">/blog</Link>
             <Link href="https://github.com/arach/vox" target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-2 transition-colors hover:text-accent">

@@ -22,6 +22,8 @@ Warm-up is always explicit. Preserve `clientId`, `route`, `modelId`, and `voiceI
 |---|---|
 | Swift package products and platforms | `swift/Package.swift` |
 | ASR/TTS provider behavior | `swift/Sources/VoxEngine/` |
+| Full Vox companion app | `apps/vox/` |
+| Minivox dictation app | `apps/minivox/` |
 | Runtime routes and session ownership | `swift/Sources/VoxService/VoxRuntimeService.swift` |
 | Companion SDK methods and types | `packages/client/src/client.ts`, `packages/client/src/types.ts` |
 | Browser API and HTTP paths | `packages/web-client/src/client.ts`, `packages/web-client/src/types.ts` |

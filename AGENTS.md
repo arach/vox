@@ -31,6 +31,8 @@ Do not put `voxd`, `@voxd/sdk`, or `@voxd/client` inside an Apple app unless the
 | Runtime service | `swift/Sources/VoxService/` |
 | ASR, annotation, and TTS engines | `swift/Sources/VoxEngine/` |
 | Shared Swift types and telemetry | `swift/Sources/VoxCore/` |
+| Vox companion app | `apps/vox/` |
+| Minivox dictation app | `apps/minivox/` |
 | Companion TypeScript SDK | `packages/client/src/` |
 | Browser client | `packages/web-client/src/` |
 | CLI | `packages/cli/src/index.ts` |

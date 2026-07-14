@@ -297,4 +297,79 @@ describe("VoxClient", () => {
       },
     ]);
   });
+  it("parses history list responses", async () => {
+    const calls: Array<{ method: string; params?: Record<string, unknown> }> = [];
+    const client = new VoxClient({ clientId: "test-client" }) as unknown as {
+      transport: {
+        call: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+      };
+      listHistory: (options?: Record<string, unknown>) => Promise<{ records: Array<{ id: string; text?: string; words: unknown[] }> }>;
+    };
+
+    client.transport = {
+      call: async (method, params) => {
+        calls.push({ method, params });
+        return {
+          records: [
+            {
+              schemaVersion: 1,
+              id: "hist-1",
+              kind: "transcription",
+              source: "file",
+              route: "transcribe.file",
+              clientId: "menu-bar",
+              modelId: "parakeet:v3",
+              text: "hello history",
+              textLength: 13,
+              elapsedMs: 42,
+              outcome: "ok",
+              completedAt: "2026-06-02T12:00:00Z",
+              words: [{ word: "hello", start: 0, end: 0.2, confidence: 0.99 }],
+              metrics: { traceId: "trace", audioDurationMs: 500, inferenceMs: 40, totalMs: 42 },
+            },
+          ],
+        };
+      },
+    };
+
+    const result = await client.listHistory({ kind: "transcription", limit: 10 });
+
+    expect(result.records[0]?.id).toBe("hist-1");
+    expect(result.records[0]?.text).toBe("hello history");
+    expect(result.records[0]?.words).toEqual([{ word: "hello", start: 0, end: 0.2, confidence: 0.99 }]);
+    expect(calls).toEqual([{ method: "history.list", params: { kind: "transcription", limit: 10 } }]);
+  });
+
+  it("parses stop live session results", async () => {
+    const calls: Array<{ method: string; params?: Record<string, unknown> }> = [];
+    const client = new VoxClient({ clientId: "test-client" }) as unknown as {
+      call: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+      stopLiveSession: (sessionId?: string) => Promise<{ stopped: boolean; historyId?: string; result?: { text: string; historyId?: string } }>;
+    };
+
+    client.call = async (method, params) => {
+      calls.push({ method, params });
+      return {
+        stopped: true,
+        sessionId: "session-1",
+        historyId: "hist-1",
+        result: {
+          sessionId: "session-1",
+          text: "final text",
+          elapsedMs: 25,
+          historyId: "hist-1",
+          words: [],
+        },
+      };
+    };
+
+    const result = await client.stopLiveSession("session-1");
+
+    expect(result.stopped).toBe(true);
+    expect(result.historyId).toBe("hist-1");
+    expect(result.result?.text).toBe("final text");
+    expect(result.result?.historyId).toBe("hist-1");
+    expect(calls).toEqual([{ method: "transcribe.stopSession", params: { sessionId: "session-1" } }]);
+  });
+
 });

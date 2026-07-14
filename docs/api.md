@@ -36,6 +36,13 @@ Public protocol and SDK-facing type shapes.
 
 - `annotate.file`
 
+### History
+
+- `history.list`
+- `history.get`
+- `history.delete`
+- `history.clear`
+
 ### Synthesis
 
 - `synthesize.voices`
