@@ -9,18 +9,29 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            background
+            palette.background
 
-            VStack(spacing: 14) {
-                header
-                recordCard
-                transcriptCard
-                preferencesCard
-                footer
+            VStack(spacing: 0) {
+                headerStrip
+
+                VStack(spacing: 10) {
+                    recordDeck
+                    transcriptDeck
+
+                    if let message = visibleMessage {
+                        Text(message)
+                            .font(.system(size: 10, weight: .regular, design: .rounded))
+                            .foregroundStyle(model.lastErrorMessage == nil ? Color.secondary : Color.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 2)
+                    }
+                }
+                .padding(12)
+
+                controlStrip
             }
-            .padding(18)
         }
-        .frame(width: 420, height: 650)
+        .frame(width: 360)
         .environment(\.colorScheme, effectiveColorScheme)
         .preferredColorScheme(selectedAppearance.colorScheme)
         .task {
@@ -31,340 +42,243 @@ struct ContentView: View {
         }
     }
 
-    private var background: some View {
-        ZStack {
-            palette.background
-
-            LinearGradient(
-                colors: [
-                    palette.background,
-                    palette.backgroundSecondary,
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            RadialGradient(
-                colors: [Color.accentColor.opacity(palette.accentGlowOpacity), .clear],
-                center: .topTrailing,
-                startRadius: 0,
-                endRadius: 280
-            )
-        }
-        .ignoresSafeArea()
-    }
-
-    private var header: some View {
-        HStack(spacing: 12) {
+    private var headerStrip: some View {
+        HStack(spacing: 9) {
             ZStack {
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.accentColor, Color.orange.opacity(0.88)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(palette.logoBackground)
 
-                MiniWave(color: .white)
-                    .frame(width: 24, height: 18)
+                Text("M")
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(palette.logoForeground)
             }
-            .frame(width: 44, height: 44)
-            .shadow(color: Color.accentColor.opacity(0.22), radius: 12, y: 6)
+            .frame(width: 30, height: 30)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Minivox")
-                    .font(.system(size: 21, weight: .semibold, design: .rounded))
-                    .tracking(-0.4)
-
-                Text("tiny local dictation")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            Text("Minivox")
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .tracking(-0.2)
 
             Spacer(minLength: 0)
 
-            ActivityPill(
+            ActivityIndicator(
                 title: statusTitle,
                 tint: statusTint,
-                isRecording: model.isRecording,
-                isBusy: model.isWorking || model.isWarmingASR,
-                surface: palette.card,
-                border: palette.border
+                isBusy: model.isWorking || model.isWarmingASR
             )
         }
-    }
-
-    private var preferencesCard: some View {
-        VStack(spacing: 11) {
-            HStack(spacing: 12) {
-                Label("Appearance", systemImage: "circle.lefthalf.filled")
-                    .foregroundStyle(.secondary)
-
-                Spacer(minLength: 0)
-
-                Picker("Appearance", selection: $appearanceRawValue) {
-                    ForEach(MinivoxAppearance.allCases) { appearance in
-                        Text(appearance.title).tag(appearance.rawValue)
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-                .frame(width: 176)
-            }
-
-            Divider()
-
-            HStack(spacing: 12) {
-                Label("Dictation shortcut", systemImage: "command")
-                    .foregroundStyle(.secondary)
-
-                Spacer(minLength: 0)
-
-                HStack(spacing: 6) {
-                    Button {
-                        if model.isCapturingShortcut {
-                            model.cancelShortcutCapture()
-                        } else {
-                            model.beginShortcutCapture()
-                        }
-                    } label: {
-                        Text(
-                            model.isCapturingShortcut
-                                ? "Press shortcut…"
-                                : model.dictationShortcut?.title ?? "Set shortcut"
-                        )
-                        .font(.caption.monospaced())
-                        .frame(minWidth: 92)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(model.isCapturingShortcut ? .accentColor : nil)
-
-                    if model.dictationShortcut != nil && !model.isCapturingShortcut {
-                        Button {
-                            model.disableShortcut()
-                        } label: {
-                            Image(systemName: "xmark")
-                        }
-                        .buttonStyle(.borderless)
-                        .foregroundStyle(.tertiary)
-                        .help("Turn off the global shortcut")
-                    }
-                }
-            }
+        .padding(.horizontal, 12)
+        .frame(height: 52)
+        .background(palette.strip)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(palette.border)
+                .frame(height: 0.5)
         }
-        .font(.caption)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(palette.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(palette.border, lineWidth: 1)
-        )
     }
 
-    private var recordCard: some View {
-        VStack(spacing: 14) {
-            Button(action: model.toggleRecording) {
+    private var recordDeck: some View {
+        Button(action: model.toggleRecording) {
+            VStack(spacing: 8) {
                 ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    palette.button,
-                                    palette.buttonSecondary,
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 112, height: 112)
-                        .shadow(color: .black.opacity(0.12), radius: 22, y: 12)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(palette.controlFill)
 
-                    Circle()
-                        .strokeBorder(recordRingColor, lineWidth: model.isRecording ? 9 : 6)
-                        .frame(width: 112, height: 112)
-
-                    if model.isWorking {
+                    if model.isWorking || model.isWarmingASR {
                         ProgressView()
-                            .controlSize(.large)
-                            .tint(.primary)
+                            .controlSize(.small)
+                            .tint(palette.controlForeground)
                     } else {
                         Image(systemName: model.isRecording ? "stop.fill" : "mic.fill")
-                            .font(.system(size: 30, weight: .semibold))
-                            .foregroundStyle(.primary)
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(palette.controlForeground)
                     }
                 }
-            }
-            .buttonStyle(.plain)
-            .disabled(model.isWorking || model.isWarmingASR)
-            .keyboardShortcut(.space, modifiers: [])
-            .help(model.isRecording ? "Stop and transcribe" : "Start dictation")
+                .frame(width: 68, height: 68)
 
-            VStack(spacing: 4) {
                 Text(recordTitle)
-                    .font(.headline)
-
-                Text(recordHint)
-                    .font(.caption)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
             }
-
-            if model.isRecording {
-                MiniWave(color: .red)
-                    .frame(width: 58, height: 18)
-                    .transition(.opacity.combined(with: .scale))
-            }
+            .frame(maxWidth: .infinity, minHeight: 108)
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
-        .background(palette.card, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .strokeBorder(palette.border, lineWidth: 1)
-        )
+        .buttonStyle(.plain)
+        .disabled(model.isWorking || model.isWarmingASR)
+        .keyboardShortcut(.space, modifiers: [])
+        .background(palette.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(palette.border, lineWidth: 0.5)
+        }
+        .help(model.isRecording ? "Stop and transcribe" : "Start dictation")
     }
 
-    private var transcriptCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("DICTATION")
-                    .font(.caption2.weight(.semibold))
-                    .tracking(1.6)
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                if !model.transcript.isEmpty {
-                    Button {
-                        model.copyTranscript()
-                    } label: {
-                        Label(model.didCopy ? "Copied" : "Copy", systemImage: model.didCopy ? "checkmark" : "doc.on.doc")
-                    }
-                    .buttonStyle(.borderless)
-
-                    Button("Clear") {
-                        model.clearTranscript()
-                    }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(.secondary)
-                }
-            }
-
+    private var transcriptDeck: some View {
+        ZStack(alignment: .topTrailing) {
             Group {
                 if model.transcript.isEmpty {
-                    Text("Your words will land here—and copy themselves when the dictation is ready.")
+                    Text("Transcription")
                         .foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     ScrollView(showsIndicators: false) {
                         Text(model.transcript)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)
                     }
+                    .padding(.trailing, 52)
                 }
             }
-            .font(.system(size: 15, weight: .regular, design: .rounded))
-            .lineSpacing(4)
-            .frame(maxWidth: .infinity, minHeight: 82, maxHeight: 112, alignment: .topLeading)
+            .font(.system(size: 15, weight: .light, design: .rounded))
+            .lineSpacing(3)
+            .frame(maxWidth: .infinity, minHeight: 76, maxHeight: 96, alignment: .topLeading)
 
-            if let metrics = model.transcriptionMetrics {
-                HStack(spacing: 16) {
-                    Metric(label: "load", value: "\(metrics.modelLoadMs)ms")
-                    Metric(label: "transcribe", value: "\(metrics.inferenceMs)ms")
-                    Metric(label: "total", value: "\(metrics.totalMs)ms")
+            if !model.transcript.isEmpty {
+                HStack(spacing: 10) {
+                    Button {
+                        model.copyTranscript()
+                    } label: {
+                        Image(systemName: model.didCopy ? "checkmark" : "doc.on.doc")
+                    }
+                    .help(model.didCopy ? "Copied" : "Copy")
+
+                    Button {
+                        model.clearTranscript()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .help("Clear")
                 }
-                .transition(.opacity)
+                .buttonStyle(.plain)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
             }
         }
-        .padding(16)
-        .background(palette.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(palette.border, lineWidth: 1)
-        )
+        .padding(14)
+        .background(palette.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(palette.border, lineWidth: 0.5)
+        }
     }
 
-    private var footer: some View {
-        VStack(spacing: 10) {
-            if let error = model.lastErrorMessage, !error.isEmpty {
-                Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+    private var controlStrip: some View {
+        HStack(spacing: 8) {
+            Picker("Appearance", selection: $appearanceRawValue) {
+                Image(systemName: "circle.lefthalf.filled")
+                    .tag(MinivoxAppearance.system.rawValue)
+                Image(systemName: "sun.max")
+                    .tag(MinivoxAppearance.light.rawValue)
+                Image(systemName: "moon")
+                    .tag(MinivoxAppearance.dark.rawValue)
             }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .frame(width: 98)
+            .tint(palette.controlTint)
+            .help("Appearance")
 
-            HStack(spacing: 10) {
-                if model.asrReadyInMemory {
-                    Label("Parakeet ready", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+            Rectangle()
+                .fill(palette.border)
+                .frame(width: 0.5, height: 20)
+
+            Button {
+                if model.isCapturingShortcut {
+                    model.cancelShortcutCapture()
                 } else {
-                    Button {
-                        model.warmASR()
-                    } label: {
-                        Label(model.isWarmingASR ? "Warming up…" : "Warm up Parakeet", systemImage: "bolt.fill")
+                    model.beginShortcutCapture()
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "command")
+
+                    if model.isCapturingShortcut {
+                        Text("…")
+                    } else if let shortcut = model.dictationShortcut {
+                        Text(shortcut.title)
                     }
-                    .buttonStyle(.borderless)
-                    .disabled(model.isRecording || model.isWorking || model.isWarmingASR)
                 }
-
-                Spacer(minLength: 0)
-
-                Text(model.microphoneStatus)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                Button {
-                    NSApplication.shared.terminate(nil)
-                } label: {
-                    Image(systemName: "power")
-                }
-                .buttonStyle(.borderless)
-                .help("Quit Minivox")
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .frame(minWidth: 44)
+                .padding(.horizontal, 7)
+                .frame(height: 24)
+                .background(palette.controlSurface, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
             }
-            .font(.caption)
+            .buttonStyle(.plain)
             .foregroundStyle(.secondary)
+            .help(model.dictationShortcut == nil ? "Set shortcut" : "Change shortcut")
 
-            Text(model.statusMessage)
-                .font(.caption2)
+            if model.dictationShortcut != nil && !model.isCapturingShortcut {
+                Button {
+                    model.disableShortcut()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .medium))
+                }
+                .buttonStyle(.plain)
                 .foregroundStyle(.tertiary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .help("Clear shortcut")
+            }
+
+            Spacer(minLength: 0)
+
+            if !model.asrReadyInMemory {
+                Button {
+                    model.warmASR()
+                } label: {
+                    Image(systemName: "bolt")
+                }
+                .buttonStyle(.plain)
+                .disabled(model.isRecording || model.isWorking || model.isWarmingASR)
+                .help("Warm up Parakeet")
+            }
+
+            Button {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                Image(systemName: "power")
+            }
+            .buttonStyle(.plain)
+            .help("Quit Minivox")
         }
+        .font(.system(size: 11, weight: .regular))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 12)
+        .frame(height: 48)
+        .background(palette.strip)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(palette.border)
+                .frame(height: 0.5)
+        }
+    }
+
+    private var visibleMessage: String? {
+        if let error = model.lastErrorMessage, !error.isEmpty {
+            return error
+        }
+
+        let message = model.statusMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        return message.isEmpty ? nil : message
     }
 
     private var statusTitle: String {
-        if model.isRecording { return "listening" }
-        if model.isWarmingASR { return "warming" }
-        if model.isWorking { return "transcribing" }
+        if model.isRecording { return "listen" }
+        if model.isWarmingASR { return "warm" }
+        if model.isWorking { return "transcribe" }
         if model.asrReadyInMemory { return "ready" }
         return "cold"
     }
 
     private var statusTint: Color {
-        if model.isRecording { return .red }
-        if model.isWorking || model.isWarmingASR { return .orange }
-        if model.asrReadyInMemory { return .green }
-        return .secondary
+        model.isRecording ? .red : .secondary
     }
 
     private var recordTitle: String {
-        if model.isRecording { return "Tap to finish" }
-        if model.isWarmingASR { return "Getting Parakeet ready…" }
-        if model.isWorking { return "Turning speech into text…" }
-        return "Tap to dictate"
-    }
-
-    private var recordHint: String {
-        if model.isRecording { return "Speak naturally. Minivox is listening." }
-        if model.isWarmingASR { return "The shortcut will work as soon as the model is ready." }
-        if model.isWorking { return "The transcript will copy itself when it is ready." }
-        return "Press Space or click the microphone."
-    }
-
-    private var recordRingColor: Color {
-        if model.isRecording { return .red.opacity(0.62) }
-        if model.isWorking || model.isWarmingASR { return .orange.opacity(0.4) }
-        return Color.accentColor.opacity(0.34)
+        if model.isRecording { return "Finish" }
+        if model.isWarmingASR { return "Warming" }
+        if model.isWorking { return "Transcribing" }
+        return "Dictate"
     }
 
     private var selectedAppearance: MinivoxAppearance {
@@ -380,45 +294,28 @@ struct ContentView: View {
     }
 }
 
-private struct ActivityPill: View {
+private struct ActivityIndicator: View {
     let title: String
     let tint: Color
-    let isRecording: Bool
     let isBusy: Bool
-    let surface: Color
-    let border: Color
 
     var body: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: 6) {
             if isBusy {
                 ProgressView()
                     .controlSize(.mini)
                     .tint(tint)
             } else {
-                ZStack {
-                    if isRecording {
-                        Circle()
-                            .fill(tint.opacity(0.2))
-                            .frame(width: 13, height: 13)
-                    }
-                    Circle()
-                        .fill(tint)
-                        .frame(width: 7, height: 7)
-                }
-                .frame(width: 13, height: 13)
+                Circle()
+                    .fill(tint)
+                    .frame(width: 5, height: 5)
             }
 
-            Text(title)
-                .font(.caption2.weight(.semibold))
+            Text(title.uppercased())
+                .font(.system(size: 8, weight: .medium, design: .monospaced))
+                .tracking(0.8)
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(surface, in: Capsule(style: .continuous))
-        .overlay(
-            Capsule(style: .continuous)
-                .strokeBorder(border, lineWidth: 1)
-        )
     }
 }
 
@@ -427,73 +324,67 @@ private struct MinivoxPalette {
 
     var background: Color {
         colorScheme == .dark
-            ? Color(red: 0.055, green: 0.055, blue: 0.065)
-            : Color(red: 0.975, green: 0.968, blue: 0.955)
+            ? Color(red: 0.055, green: 0.055, blue: 0.052)
+            : Color(red: 0.955, green: 0.947, blue: 0.925)
     }
 
-    var backgroundSecondary: Color {
+    var strip: Color {
         colorScheme == .dark
-            ? Color(red: 0.09, green: 0.09, blue: 0.105)
-            : Color(red: 0.94, green: 0.95, blue: 0.94)
+            ? Color(red: 0.035, green: 0.035, blue: 0.033)
+            : Color(red: 0.91, green: 0.90, blue: 0.875)
     }
 
     var card: Color {
         colorScheme == .dark
-            ? Color(red: 0.115, green: 0.115, blue: 0.13)
-            : Color.white.opacity(0.94)
+            ? Color(red: 0.082, green: 0.082, blue: 0.078)
+            : Color(red: 0.985, green: 0.98, blue: 0.965)
     }
 
-    var button: Color {
+    var controlFill: Color {
         colorScheme == .dark
-            ? Color(red: 0.16, green: 0.16, blue: 0.18)
-            : Color.white
+            ? Color(red: 0.89, green: 0.88, blue: 0.84)
+            : Color(red: 0.075, green: 0.075, blue: 0.07)
     }
 
-    var buttonSecondary: Color {
+    var controlForeground: Color {
         colorScheme == .dark
-            ? Color(red: 0.09, green: 0.09, blue: 0.105)
-            : Color(red: 0.93, green: 0.93, blue: 0.91)
+            ? Color(red: 0.07, green: 0.07, blue: 0.065)
+            : Color(red: 0.94, green: 0.93, blue: 0.90)
+    }
+
+    var logoBackground: Color { controlFill }
+    var logoForeground: Color { controlForeground }
+
+    var controlSurface: Color {
+        colorScheme == .dark
+            ? Color.white.opacity(0.055)
+            : Color.black.opacity(0.045)
+    }
+
+    var controlTint: Color {
+        colorScheme == .dark
+            ? Color(red: 0.82, green: 0.81, blue: 0.78)
+            : Color(red: 0.12, green: 0.12, blue: 0.11)
     }
 
     var border: Color {
         colorScheme == .dark
-            ? Color.white.opacity(0.10)
-            : Color.black.opacity(0.09)
-    }
-
-    var accentGlowOpacity: Double {
-        colorScheme == .dark ? 0.15 : 0.08
-    }
-}
-
-private struct Metric: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label.uppercased())
-                .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                .tracking(0.8)
-                .foregroundStyle(.tertiary)
-            Text(value)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-        }
+            ? Color.white.opacity(0.045)
+            : Color.black.opacity(0.075)
     }
 }
 
 private struct MiniWave: View {
     let color: Color
 
-    private let heights: [CGFloat] = [6, 12, 18, 10, 15, 7]
+    private let heights: [CGFloat] = [4, 8, 12, 7, 10, 5]
 
     var body: some View {
-        HStack(alignment: .center, spacing: 2.5) {
+        HStack(alignment: .center, spacing: 2) {
             ForEach(Array(heights.enumerated()), id: \.offset) { _, height in
                 Capsule(style: .continuous)
                     .fill(color)
-                    .frame(width: 2.5, height: height)
+                    .frame(width: 2, height: height)
             }
         }
         .accessibilityHidden(true)

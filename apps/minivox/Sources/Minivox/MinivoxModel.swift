@@ -24,7 +24,7 @@ final class MinivoxModel: ObservableObject {
     @Published var asrStateTitle = "Checking Parakeet"
     @Published var asrStateDetail = "Checking whether Parakeet is ready."
     @Published var microphoneStatus = "Microphone access not checked."
-    @Published var statusMessage = "Tap the microphone to dictate."
+    @Published var statusMessage = ""
     @Published var transcript = ""
     @Published var transcriptionMetrics: TranscriptionMetrics?
     @Published var recordingDuration: TimeInterval = 0
@@ -81,7 +81,7 @@ final class MinivoxModel: ObservableObject {
         transcript = ""
         transcriptionMetrics = nil
         didCopy = false
-        statusMessage = "Tap the microphone to dictate."
+        statusMessage = ""
     }
 
     func beginShortcutCapture() {
@@ -102,7 +102,7 @@ final class MinivoxModel: ObservableObject {
         isCapturingShortcut = false
         stopShortcutCaptureMonitoring()
         applyShortcut()
-        statusMessage = "Shortcut unchanged."
+        statusMessage = ""
     }
 
     func captureShortcut(_ event: NSEvent) {
@@ -120,7 +120,7 @@ final class MinivoxModel: ObservableObject {
             return
         case kVK_Delete, kVK_ForwardDelete:
             setShortcut(nil)
-            statusMessage = "Global shortcut turned off."
+            statusMessage = ""
             return
         default:
             break
@@ -133,12 +133,12 @@ final class MinivoxModel: ObservableObject {
         }
 
         setShortcut(shortcut)
-        statusMessage = "Shortcut set to \(shortcut.title)."
+        statusMessage = ""
     }
 
     func disableShortcut() {
         setShortcut(nil)
-        statusMessage = "Global shortcut turned off."
+        statusMessage = ""
     }
 
     private func stopRecording() {
@@ -146,13 +146,13 @@ final class MinivoxModel: ObservableObject {
 
         guard let clip = recorder.stop() else {
             isRecording = false
-            statusMessage = "Recording stopped."
+            statusMessage = ""
             return
         }
 
         isRecording = false
         recordingDuration = clip.duration
-        statusMessage = "Transcribing…"
+        statusMessage = ""
 
         Task {
             await runTask {
@@ -203,7 +203,7 @@ final class MinivoxModel: ObservableObject {
             transcriptionMetrics = nil
             lastErrorMessage = nil
             didCopy = false
-            statusMessage = "Listening…"
+            statusMessage = ""
         } catch {
             lastErrorMessage = error.localizedDescription
             statusMessage = error.localizedDescription
@@ -229,7 +229,7 @@ final class MinivoxModel: ObservableObject {
         }
 
         copyTranscript(showConfirmation: false)
-        statusMessage = "Copied to your clipboard."
+        statusMessage = ""
     }
 
     private func copyTranscript(showConfirmation: Bool) {
@@ -240,9 +240,7 @@ final class MinivoxModel: ObservableObject {
         pasteboard.setString(transcript, forType: .string)
         didCopy = true
 
-        if showConfirmation {
-            statusMessage = "Copied to your clipboard."
-        }
+        if showConfirmation { statusMessage = "" }
     }
 
     private func refreshMicrophoneAvailability() async {
@@ -257,17 +255,17 @@ final class MinivoxModel: ObservableObject {
     private func preloadASR() async throws {
         await refreshASRState()
         guard !asrReadyInMemory else {
-            statusMessage = "Parakeet is already ready."
+            statusMessage = ""
             return
         }
 
         isWarmingASR = true
         defer { isWarmingASR = false }
 
-        statusMessage = "Warming up Parakeet…"
+        statusMessage = ""
         let info = try await asr.preload(modelId: MinivoxConfig.asrModelId, progress: { _ in })
         applyASRState(info)
-        statusMessage = "Parakeet is ready."
+        statusMessage = ""
     }
 
     private func applyASRState(_ info: ASRModelInfo?) {
