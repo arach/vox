@@ -167,7 +167,7 @@ struct ContentView: View {
             Spacer(minLength: 0)
 
             if model.didCopy && !model.transcript.isEmpty {
-                Text("Copied")
+                Text(model.didPaste ? "Pasted" : "Copied")
                     .font(.system(size: 7.5, weight: .medium, design: .monospaced))
                     .tracking(0.7)
                     .textCase(.uppercase)
@@ -273,6 +273,7 @@ struct ContentView: View {
         if model.isRecording { return "Speak" }
         if model.isWarmingASR { return "Loading Parakeet" }
         if model.isWorking { return "Working locally" }
+        if model.didPaste { return "Inserted in active app" }
         if model.didCopy && !model.transcript.isEmpty { return "Ready in clipboard" }
         return "Click or press shortcut"
     }

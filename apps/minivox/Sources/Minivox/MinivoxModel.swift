@@ -15,6 +15,7 @@ final class MinivoxModel: ObservableObject {
     private static let shortcutKeyCodeDefaultsKey = "minivox.dictationShortcut.keyCode"
     private static let shortcutModifiersDefaultsKey = "minivox.dictationShortcut.modifiers"
     private static let shortcutTitleDefaultsKey = "minivox.dictationShortcut.title"
+    static let autoPasteDefaultsKey = "minivox.autoPaste"
     static let warmUpOnLaunchDefaultsKey = "minivox.warmUpOnLaunch"
 
     @Published var didLoad = false
@@ -31,6 +32,8 @@ final class MinivoxModel: ObservableObject {
     @Published var recordingDuration: TimeInterval = 0
     @Published var lastErrorMessage: String?
     @Published var didCopy = false
+    @Published private(set) var didPaste = false
+    @Published private(set) var autoPasteAccessGranted = CGPreflightPostEventAccess()
     @Published private(set) var historyRecords: [SpeechHistoryRecord] = []
     @Published private(set) var historyErrorMessage: String?
     @Published private(set) var dictationShortcut: DictationShortcut?
@@ -43,6 +46,7 @@ final class MinivoxModel: ObservableObject {
     private var shortcutEventMonitor: Any?
 
     init() {
+        UserDefaults.standard.register(defaults: [Self.autoPasteDefaultsKey: true])
         dictationShortcut = Self.loadShortcut()
 
         shortcutController = GlobalShortcutController { [weak self] in
@@ -91,7 +95,28 @@ final class MinivoxModel: ObservableObject {
         transcript = ""
         transcriptionMetrics = nil
         didCopy = false
+        didPaste = false
         statusMessage = ""
+    }
+
+    func requestAutoPasteAccess() {
+        autoPasteAccessGranted = CGPreflightPostEventAccess() || CGRequestPostEventAccess()
+        statusMessage = autoPasteAccessGranted
+            ? ""
+            : "Allow Minivox in Privacy & Security › Accessibility."
+    }
+
+    func refreshAutoPasteAccess() {
+        autoPasteAccessGranted = CGPreflightPostEventAccess()
+    }
+
+    func autoPastePreferenceDidChange(isEnabled: Bool) {
+        if isEnabled {
+            requestAutoPasteAccess()
+        } else {
+            didPaste = false
+            statusMessage = ""
+        }
     }
 
     func beginShortcutCapture() {
@@ -238,6 +263,7 @@ final class MinivoxModel: ObservableObject {
             transcriptionMetrics = nil
             lastErrorMessage = nil
             didCopy = false
+            didPaste = false
             statusMessage = ""
         } catch {
             lastErrorMessage = error.localizedDescription
@@ -275,7 +301,7 @@ final class MinivoxModel: ObservableObject {
         await refreshHistory()
 
         copyTranscript(showConfirmation: false)
-        statusMessage = ""
+        await pasteTranscriptIfEnabled()
     }
 
     private func copyTranscript(showConfirmation: Bool) {
@@ -285,8 +311,47 @@ final class MinivoxModel: ObservableObject {
         pasteboard.clearContents()
         pasteboard.setString(transcript, forType: .string)
         didCopy = true
+        didPaste = false
 
         if showConfirmation { statusMessage = "" }
+    }
+
+    private func pasteTranscriptIfEnabled() async {
+        guard UserDefaults.standard.bool(forKey: Self.autoPasteDefaultsKey) else {
+            statusMessage = ""
+            return
+        }
+
+        guard CGPreflightPostEventAccess() || CGRequestPostEventAccess() else {
+            autoPasteAccessGranted = false
+            statusMessage = "Allow Minivox in Privacy & Security › Accessibility."
+            return
+        }
+
+        autoPasteAccessGranted = true
+        try? await Task.sleep(nanoseconds: 120_000_000)
+
+        guard let source = CGEventSource(stateID: .hidSystemState),
+              let keyDown = CGEvent(
+                  keyboardEventSource: source,
+                  virtualKey: CGKeyCode(kVK_ANSI_V),
+                  keyDown: true
+              ),
+              let keyUp = CGEvent(
+                  keyboardEventSource: source,
+                  virtualKey: CGKeyCode(kVK_ANSI_V),
+                  keyDown: false
+              ) else {
+            statusMessage = "Copied. Auto-paste was unavailable."
+            return
+        }
+
+        keyDown.flags = .maskCommand
+        keyUp.flags = .maskCommand
+        keyDown.post(tap: .cghidEventTap)
+        keyUp.post(tap: .cghidEventTap)
+        didPaste = true
+        statusMessage = ""
     }
 
     private func refreshMicrophoneAvailability() async {

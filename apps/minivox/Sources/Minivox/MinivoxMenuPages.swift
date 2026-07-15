@@ -6,6 +6,7 @@ struct MinivoxSettingsView: View {
     @ObservedObject var model: MinivoxModel
 
     @AppStorage("minivox.appearance") private var appearanceRawValue = MinivoxAppearance.system.rawValue
+    @AppStorage(MinivoxModel.autoPasteDefaultsKey) private var autoPaste = true
     @AppStorage(MinivoxModel.warmUpOnLaunchDefaultsKey) private var warmUpOnLaunch = false
     @Environment(\.colorScheme) private var systemColorScheme
 
@@ -32,10 +33,13 @@ struct MinivoxSettingsView: View {
                 Rectangle().fill(palette.border).frame(height: 0.5)
             }
         }
-        .frame(height: 286)
+        .frame(height: 330)
         .background(palette.background)
         .environment(\.colorScheme, effectiveColorScheme)
         .preferredColorScheme(selectedAppearance.colorScheme)
+        .onAppear {
+            model.refreshAutoPasteAccess()
+        }
         .onDisappear {
             model.cancelShortcutCapture()
         }
@@ -124,6 +128,28 @@ struct MinivoxSettingsView: View {
 
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
+                        Text("Paste automatically")
+                        Text(autoPasteDetail)
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    Spacer()
+
+                    Toggle("", isOn: $autoPaste)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .tint(palette.accent)
+                        .onChange(of: autoPaste) { _, isEnabled in
+                            model.autoPastePreferenceDidChange(isEnabled: isEnabled)
+                        }
+                }
+                .frame(minHeight: 44)
+
+                divider
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text("Warm up on launch")
                         Text("Keep Parakeet resident")
                             .font(.system(size: 9, design: .monospaced))
@@ -186,6 +212,11 @@ struct MinivoxSettingsView: View {
         Rectangle()
             .fill(palette.border)
             .frame(height: 0.5)
+    }
+
+    private var autoPasteDetail: String {
+        if !autoPaste { return "Copy only" }
+        return model.autoPasteAccessGranted ? "Insert in active app" : "Needs Accessibility"
     }
 
     private var version: String {
