@@ -68,6 +68,8 @@ npx -y @voxd/cli@latest install mini
 brew install --cask arach/vox/minivox
 ```
 
+Both installers expose a `minivox` command. Run `minivox settings` to open settings or `minivox quit` to stop the menu-bar app. The npm installer accepts `--quiet` and `--verbose` to control setup output.
+
 ## Workflows
 
 These examples assume `vox` is on your `PATH`. In a repo checkout, replace `vox` with `node packages/cli/dist/index.js` after `bun run build`.

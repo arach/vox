@@ -28,8 +28,13 @@ swift build --package-path "$MINIVOX_DIR" -c release
 
 PRODUCTS_DIR="$MINIVOX_DIR/.build/release"
 EXECUTABLE="$PRODUCTS_DIR/Minivox"
+COMMAND_EXECUTABLE="$PRODUCTS_DIR/MinivoxCommand"
 if [ ! -x "$EXECUTABLE" ]; then
     echo "Minivox release executable was not produced at $EXECUTABLE." >&2
+    exit 1
+fi
+if [ ! -x "$COMMAND_EXECUTABLE" ]; then
+    echo "Minivox command executable was not produced at $COMMAND_EXECUTABLE." >&2
     exit 1
 fi
 
@@ -37,6 +42,7 @@ echo "==> Creating Minivox.app..."
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
 cp "$EXECUTABLE" "$BUNDLE/Contents/MacOS/Minivox"
+cp "$COMMAND_EXECUTABLE" "$BUNDLE/Contents/MacOS/MinivoxCommand"
 
 while IFS= read -r -d '' RESOURCES; do
     cp -R "$RESOURCES" "$BUNDLE/Contents/Resources/"
@@ -112,12 +118,16 @@ PLIST
 
 if [ "$SIGN_IDENTITY" = "-" ]; then
     echo "==> Ad hoc signing Minivox.app..."
+    codesign --force --sign - "$BUNDLE/Contents/MacOS/MinivoxCommand"
     codesign --force --sign - "$BUNDLE/Contents/MacOS/Minivox"
     codesign --force --sign - \
         --entitlements "$BUILD_DIR/Minivox.entitlements" \
         "$BUNDLE"
 else
     echo "==> Signing Minivox.app with Developer ID..."
+    codesign --force --options runtime --timestamp \
+        --sign "$SIGN_IDENTITY" \
+        "$BUNDLE/Contents/MacOS/MinivoxCommand"
     codesign --force --options runtime --timestamp \
         --sign "$SIGN_IDENTITY" \
         "$BUNDLE/Contents/MacOS/Minivox"

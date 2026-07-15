@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn, spawnSync } from "child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "fs";
 import { writeFile } from "fs/promises";
 import { homedir, tmpdir } from "os";
 import { dirname, join, resolve } from "path";
@@ -1045,6 +1045,7 @@ function launchTui(): void {
 interface MinivoxInstallOptions {
   user: boolean;
   launch: boolean;
+  verbosity: "quiet" | "normal" | "verbose";
 }
 
 export function minivoxReleaseDownloadURL(version = CLI_VERSION): string {
@@ -1052,14 +1053,20 @@ export function minivoxReleaseDownloadURL(version = CLI_VERSION): string {
 }
 
 export function parseMinivoxInstallOptions(args: string[]): MinivoxInstallOptions {
-  const known = new Set(["--user", "--no-launch"]);
+  const known = new Set(["--user", "--no-launch", "--quiet", "-q", "--verbose"]);
   const unknown = args.find((arg) => !known.has(arg));
   if (unknown) {
     throw new Error(`Unknown Minivox install option: ${unknown}`);
   }
+  const quiet = args.includes("--quiet") || args.includes("-q");
+  const verbose = args.includes("--verbose");
+  if (quiet && verbose) {
+    throw new Error("Use either --quiet or --verbose, not both.");
+  }
   return {
     user: args.includes("--user"),
     launch: !args.includes("--no-launch"),
+    verbosity: quiet ? "quiet" : verbose ? "verbose" : "normal",
   };
 }
 
@@ -1067,6 +1074,13 @@ function resolveMinivoxApplicationsDirectory(user: boolean): string {
   const override = process.env.MINIVOX_APPLICATIONS_DIR;
   if (override) return override;
   return user ? join(homedir(), "Applications") : "/Applications";
+}
+
+export function resolveMinivoxCommandDirectory(
+  environment: NodeJS.ProcessEnv = process.env,
+  homeDirectory = homedir(),
+): string {
+  return environment.MINIVOX_BIN_DIR || join(homeDirectory, ".local", "bin");
 }
 
 async function handleInstall(target: string | undefined, args: string[]): Promise<void> {
@@ -1110,8 +1124,9 @@ async function handleUninstall(target: string | undefined, args: string[]): Prom
     const options = parseMinivoxInstallOptions(args);
     spawnSync("pkill", ["-x", "Minivox"], { stdio: "ignore" });
     const destination = join(resolveMinivoxApplicationsDirectory(options.user), MINIVOX_APP_NAME);
+    removeMinivoxCommand(destination);
     rmSync(destination, { recursive: true, force: true });
-    console.log(`Minivox removed from ${destination}`);
+    minivoxInstallLog(options, `Minivox removed from ${destination}`);
     return;
   }
   if (target) {
@@ -1135,6 +1150,7 @@ async function installMinivox(options: MinivoxInstallOptions): Promise<void> {
 
   const applicationsDirectory = resolveMinivoxApplicationsDirectory(options.user);
   const destination = join(applicationsDirectory, MINIVOX_APP_NAME);
+  validateMinivoxCommandDestination();
   const workDirectory = mkdtempSync(join(tmpdir(), "minivox-installer-"));
   const dmgPath = join(workDirectory, "Minivox.dmg");
   const mountPoint = join(workDirectory, "mounted");
@@ -1143,16 +1159,16 @@ async function installMinivox(options: MinivoxInstallOptions): Promise<void> {
   try {
     mkdirSync(mountPoint, { recursive: true });
     const downloadURL = minivoxReleaseDownloadURL();
-    console.log(`Downloading Minivox ${CLI_VERSION}…`);
+    minivoxInstallLog(options, `Downloading Minivox ${CLI_VERSION}…`);
     const response = await fetch(downloadURL, { redirect: "follow" });
     if (!response.ok) {
       throw new Error(`Download failed (${response.status} ${response.statusText}): ${downloadURL}`);
     }
     await writeFile(dmgPath, Buffer.from(await response.arrayBuffer()));
 
-    console.log("Verifying Apple notarization…");
-    runRequired("spctl", ["--assess", "--type", "open", "--context", "context:primary-signature", "--verbose=2", dmgPath]);
-    runRequired("hdiutil", ["attach", dmgPath, "-nobrowse", "-readonly", "-mountpoint", mountPoint]);
+    minivoxInstallLog(options, "Verifying Apple notarization…");
+    runMinivoxInstallerCommand("spctl", ["--assess", "--type", "open", "--context", "context:primary-signature", "--verbose=2", dmgPath], options);
+    runMinivoxInstallerCommand("hdiutil", ["attach", dmgPath, "-nobrowse", "-readonly", "-mountpoint", mountPoint], options);
     mounted = true;
 
     const source = join(mountPoint, MINIVOX_APP_NAME);
@@ -1160,16 +1176,21 @@ async function installMinivox(options: MinivoxInstallOptions): Promise<void> {
       throw new Error(`The release does not contain ${MINIVOX_APP_NAME}.`);
     }
 
-    console.log("Verifying the app signature…");
-    runRequired("codesign", ["--verify", "--deep", "--strict", "--verbose=2", source]);
+    minivoxInstallLog(options, "Verifying the app signature…");
+    runMinivoxInstallerCommand("codesign", ["--verify", "--deep", "--strict", "--verbose=2", source], options);
 
     mkdirSync(applicationsDirectory, { recursive: true });
     rmSync(destination, { recursive: true, force: true });
-    runRequired("ditto", [source, destination]);
-    console.log(`Minivox installed at ${destination}`);
+    runMinivoxInstallerCommand("ditto", [source, destination], options);
+    const commandPath = installMinivoxCommand(destination);
+    minivoxInstallLog(options, `Minivox installed at ${destination}`);
+    minivoxInstallLog(options, `Command installed at ${commandPath}`);
+    if (!commandDirectoryIsOnPath(dirname(commandPath))) {
+      minivoxInstallLog(options, `Add this to your shell PATH: export PATH="${dirname(commandPath)}:$PATH"`);
+    }
 
     if (options.launch) {
-      runRequired("open", [destination]);
+      runMinivoxInstallerCommand("open", [destination], options);
     }
   } catch (error) {
     if (applicationsDirectory === "/Applications") {
@@ -1185,6 +1206,98 @@ async function installMinivox(options: MinivoxInstallOptions): Promise<void> {
     }
     rmSync(workDirectory, { recursive: true, force: true });
   }
+}
+
+function minivoxInstallLog(options: MinivoxInstallOptions, message: string): void {
+  if (options.verbosity !== "quiet") {
+    console.log(message);
+  }
+}
+
+function runMinivoxInstallerCommand(
+  command: string,
+  args: string[],
+  options: MinivoxInstallOptions,
+): void {
+  const result = spawnSync(command, args, {
+    encoding: "utf8",
+    stdio: options.verbosity === "verbose" ? "inherit" : "pipe",
+  });
+  if (result.error) throw result.error;
+  if (spawnSyncStatus(result) !== 0) {
+    const detail = typeof result.stderr === "string" ? result.stderr.trim() : "";
+    throw new Error(
+      `${command} exited with status ${spawnSyncStatus(result) ?? "unknown"}${detail ? `: ${detail}` : ""}`,
+    );
+  }
+}
+
+export function installMinivoxCommand(
+  appDestination: string,
+  commandDirectory = resolveMinivoxCommandDirectory(),
+): string {
+  const helperPath = join(appDestination, "Contents", "MacOS", "MinivoxCommand");
+  if (!existsSync(helperPath)) {
+    throw new Error(`The Minivox release does not contain the command helper at ${helperPath}.`);
+  }
+
+  const commandPath = validateMinivoxCommandDestination(commandDirectory);
+  mkdirSync(commandDirectory, { recursive: true });
+  try {
+    lstatSync(commandPath);
+    rmSync(commandPath);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") throw error;
+  }
+
+  symlinkSync(helperPath, commandPath);
+  return commandPath;
+}
+
+export function validateMinivoxCommandDestination(
+  commandDirectory = resolveMinivoxCommandDirectory(),
+): string {
+  const commandPath = join(commandDirectory, "minivox");
+  try {
+    const existing = lstatSync(commandPath);
+    if (!existing.isSymbolicLink()) {
+      throw new Error(`Refusing to replace the existing file at ${commandPath}.`);
+    }
+    const existingTarget = resolve(dirname(commandPath), readlinkSync(commandPath));
+    if (!isMinivoxCommandTarget(existingTarget)) {
+      throw new Error(`Refusing to replace the existing symlink at ${commandPath}.`);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  return commandPath;
+}
+
+export function removeMinivoxCommand(
+  appDestination: string,
+  commandDirectory = resolveMinivoxCommandDirectory(),
+): void {
+  const commandPath = join(commandDirectory, "minivox");
+  try {
+    const existing = lstatSync(commandPath);
+    if (!existing.isSymbolicLink()) return;
+    const existingTarget = resolve(dirname(commandPath), readlinkSync(commandPath));
+    const expectedTarget = join(appDestination, "Contents", "MacOS", "MinivoxCommand");
+    if (existingTarget === expectedTarget) {
+      rmSync(commandPath);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+}
+
+function commandDirectoryIsOnPath(commandDirectory: string): boolean {
+  return (process.env.PATH || "").split(":").some((entry) => resolve(entry) === resolve(commandDirectory));
+}
+
+function isMinivoxCommandTarget(target: string): boolean {
+  return target.endsWith(join("Minivox.app", "Contents", "MacOS", "MinivoxCommand"));
 }
 
 function runRequired(command: string, args: string[]): void {
@@ -1362,9 +1475,9 @@ function printUsage(): void {
 
 Usage:
   vox install
-  vox install mini [--user] [--no-launch]
+  vox install mini [--user] [--no-launch] [--quiet|--verbose]
   vox uninstall
-  vox uninstall mini [--user]
+  vox uninstall mini [--user] [--quiet|--verbose]
   vox daemon start|stop|status
   vox doctor
   vox models list|install|preload [modelId]

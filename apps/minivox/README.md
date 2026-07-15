@@ -30,6 +30,16 @@ bun run minivox:bundle
 
 The package is written to `dist/minivox/Minivox.dmg`. Local builds are ad hoc signed and stay out of the website download directory by default. Set `MINIVOX_SIGN_IDENTITY` and `MINIVOX_NOTARY_PROFILE` to create a Developer ID-signed and notarized release.
 
+The app bundle includes a small command helper:
+
+```bash
+minivox            # launch the menu-bar app
+minivox settings   # open settings
+minivox quit       # quit the app
+```
+
+The npm installer links the helper under `~/.local/bin`; the Homebrew cask exposes the same helper through Homebrew's bin directory. Add `--quiet` or `--verbose` to `vox install mini` to control installer output.
+
 ## Core integration
 
 ```swift

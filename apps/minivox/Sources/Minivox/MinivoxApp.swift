@@ -1,13 +1,16 @@
 import AppKit
+import MinivoxSupport
 import SwiftUI
 
 @main
 struct MinivoxApp: App {
     @StateObject private var model: MinivoxModel
+    private let commandReceiver: MinivoxCommandReceiver
 
     init() {
         let model = MinivoxModel()
         _model = StateObject(wrappedValue: model)
+        commandReceiver = MinivoxCommandReceiver(model: model)
 
         NSApplication.shared.setActivationPolicy(.accessory)
 
