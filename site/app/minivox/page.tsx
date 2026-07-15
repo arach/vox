@@ -230,6 +230,9 @@ export default function MinivoxPage() {
               <CopyCommand command="npx -y @voxd/cli@latest install mini" />
               <CopyCommand command="brew install --cask arach/vox/minivox" />
             </div>
+            <p className="mt-3 font-mono text-[10px] leading-5 text-muted">
+              Installs the <span className="text-ink">minivox</span> command too. Add <span className="text-ink">--quiet</span> or <span className="text-ink">--verbose</span> to control setup output.
+            </p>
             <div className="mt-5 flex flex-wrap gap-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
               <Link href={sourceUrl} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-2 transition-colors hover:text-accent">
                 Source and setup <ArrowUpRight className="h-3 w-3" />

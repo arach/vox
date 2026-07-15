@@ -207,7 +207,7 @@ export default function DownloadPage() {
             <div className="grid gap-4 border-t border-line bg-canvas p-5 sm:p-6 lg:grid-cols-[0.55fr_1.45fr] lg:items-center">
               <div>
                 <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted">Install Minivox</p>
-                <p className="mt-2 text-[13px] text-secondary">Same tiny app, 2 routes.</p>
+                <p className="mt-2 text-[13px] text-secondary">Same tiny app and command, 2 routes.</p>
               </div>
               <div className="grid min-w-0 gap-3">
                 <div className="grid min-w-0 gap-2 sm:grid-cols-[5rem_minmax(0,1fr)] sm:items-center">
@@ -218,6 +218,7 @@ export default function DownloadPage() {
                   <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted">Homebrew</span>
                   <CopyCommand command="brew install --cask arach/vox/minivox" />
                 </div>
+                <p className="font-mono text-[9px] text-muted">npm setup also accepts --quiet or --verbose.</p>
               </div>
             </div>
           </div>

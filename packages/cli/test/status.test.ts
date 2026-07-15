@@ -1,7 +1,15 @@
-import { existsSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
-import { join } from "path";
-import { isEntrypoint, minivoxReleaseDownloadURL, parseMinivoxInstallOptions } from "../src/index.ts";
+import { dirname, join, resolve } from "path";
+import {
+  isEntrypoint,
+  installMinivoxCommand,
+  minivoxReleaseDownloadURL,
+  parseMinivoxInstallOptions,
+  removeMinivoxCommand,
+  resolveMinivoxCommandDirectory,
+  validateMinivoxCommandDestination,
+} from "../src/index.ts";
 
 describe("runtime fixture", () => {
   it("can create a temporary runtime file for CLI tests", () => {
@@ -35,7 +43,52 @@ describe("Minivox installer", () => {
     expect(parseMinivoxInstallOptions(["--user", "--no-launch"])).toEqual({
       user: true,
       launch: false,
+      verbosity: "normal",
     });
+  });
+
+  it("supports quiet and verbose installer output", () => {
+    expect(parseMinivoxInstallOptions(["--quiet"]).verbosity).toBe("quiet");
+    expect(parseMinivoxInstallOptions(["--verbose"]).verbosity).toBe("verbose");
+    expect(() => parseMinivoxInstallOptions(["--quiet", "--verbose"])).toThrow(
+      "Use either --quiet or --verbose",
+    );
+  });
+
+  it("installs the command in a user-owned bin directory", () => {
+    expect(resolveMinivoxCommandDirectory({}, "/Users/example")).toBe("/Users/example/.local/bin");
+    expect(resolveMinivoxCommandDirectory({ MINIVOX_BIN_DIR: "/custom/bin" }, "/Users/example")).toBe(
+      "/custom/bin",
+    );
+  });
+
+  it("links and removes the bundled Minivox command", () => {
+    const dir = mkdtempSync(join(tmpdir(), "minivox-command-"));
+    const app = join(dir, "Applications", "Minivox.app");
+    const helper = join(app, "Contents", "MacOS", "MinivoxCommand");
+    const bin = join(dir, "bin");
+    mkdirSync(join(app, "Contents", "MacOS"), { recursive: true });
+    writeFileSync(helper, "helper");
+
+    const command = installMinivoxCommand(app, bin);
+    expect(lstatSync(command).isSymbolicLink()).toBe(true);
+    expect(resolve(dirname(command), readlinkSync(command))).toBe(helper);
+
+    removeMinivoxCommand(app, bin);
+    expect(existsSync(command)).toBe(false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("does not replace an unrelated command", () => {
+    const dir = mkdtempSync(join(tmpdir(), "minivox-command-conflict-"));
+    const command = join(dir, "minivox");
+    writeFileSync(command, "unrelated command");
+
+    expect(() => validateMinivoxCommandDestination(dir)).toThrow(
+      `Refusing to replace the existing file at ${command}`,
+    );
+    expect(existsSync(command)).toBe(true);
+    rmSync(dir, { recursive: true, force: true });
   });
 
   it("rejects unknown install options", () => {

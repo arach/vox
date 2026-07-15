@@ -52,6 +52,14 @@ Minivox is the small, single-purpose dictation app. Install it without adding an
 npx -y @voxd/cli@latest install mini
 ```
 
+The installer adds `minivox` under `~/.local/bin`. Use `--quiet` for errors-only output or `--verbose` to include Apple verification and disk-image details.
+
+```bash
+minivox
+minivox settings
+minivox quit
+```
+
 ## Useful command groups
 
 - `vox doctor` — check that Vox is ready
