@@ -15,6 +15,7 @@ final class MinivoxModel: ObservableObject {
     private static let shortcutKeyCodeDefaultsKey = "minivox.dictationShortcut.keyCode"
     private static let shortcutModifiersDefaultsKey = "minivox.dictationShortcut.modifiers"
     private static let shortcutTitleDefaultsKey = "minivox.dictationShortcut.title"
+    static let warmUpOnLaunchDefaultsKey = "minivox.warmUpOnLaunch"
 
     @Published var didLoad = false
     @Published var isRecording = false
@@ -30,10 +31,13 @@ final class MinivoxModel: ObservableObject {
     @Published var recordingDuration: TimeInterval = 0
     @Published var lastErrorMessage: String?
     @Published var didCopy = false
+    @Published private(set) var historyRecords: [SpeechHistoryRecord] = []
+    @Published private(set) var historyErrorMessage: String?
     @Published private(set) var dictationShortcut: DictationShortcut?
     @Published private(set) var isCapturingShortcut = false
 
     private let asr = EngineManager()
+    private let historyRecorder = SpeechHistoryRecorder()
     private let recorder = AudioRecorder()
     private var shortcutController: GlobalShortcutController?
     private var shortcutEventMonitor: Any?
@@ -54,6 +58,12 @@ final class MinivoxModel: ObservableObject {
         Task {
             await refreshMicrophoneAvailability()
             await refreshASRState()
+
+            if UserDefaults.standard.bool(forKey: Self.warmUpOnLaunchDefaultsKey), !asrReadyInMemory {
+                await runTask {
+                    try await self.preloadASR()
+                }
+            }
         }
     }
 
@@ -139,6 +149,31 @@ final class MinivoxModel: ObservableObject {
     func disableShortcut() {
         setShortcut(nil)
         statusMessage = ""
+    }
+
+    func loadHistory() {
+        Task {
+            await refreshHistory()
+        }
+    }
+
+    func copyHistoryRecord(_ record: SpeechHistoryRecord) {
+        guard let text = record.text, !text.isEmpty else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+    }
+
+    func clearHistory() {
+        Task {
+            do {
+                _ = try await historyRecorder.clear(filter: Self.minivoxHistoryFilter)
+                historyRecords = []
+                historyErrorMessage = nil
+            } catch {
+                historyErrorMessage = error.localizedDescription
+            }
+        }
     }
 
     private func stopRecording() {
@@ -228,6 +263,17 @@ final class MinivoxModel: ObservableObject {
             return
         }
 
+        let historyRecord = SpeechHistoryRecord.transcription(
+            source: .file,
+            route: "minivox.dictation",
+            clientId: "minivox",
+            modelId: MinivoxConfig.asrModelId,
+            output: output,
+            startedAt: Date().addingTimeInterval(-clip.duration)
+        )
+        await historyRecorder.record(historyRecord)
+        await refreshHistory()
+
         copyTranscript(showConfirmation: false)
         statusMessage = ""
     }
@@ -290,6 +336,15 @@ final class MinivoxModel: ObservableObject {
         } else {
             asrStateTitle = "Parakeet not installed"
             asrStateDetail = "The first dictation will install and load the model."
+        }
+    }
+
+    private func refreshHistory() async {
+        do {
+            historyRecords = try await historyRecorder.list(filter: Self.minivoxHistoryFilter)
+            historyErrorMessage = nil
+        } catch {
+            historyErrorMessage = error.localizedDescription
         }
     }
 
@@ -359,5 +414,13 @@ final class MinivoxModel: ObservableObject {
         case "off": return nil
         default: return .optionSpace
         }
+    }
+
+    private static var minivoxHistoryFilter: SpeechHistoryListFilter {
+        SpeechHistoryListFilter(
+            kind: .transcription,
+            clientId: "minivox",
+            limit: 100
+        )
     }
 }

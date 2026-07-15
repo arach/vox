@@ -3,10 +3,17 @@ import SwiftUI
 
 @main
 struct MinivoxApp: App {
-    @StateObject private var model = MinivoxModel()
+    @StateObject private var model: MinivoxModel
 
     init() {
+        let model = MinivoxModel()
+        _model = StateObject(wrappedValue: model)
+
         NSApplication.shared.setActivationPolicy(.accessory)
+
+        Task { @MainActor in
+            model.loadIfNeeded()
+        }
     }
 
     var body: some Scene {

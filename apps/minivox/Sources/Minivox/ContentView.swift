@@ -1,72 +1,124 @@
 import AppKit
 import SwiftUI
-import VoxCore
 
 struct ContentView: View {
     @ObservedObject var model: MinivoxModel
+
     @AppStorage("minivox.appearance") private var appearanceRawValue = MinivoxAppearance.system.rawValue
     @Environment(\.colorScheme) private var systemColorScheme
+    @State private var page: Page = .dictation
 
     var body: some View {
-        ZStack {
-            palette.background
+        VStack(spacing: 0) {
+            header
 
-            VStack(spacing: 0) {
-                headerStrip
-
-                VStack(spacing: 10) {
-                    recordDeck
-                    transcriptDeck
-
-                    if let message = visibleMessage {
-                        Text(message)
-                            .font(.system(size: 10, weight: .regular, design: .rounded))
-                            .foregroundStyle(model.lastErrorMessage == nil ? Color.secondary : Color.red)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 2)
+            Group {
+                switch page {
+                case .dictation:
+                    VStack(spacing: 0) {
+                        actionRow
+                        transcript
+                        footer
                     }
-                }
-                .padding(12)
+                    .transition(.opacity)
 
-                controlStrip
+                case .history:
+                    MinivoxHistoryView(model: model)
+                        .transition(.opacity)
+
+                case .settings:
+                    MinivoxSettingsView(model: model)
+                        .transition(.opacity)
+                }
             }
         }
-        .frame(width: 360)
+        .frame(width: 336)
+        .background(palette.background)
+        .background(PopoverWindowConfiguration())
+        .minivoxWindowBackground(palette.background)
+        .overlay {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(palette.background, lineWidth: 2)
+
+                RoundedRectangle(cornerRadius: 13.5, style: .continuous)
+                    .strokeBorder(palette.border, lineWidth: 0.5)
+                    .padding(0.75)
+            }
+            .allowsHitTesting(false)
+        }
         .environment(\.colorScheme, effectiveColorScheme)
         .preferredColorScheme(selectedAppearance.colorScheme)
+        .animation(.easeOut(duration: 0.14), value: page)
         .task {
             model.loadIfNeeded()
         }
-        .onDisappear {
-            model.cancelShortcutCapture()
-        }
     }
 
-    private var headerStrip: some View {
-        HStack(spacing: 9) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(palette.logoBackground)
+    private var header: some View {
+        HStack(spacing: 10) {
+            if page == .dictation {
+                MinivoxLogo(palette: palette, size: 27)
 
-                Text("M")
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(palette.logoForeground)
+                Text("Minivox")
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .tracking(-0.2)
+            } else {
+                Button {
+                    page = .dictation
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 10, weight: .semibold))
+                        .frame(width: 25, height: 25)
+                        .background(palette.controlSurface, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Back")
+
+                Text(page.title)
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
             }
-            .frame(width: 30, height: 30)
-
-            Text("Minivox")
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .tracking(-0.2)
 
             Spacer(minLength: 0)
 
-            ActivityIndicator(
-                title: statusTitle,
-                tint: statusTint,
-                isBusy: model.isWorking || model.isWarmingASR
-            )
+            if page == .dictation {
+                HStack(spacing: 6) {
+                    if model.isWorking || model.isWarmingASR {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(palette.accent)
+                    } else {
+                        Circle()
+                            .fill(statusColor)
+                            .frame(width: 5, height: 5)
+                    }
+
+                    Text(statusTitle)
+                        .font(.system(size: 7.5, weight: .medium, design: .monospaced))
+                        .tracking(0.7)
+                        .textCase(.uppercase)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 8)
+                .frame(height: 22)
+                .background(palette.controlSurface, in: Capsule(style: .continuous))
+                .overlay {
+                    Capsule(style: .continuous)
+                        .strokeBorder(palette.border, lineWidth: 0.5)
+                }
+            }
+
+            Button {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                Image(systemName: "power")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.tertiary)
+            .help("Quit Minivox")
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 13)
         .frame(height: 52)
         .background(palette.strip)
         .overlay(alignment: .bottom) {
@@ -76,149 +128,114 @@ struct ContentView: View {
         }
     }
 
-    private var recordDeck: some View {
-        Button(action: model.toggleRecording) {
-            VStack(spacing: 8) {
+    private var actionRow: some View {
+        HStack(spacing: 14) {
+            Button(action: model.toggleRecording) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(palette.controlFill)
+                    Circle()
+                        .fill(palette.recessed)
+
+                    Circle()
+                        .strokeBorder(model.isRecording ? palette.accent.opacity(0.7) : palette.border, lineWidth: 0.75)
 
                     if model.isWorking || model.isWarmingASR {
                         ProgressView()
                             .controlSize(.small)
-                            .tint(palette.controlForeground)
+                            .tint(palette.accent)
                     } else {
                         Image(systemName: model.isRecording ? "stop.fill" : "mic.fill")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(palette.controlForeground)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(model.isRecording ? palette.accent : Color.primary)
                     }
                 }
-                .frame(width: 68, height: 68)
-
-                Text(recordTitle)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.secondary)
+                .frame(width: 48, height: 48)
             }
-            .frame(maxWidth: .infinity, minHeight: 108)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .disabled(model.isWorking || model.isWarmingASR)
+            .keyboardShortcut(.space, modifiers: [])
+            .help(model.isRecording ? "Finish dictation" : "Start dictation")
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(actionTitle)
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+
+                Text(actionDetail)
+                    .font(.system(size: 9, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+            }
+
+            Spacer(minLength: 0)
+
+            if model.didCopy && !model.transcript.isEmpty {
+                Text("Copied")
+                    .font(.system(size: 7.5, weight: .medium, design: .monospaced))
+                    .tracking(0.7)
+                    .textCase(.uppercase)
+                    .foregroundStyle(palette.accent)
+                    .padding(.horizontal, 8)
+                    .frame(height: 22)
+                    .background(palette.controlSurface, in: Capsule(style: .continuous))
+                    .overlay {
+                        Capsule(style: .continuous)
+                            .strokeBorder(palette.border, lineWidth: 0.5)
+                    }
+            }
         }
-        .buttonStyle(.plain)
-        .disabled(model.isWorking || model.isWarmingASR)
-        .keyboardShortcut(.space, modifiers: [])
-        .background(palette.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(palette.border, lineWidth: 0.5)
+        .padding(.horizontal, 16)
+        .frame(minHeight: 82)
+        .background(palette.card)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(palette.border)
+                .frame(height: 0.5)
         }
-        .help(model.isRecording ? "Stop and transcribe" : "Start dictation")
     }
 
-    private var transcriptDeck: some View {
-        ZStack(alignment: .topTrailing) {
+    private var transcript: some View {
+        VStack(alignment: .leading, spacing: 10) {
             Group {
                 if model.transcript.isEmpty {
                     Text("Transcription")
                         .foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     ScrollView(showsIndicators: false) {
                         Text(model.transcript)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)
                     }
-                    .padding(.trailing, 52)
                 }
             }
-            .font(.system(size: 15, weight: .light, design: .rounded))
+            .font(.system(size: 13.5, weight: .regular, design: .rounded))
             .lineSpacing(3)
-            .frame(maxWidth: .infinity, minHeight: 76, maxHeight: 96, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: 68, maxHeight: 92, alignment: .topLeading)
 
-            if !model.transcript.isEmpty {
-                HStack(spacing: 10) {
-                    Button {
-                        model.copyTranscript()
-                    } label: {
-                        Image(systemName: model.didCopy ? "checkmark" : "doc.on.doc")
-                    }
-                    .help(model.didCopy ? "Copied" : "Copy")
-
-                    Button {
-                        model.clearTranscript()
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .help("Clear")
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.secondary)
+            if let message = visibleMessage {
+                Text(message)
+                    .font(.system(size: 8.5, weight: .regular, design: .monospaced))
+                    .foregroundStyle(model.lastErrorMessage == nil ? Color.secondary : Color.red)
             }
         }
-        .padding(14)
-        .background(palette.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(palette.border, lineWidth: 0.5)
-        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(palette.background)
     }
 
-    private var controlStrip: some View {
+    private var footer: some View {
         HStack(spacing: 8) {
-            Picker("Appearance", selection: $appearanceRawValue) {
-                Image(systemName: "circle.lefthalf.filled")
-                    .tag(MinivoxAppearance.system.rawValue)
-                Image(systemName: "sun.max")
-                    .tag(MinivoxAppearance.light.rawValue)
-                Image(systemName: "moon")
-                    .tag(MinivoxAppearance.dark.rawValue)
+            Button {
+                model.loadHistory()
+                page = .history
+            } label: {
+                Label("History", systemImage: "clock")
             }
-            .labelsHidden()
-            .pickerStyle(.segmented)
-            .frame(width: 98)
-            .tint(palette.controlTint)
-            .help("Appearance")
-
-            Rectangle()
-                .fill(palette.border)
-                .frame(width: 0.5, height: 20)
+            .buttonStyle(MinivoxRailButtonStyle(palette: palette))
 
             Button {
-                if model.isCapturingShortcut {
-                    model.cancelShortcutCapture()
-                } else {
-                    model.beginShortcutCapture()
-                }
+                page = .settings
             } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "command")
-
-                    if model.isCapturingShortcut {
-                        Text("…")
-                    } else if let shortcut = model.dictationShortcut {
-                        Text(shortcut.title)
-                    }
-                }
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .frame(minWidth: 44)
-                .padding(.horizontal, 7)
-                .frame(height: 24)
-                .background(palette.controlSurface, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                Label("Settings", systemImage: "slider.horizontal.3")
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help(model.dictationShortcut == nil ? "Set shortcut" : "Change shortcut")
-
-            if model.dictationShortcut != nil && !model.isCapturingShortcut {
-                Button {
-                    model.disableShortcut()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .medium))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.tertiary)
-                .help("Clear shortcut")
-            }
+            .buttonStyle(MinivoxRailButtonStyle(palette: palette))
 
             Spacer(minLength: 0)
 
@@ -226,31 +243,52 @@ struct ContentView: View {
                 Button {
                     model.warmASR()
                 } label: {
-                    Image(systemName: "bolt")
+                    Image(systemName: "bolt.fill")
+                        .foregroundStyle(palette.accent)
                 }
                 .buttonStyle(.plain)
                 .disabled(model.isRecording || model.isWorking || model.isWarmingASR)
                 .help("Warm up Parakeet")
             }
-
-            Button {
-                NSApplication.shared.terminate(nil)
-            } label: {
-                Image(systemName: "power")
-            }
-            .buttonStyle(.plain)
-            .help("Quit Minivox")
         }
-        .font(.system(size: 11, weight: .regular))
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 12)
-        .frame(height: 48)
+        .padding(.horizontal, 13)
+        .frame(height: 44)
         .background(palette.strip)
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(palette.border)
                 .frame(height: 0.5)
         }
+    }
+
+    private var actionTitle: String {
+        if model.isRecording { return "Listening" }
+        if model.isWarmingASR { return "Warming" }
+        if model.isWorking { return "Transcribing" }
+        if model.didCopy && !model.transcript.isEmpty { return "Transcribed" }
+        return "Ready"
+    }
+
+    private var actionDetail: String {
+        if model.isRecording { return "Speak" }
+        if model.isWarmingASR { return "Loading Parakeet" }
+        if model.isWorking { return "Working locally" }
+        if model.didCopy && !model.transcript.isEmpty { return "Ready in clipboard" }
+        return "Click or press shortcut"
+    }
+
+    private var statusTitle: String {
+        if model.isRecording { return "Live" }
+        if model.isWarmingASR { return "Warm" }
+        if model.isWorking { return "Work" }
+        if model.asrReadyInMemory { return "Ready" }
+        return "Cold"
+    }
+
+    private var statusColor: Color {
+        if model.isRecording { return .red }
+        if model.asrReadyInMemory { return palette.accent }
+        return .secondary
     }
 
     private var visibleMessage: String? {
@@ -262,131 +300,52 @@ struct ContentView: View {
         return message.isEmpty ? nil : message
     }
 
-    private var statusTitle: String {
-        if model.isRecording { return "listen" }
-        if model.isWarmingASR { return "warm" }
-        if model.isWorking { return "transcribe" }
-        if model.asrReadyInMemory { return "ready" }
-        return "cold"
-    }
-
-    private var statusTint: Color {
-        model.isRecording ? .red : .secondary
-    }
-
-    private var recordTitle: String {
-        if model.isRecording { return "Finish" }
-        if model.isWarmingASR { return "Warming" }
-        if model.isWorking { return "Transcribing" }
-        return "Dictate"
-    }
-
     private var selectedAppearance: MinivoxAppearance {
         MinivoxAppearance(rawValue: appearanceRawValue) ?? .system
+    }
+
+    private var effectiveColorScheme: ColorScheme {
+        selectedAppearance.colorScheme ?? systemColorScheme
     }
 
     private var palette: MinivoxPalette {
         MinivoxPalette(colorScheme: effectiveColorScheme)
     }
 
-    private var effectiveColorScheme: ColorScheme {
-        selectedAppearance.colorScheme ?? systemColorScheme
+    private enum Page: Equatable {
+        case dictation
+        case history
+        case settings
+
+        var title: String {
+            switch self {
+            case .dictation: "Minivox"
+            case .history: "History"
+            case .settings: "Settings"
+            }
+        }
     }
 }
 
-private struct ActivityIndicator: View {
-    let title: String
-    let tint: Color
-    let isBusy: Bool
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if isBusy {
-                ProgressView()
-                    .controlSize(.mini)
-                    .tint(tint)
-            } else {
-                Circle()
-                    .fill(tint)
-                    .frame(width: 5, height: 5)
-            }
-
-            Text(title.uppercased())
-                .font(.system(size: 8, weight: .medium, design: .monospaced))
-                .tracking(0.8)
-                .foregroundStyle(.secondary)
+private extension View {
+    @ViewBuilder
+    func minivoxWindowBackground(_ color: Color) -> some View {
+        if #available(macOS 15.0, *) {
+            containerBackground(color, for: .window)
+        } else {
+            self
         }
     }
 }
 
-private struct MinivoxPalette {
-    let colorScheme: ColorScheme
-
-    var background: Color {
-        colorScheme == .dark
-            ? Color(red: 0.055, green: 0.055, blue: 0.052)
-            : Color(red: 0.955, green: 0.947, blue: 0.925)
-    }
-
-    var strip: Color {
-        colorScheme == .dark
-            ? Color(red: 0.035, green: 0.035, blue: 0.033)
-            : Color(red: 0.91, green: 0.90, blue: 0.875)
-    }
-
-    var card: Color {
-        colorScheme == .dark
-            ? Color(red: 0.082, green: 0.082, blue: 0.078)
-            : Color(red: 0.985, green: 0.98, blue: 0.965)
-    }
-
-    var controlFill: Color {
-        colorScheme == .dark
-            ? Color(red: 0.89, green: 0.88, blue: 0.84)
-            : Color(red: 0.075, green: 0.075, blue: 0.07)
-    }
-
-    var controlForeground: Color {
-        colorScheme == .dark
-            ? Color(red: 0.07, green: 0.07, blue: 0.065)
-            : Color(red: 0.94, green: 0.93, blue: 0.90)
-    }
-
-    var logoBackground: Color { controlFill }
-    var logoForeground: Color { controlForeground }
-
-    var controlSurface: Color {
-        colorScheme == .dark
-            ? Color.white.opacity(0.055)
-            : Color.black.opacity(0.045)
-    }
-
-    var controlTint: Color {
-        colorScheme == .dark
-            ? Color(red: 0.82, green: 0.81, blue: 0.78)
-            : Color(red: 0.12, green: 0.12, blue: 0.11)
-    }
-
-    var border: Color {
-        colorScheme == .dark
-            ? Color.white.opacity(0.045)
-            : Color.black.opacity(0.075)
-    }
-}
-
-private struct MiniWave: View {
-    let color: Color
-
-    private let heights: [CGFloat] = [4, 8, 12, 7, 10, 5]
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 2) {
-            ForEach(Array(heights.enumerated()), id: \.offset) { _, height in
-                Capsule(style: .continuous)
-                    .fill(color)
-                    .frame(width: 2, height: height)
-            }
+private struct PopoverWindowConfiguration: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        DispatchQueue.main.async {
+            view.window?.hasShadow = false
         }
-        .accessibilityHidden(true)
+        return view
     }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }
