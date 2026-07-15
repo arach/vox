@@ -17,6 +17,32 @@ const isProduction = import.meta.env.PROD
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+    <script async is:inline src="https://www.googletagmanager.com/gtag/js?id=G-SCL11LG51S"></script>
+    <script is:inline>
+      window.dataLayer = window.dataLayer || []
+      function gtag() { dataLayer.push(arguments) }
+      gtag('js', new Date())
+      gtag('config', 'G-SCL11LG51S')
+
+      document.addEventListener('click', function (event) {
+        if (!(event.target instanceof Element)) return
+
+        const link = event.target.closest('a[href]')
+        if (!link) return
+
+        const url = new URL(link.href, window.location.href)
+        if (!url.pathname.toLowerCase().endsWith('.dmg')) return
+
+        const fileName = decodeURIComponent(url.pathname.split('/').pop() || '')
+        gtag('event', 'installer_download', {
+          file_name: fileName,
+          installer_name: fileName.replace(/\.dmg$/i, ''),
+          link_url: url.href,
+          link_text: (link.textContent || '').trim(),
+          transport_type: 'beacon',
+        })
+      })
+    </script>
     {isProduction && <link rel="stylesheet" href="/pagefind/pagefind-ui.css" />}
     <script is:inline>
       ;(function () {
