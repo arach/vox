@@ -2,21 +2,27 @@
 import PackageDescription
 
 let package = Package(
-    name: "VoxMinimalExample",
+    name: "VoxApp",
     platforms: [
         .macOS(.v26)
     ],
     dependencies: [
-        .package(path: "../../swift")
+        .package(path: "../../swift"),
+        .package(url: "git@github.com:arach/hudson.git", branch: "main"),
     ],
     targets: [
         .executableTarget(
-            name: "VoxMinimalExample",
+            name: "Vox",
             dependencies: [
                 .product(name: "VoxCore", package: "swift"),
+                .product(name: "VoxBridge", package: "swift"),
                 .product(name: "VoxEngine", package: "swift"),
+                .product(name: "HudsonUI", package: "hudson"),
+                .product(name: "HudsonShell", package: "hudson"),
             ],
+            path: "Vox",
             resources: [
+                .process("Assets.xcassets"),
                 .process("Resources")
             ]
         )

@@ -11,8 +11,8 @@ dist
 coverage
 swift/.build
 swift/.swiftpm
-app/.build
-app/.swiftpm
+apps/*/.build
+apps/*/.swiftpm
 *.log
 .runtime
 .swift-cache

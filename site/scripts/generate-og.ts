@@ -243,7 +243,13 @@ function renderDocTemplate(title: string, eyebrow: string, detail: string) {
 </html>`;
 }
 
-function renderLandingTemplate(title: string, eyebrow: string, detail: string) {
+function renderLandingTemplate(
+  title: string,
+  eyebrow: string,
+  detail: string,
+  panelLabel = "Bridge",
+  panelLines = ["npm install @voxd/client", "probe() + transcribe()", "Local companion on macOS"],
+) {
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -448,8 +454,8 @@ function renderLandingTemplate(title: string, eyebrow: string, detail: string) {
       </div>
       <div class="right">
         <div class="panel">
-          <div class="panel-label">Bridge</div>
-          <div class="panel-body">npm install @voxd/client<br />probe() + transcribe()<br />Local companion on macOS</div>
+          <div class="panel-label">${shellEscape(panelLabel)}</div>
+          <div class="panel-body">${panelLines.map(shellEscape).join("<br />")}</div>
           <div class="panel-accent"></div>
         </div>
       </div>
@@ -479,12 +485,26 @@ try {
     writeTempHtml(
       "web",
       renderLandingTemplate(
-        "Local transcription for apps that live in the browser.",
+        "Local transcription for web apps.",
         "Web SDK",
-        "Install. Probe. Transcribe locally.",
+        "Install. Check. Transcribe locally.",
       ),
     ),
     join(publicRoot, "og", "web.png"),
+  );
+
+  renderToPng(
+    writeTempHtml(
+      "minivox",
+      renderLandingTemplate(
+        "Say it. Minivox types it.",
+        "Minivox",
+        "Tiny local dictation for macOS.",
+        "One small job",
+        ["Click + speak", "Parakeet transcription", "Copied to your clipboard"],
+      ),
+    ),
+    join(publicRoot, "og", "minivox.png"),
   );
 
   const docsIndexHtml = writeTempHtml(

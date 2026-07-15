@@ -32,10 +32,10 @@ for arg in "$@"; do
   esac
 done
 
-SCRATCH="$ROOT/app/.build-$(swift --version 2>&1 | shasum | cut -d ' ' -f 1)"
+SCRATCH="$ROOT/apps/vox/.build-$(swift --version 2>&1 | shasum | cut -d ' ' -f 1)"
 DEV_DIR="$ROOT/dist/dev"
 BUNDLE="$DEV_DIR/Vox Dev.app"
-APP_ICONSET="$ROOT/app/Vox/Assets.xcassets/AppIcon.appiconset"
+APP_ICONSET="$ROOT/apps/vox/Vox/Assets.xcassets/AppIcon.appiconset"
 APP_ICON="$BUNDLE/Contents/Resources/Vox.icns"
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
@@ -70,11 +70,11 @@ stop_dev_app() {
 
 if $DO_BUILD; then
   say "building dev app and helper binaries"
-  swift build --package-path "$ROOT/app" --scratch-path "$SCRATCH"
+  swift build --package-path "$ROOT/apps/vox" --scratch-path "$SCRATCH"
   swift build --package-path "$ROOT/swift" --product voxd --product voxttsd
 fi
 
-APP_BIN_DIR="$(swift build --package-path "$ROOT/app" --scratch-path "$SCRATCH" --show-bin-path)"
+APP_BIN_DIR="$(swift build --package-path "$ROOT/apps/vox" --scratch-path "$SCRATCH" --show-bin-path)"
 SWIFT_BIN_DIR="$(swift build --package-path "$ROOT/swift" --show-bin-path)"
 APP_BIN="$APP_BIN_DIR/Vox"
 VOXD_BIN="$SWIFT_BIN_DIR/voxd"

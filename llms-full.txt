@@ -41,6 +41,8 @@ Many voice stacks hide lifecycle, warm-up, and latency. Vox tries to keep those 
 ## Repository layout
 
 - `swift/`: VoxCore, VoxEngine, VoxService, VoxBridge, voxd companion
+- `apps/vox/`: full Vox companion app
+- `apps/minivox/`: small, single-purpose menu-bar dictation app
 - `packages/client/`: `@voxd/sdk` (TypeScript SDK)
 - `packages/web-client/`: `@voxd/client` (browser SDK)
 - `packages/cli/`: `@voxd/cli` (Node CLI)
@@ -60,8 +62,16 @@ Apple app teams embed the Swift packages directly and keep the same provider, wa
 
 ## Reference implementations
 
-- `examples/macos-minimal/` is a good standalone reference for the direct Apple embed path.
+- `apps/minivox/` is the small, single-purpose menu-bar dictation app built on the direct Apple embed path.
 - `packages/client/` and `packages/web-client/` are good companion-mode SDK references in the repo.
+
+Install the signed and notarized Minivox app through the existing CLI or Homebrew:
+
+```bash
+npx -y @voxd/cli@latest install mini
+# or
+brew install --cask arach/vox/minivox
+```
 
 ## Workflows
 
@@ -91,7 +101,7 @@ Source: /docs/quickstart
 
 ## Prerequisites
 
-- macOS 14+ or iOS 17+ for direct Swift transcription embedding; macOS 26+ for the Vox menu app and Apple Intelligence demo paths
+- macOS 14+ or iOS 17+ for direct Swift transcription embedding; macOS 14+ for Minivox; macOS 26+ for the Vox menu app
 - Node 22+
 - Vox Companion installed from the DMG, or `voxd` available at `~/.vox/bin/voxd`
 - Swift 6.2+ only if you plan to build Vox from a repo checkout
@@ -164,7 +174,7 @@ If you are integrating Vox into a macOS or iOS app, read the [Swift Embed Guide]
 
 If you are wiring external STT or TTS engines into Vox Companion, read the [Provider Protocol](./providers.md).
 
-Try the [minimal macOS demo app](https://github.com/arach/vox/tree/main/examples/macos-minimal) for the current Apple embed reference, or the [transcribe TUI](https://github.com/arach/vox/tree/main/examples/transcribe-tui) for a companion-connected terminal sample.
+Try [Minivox](https://github.com/arach/vox/tree/main/apps/minivox), the small menu-bar dictation app built directly on Vox. The [transcribe TUI](https://github.com/arach/vox/tree/main/examples/transcribe-tui) remains the companion-connected terminal sample.
 
 # Swift Embed Guide
 
@@ -193,8 +203,7 @@ There is not yet a polished one-object Apple SDK facade. Agents should usually c
 ## Package setup
 
 `VoxCore` and `VoxEngine` support direct transcription embedding on macOS 14+
-and iOS 17+. Higher-level demos that use Apple Intelligence still require the
-newer OS versions those Apple APIs require.
+and iOS 17+. Minivox uses that same direct path on macOS 14+.
 
 For a sibling repo during local development, prefer a local SwiftPM dependency:
 
@@ -1583,6 +1592,13 @@ Public protocol and SDK-facing type shapes.
 
 - `annotate.file`
 
+### History
+
+- `history.list`
+- `history.get`
+- `history.delete`
+- `history.clear`
+
 ### Synthesis
 
 - `synthesize.voices`
@@ -1899,6 +1915,8 @@ Warm-up is always explicit. Preserve `clientId`, `route`, `modelId`, and `voiceI
 |---|---|
 | Swift package products and platforms | `swift/Package.swift` |
 | ASR/TTS provider behavior | `swift/Sources/VoxEngine/` |
+| Full Vox companion app | `apps/vox/` |
+| Minivox dictation app | `apps/minivox/` |
 | Runtime routes and session ownership | `swift/Sources/VoxService/VoxRuntimeService.swift` |
 | Companion SDK methods and types | `packages/client/src/client.ts`, `packages/client/src/types.ts` |
 | Browser API and HTTP paths | `packages/web-client/src/client.ts`, `packages/web-client/src/types.ts` |
@@ -2161,7 +2179,7 @@ Source: docs/agent/overview.agent.md
 
 # Vox Facts
 
-- platforms: `macOS 14+` / `iOS 17+` for Swift transcription embedding; `macOS 26+` for the Hudson menu app and Apple Intelligence demo paths
+- platforms: `macOS 14+` / `iOS 17+` for Swift transcription embedding; `macOS 14+` for Minivox; `macOS 26+` for the Hudson menu app
 - deployment modes:
   - embed mode: Swift packages inside the app process
   - companion mode: `voxd` for web, browser, and shared-process clients
@@ -2171,6 +2189,9 @@ Source: docs/agent/overview.agent.md
 - CLI: `@voxd/cli` (Bun)
 - companion SDK: `@voxd/sdk` (TypeScript, WebSocket JSON-RPC to `voxd`)
 - browser SDK: `@voxd/client` (HTTP bridge to Vox Companion)
+- full companion app: `apps/vox/`
+- Minivox dictation app: `apps/minivox/`
+- Minivox install: `npx -y @voxd/cli@latest install mini` or `brew install --cask arach/vox/minivox`
 - model focus: `parakeet:v3` for ASR, `gpt-4o-mini-tts` for default TTS
 - warmup: explicit API surface
 - telemetry dimensions: `clientId`, `route`, `modelId`, `voiceId`
@@ -2201,7 +2222,8 @@ Source: docs/agent/quickstart.agent.md
 # Quickstart Facts
 
 - Swift embed minimums: macOS 14+, iOS 17+
-- packaged Vox menu app and Apple Intelligence demos can require macOS 26+
+- Minivox direct-embed dictation app: `apps/minivox/`, macOS 14+
+- packaged Vox menu app requires macOS 26+
 - published CLI requires Node 22+
 - install CLI: `npm install -g @voxd/cli`
 - install Companion from the DMG before `vox install`, or provide `~/.vox/bin/voxd`

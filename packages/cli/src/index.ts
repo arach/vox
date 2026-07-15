@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 import { spawn, spawnSync } from "child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { writeFile } from "fs/promises";
-import { homedir } from "os";
+import { homedir, tmpdir } from "os";
 import { dirname, join, resolve } from "path";
 import { createInterface } from "readline";
 import { fileURLToPath } from "url";
@@ -16,6 +16,7 @@ import {
   type FileTranscriptionResult,
   type ModelInfo,
   type RuntimeInfo,
+  type SpeechHistoryRecord,
   type SynthesisMetrics,
   type SynthesisResult,
   type TranscriptionMetrics,
@@ -30,6 +31,8 @@ const DEV_REPO_ROOT = resolve(MODULE_DIR, "../../..");
 const DEV_SWIFT_ROOT = join(DEV_REPO_ROOT, "swift");
 const DEV_DAEMON_BINARY = join(DEV_SWIFT_ROOT, ".build", "debug", "voxd");
 const DEV_TTS_BINARY = join(DEV_SWIFT_ROOT, ".build", "debug", "voxttsd");
+const CLI_VERSION = (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }).version;
+const MINIVOX_APP_NAME = "Minivox.app";
 
 const LAUNCH_AGENT_LABEL = "cc.voxd.daemon";
 const LEGACY_LAUNCH_AGENT_LABELS = ["com.vox.daemon"];
@@ -59,6 +62,9 @@ async function main(argv: string[]): Promise<void> {
     case "perf":
       await handlePerf(subcommand, rest);
       return;
+    case "history":
+      await handleHistory(subcommand, rest);
+      return;
     case "logs":
       handleLogs(subcommand, rest);
       return;
@@ -75,10 +81,10 @@ async function main(argv: string[]): Promise<void> {
       launchTui();
       return;
     case "install":
-      await handleInstall();
+      await handleInstall(subcommand, rest);
       return;
     case "uninstall":
-      await handleUninstall();
+      await handleUninstall(subcommand, rest);
       return;
     case "help":
     case undefined:
@@ -376,6 +382,53 @@ async function handlePerf(subcommand: string | undefined, rest: string[]): Promi
   }
 }
 
+async function handleHistory(subcommand: string | undefined, rest: string[]): Promise<void> {
+  const command = !subcommand || subcommand.startsWith("--") ? "list" : subcommand;
+  const args = subcommand?.startsWith("--") ? [subcommand, ...rest] : rest;
+
+  switch (command) {
+    case "list": {
+      const limit = Number(readOption(args, "--limit") ?? 20);
+      if (!Number.isInteger(limit) || limit < 1) {
+        throw new Error(`Expected a positive integer limit, received: ${readOption(args, "--limit") ?? "(missing)"}`);
+      }
+      const clientId = readOption(args, "--client");
+      const modelId = readOption(args, "--model");
+      const source = readOption(args, "--source") as "file" | "live" | undefined;
+      const json = args.includes("--json");
+      await withClient(async (client) => {
+        const result = await client.listHistory({
+          kind: "transcription",
+          clientId,
+          modelId,
+          source,
+          limit,
+        });
+        if (json) {
+          console.log(JSON.stringify(result.records, null, 2));
+        } else {
+          printHistoryRecords(result.records);
+        }
+      });
+      return;
+    }
+    case "delete": {
+      const id = rest.find((value) => !value.startsWith("--"));
+      if (!id) {
+        throw new Error("Usage: vox history delete <id>");
+      }
+      await withClient(async (client) => {
+        const deleted = await client.deleteHistoryRecord(id);
+        console.log(`deleted: ${deleted}`);
+        console.log(`id: ${id}`);
+      });
+      return;
+    }
+    default:
+      throw new Error(`Unknown history command: ${command}`);
+  }
+}
+
 function handleLogs(subcommand: string | undefined, rest: string[]): void {
   const args = subcommand?.startsWith("--") ? [subcommand, ...rest] : rest;
   const tail = Number(readOption(args, "--tail") ?? 80);
@@ -575,6 +628,31 @@ function printLiveSessionStatus(status: Awaited<ReturnType<VoxClient["getLiveSes
   console.log(`model: ${status.modelId}`);
   console.log(`state: ${status.state}`);
   console.log(`started: ${status.startedAt}`);
+}
+
+function printHistoryRecords(records: SpeechHistoryRecord[]): void {
+  if (records.length === 0) {
+    console.log("No transcript history.");
+    return;
+  }
+
+  for (const record of records) {
+    const parts = [
+      record.completedAt,
+      record.source ?? record.kind,
+      `client=${record.clientId}`,
+      `model=${record.modelId}`,
+      `elapsed=${formatMs(record.elapsedMs)}`,
+      `id=${record.id}`,
+    ];
+    if (record.sessionId) {
+      parts.splice(2, 0, `session=${record.sessionId}`);
+    }
+    console.log(parts.join("  "));
+    if (record.text) {
+      console.log(`  ${record.text}`);
+    }
+  }
 }
 
 interface PerformanceSample {
@@ -826,6 +904,8 @@ function resolveLogPath(target: string): string {
       return join(home, "performance.jsonl");
     case "voice":
       return join(home, "voice.jsonl");
+    case "history":
+      return join(home, "history.jsonl");
     default:
       throw new Error(`Unknown logs target: ${target}`);
   }
@@ -962,7 +1042,42 @@ function launchTui(): void {
   process.exit(spawnSyncStatus(proc) ?? 1);
 }
 
-async function handleInstall(): Promise<void> {
+interface MinivoxInstallOptions {
+  user: boolean;
+  launch: boolean;
+}
+
+export function minivoxReleaseDownloadURL(version = CLI_VERSION): string {
+  return `https://github.com/arach/vox/releases/download/v${version}/Minivox.dmg`;
+}
+
+export function parseMinivoxInstallOptions(args: string[]): MinivoxInstallOptions {
+  const known = new Set(["--user", "--no-launch"]);
+  const unknown = args.find((arg) => !known.has(arg));
+  if (unknown) {
+    throw new Error(`Unknown Minivox install option: ${unknown}`);
+  }
+  return {
+    user: args.includes("--user"),
+    launch: !args.includes("--no-launch"),
+  };
+}
+
+function resolveMinivoxApplicationsDirectory(user: boolean): string {
+  const override = process.env.MINIVOX_APPLICATIONS_DIR;
+  if (override) return override;
+  return user ? join(homedir(), "Applications") : "/Applications";
+}
+
+async function handleInstall(target: string | undefined, args: string[]): Promise<void> {
+  if (target === "mini" || target === "minivox") {
+    await installMinivox(parseMinivoxInstallOptions(args));
+    return;
+  }
+  if (target) {
+    throw new Error(`Unknown install target: ${target}. Use \`vox install mini\` or \`vox install\`.`);
+  }
+
   const voxdPath = resolveVoxdBinary();
   if (!voxdPath) {
     throw new Error(
@@ -990,7 +1105,19 @@ async function handleInstall(): Promise<void> {
   console.log(`  logs:  ${LOGS_DIR}`);
 }
 
-async function handleUninstall(): Promise<void> {
+async function handleUninstall(target: string | undefined, args: string[]): Promise<void> {
+  if (target === "mini" || target === "minivox") {
+    const options = parseMinivoxInstallOptions(args);
+    spawnSync("pkill", ["-x", "Minivox"], { stdio: "ignore" });
+    const destination = join(resolveMinivoxApplicationsDirectory(options.user), MINIVOX_APP_NAME);
+    rmSync(destination, { recursive: true, force: true });
+    console.log(`Minivox removed from ${destination}`);
+    return;
+  }
+  if (target) {
+    throw new Error(`Unknown uninstall target: ${target}. Use \`vox uninstall mini\` or \`vox uninstall\`.`);
+  }
+
   launchctl(["bootout", `gui/${process.getuid?.() ?? 501}/${LAUNCH_AGENT_LABEL}`], { allowFail: true });
   if (existsSync(PLIST_PATH)) {
     rmSync(PLIST_PATH, { force: true });
@@ -999,6 +1126,73 @@ async function handleUninstall(): Promise<void> {
     console.log("Vox Companion is not installed (no plist found).");
   }
   evictLegacyLaunchAgents();
+}
+
+async function installMinivox(options: MinivoxInstallOptions): Promise<void> {
+  if (process.platform !== "darwin") {
+    throw new Error("Minivox requires macOS 14 or newer.");
+  }
+
+  const applicationsDirectory = resolveMinivoxApplicationsDirectory(options.user);
+  const destination = join(applicationsDirectory, MINIVOX_APP_NAME);
+  const workDirectory = mkdtempSync(join(tmpdir(), "minivox-installer-"));
+  const dmgPath = join(workDirectory, "Minivox.dmg");
+  const mountPoint = join(workDirectory, "mounted");
+  let mounted = false;
+
+  try {
+    mkdirSync(mountPoint, { recursive: true });
+    const downloadURL = minivoxReleaseDownloadURL();
+    console.log(`Downloading Minivox ${CLI_VERSION}…`);
+    const response = await fetch(downloadURL, { redirect: "follow" });
+    if (!response.ok) {
+      throw new Error(`Download failed (${response.status} ${response.statusText}): ${downloadURL}`);
+    }
+    await writeFile(dmgPath, Buffer.from(await response.arrayBuffer()));
+
+    console.log("Verifying Apple notarization…");
+    runRequired("spctl", ["--assess", "--type", "open", "--context", "context:primary-signature", "--verbose=2", dmgPath]);
+    runRequired("hdiutil", ["attach", dmgPath, "-nobrowse", "-readonly", "-mountpoint", mountPoint]);
+    mounted = true;
+
+    const source = join(mountPoint, MINIVOX_APP_NAME);
+    if (!existsSync(source)) {
+      throw new Error(`The release does not contain ${MINIVOX_APP_NAME}.`);
+    }
+
+    console.log("Verifying the app signature…");
+    runRequired("codesign", ["--verify", "--deep", "--strict", "--verbose=2", source]);
+
+    mkdirSync(applicationsDirectory, { recursive: true });
+    rmSync(destination, { recursive: true, force: true });
+    runRequired("ditto", [source, destination]);
+    console.log(`Minivox installed at ${destination}`);
+
+    if (options.launch) {
+      runRequired("open", [destination]);
+    }
+  } catch (error) {
+    if (applicationsDirectory === "/Applications") {
+      console.error("If /Applications is not writable, retry with --user.");
+    }
+    throw error;
+  } finally {
+    if (mounted) {
+      const detach = spawnSync("hdiutil", ["detach", mountPoint], { stdio: "ignore" });
+      if (spawnSyncStatus(detach) !== 0) {
+        spawnSync("hdiutil", ["detach", "-force", mountPoint], { stdio: "ignore" });
+      }
+    }
+    rmSync(workDirectory, { recursive: true, force: true });
+  }
+}
+
+function runRequired(command: string, args: string[]): void {
+  const result = spawnSync(command, args, { stdio: "inherit" });
+  if (result.error) throw result.error;
+  if (spawnSyncStatus(result) !== 0) {
+    throw new Error(`${command} exited with status ${spawnSyncStatus(result) ?? "unknown"}`);
+  }
 }
 
 function evictLegacyLaunchAgents(): void {
@@ -1161,14 +1355,18 @@ function printUsage(): void {
 
 Usage:
   vox install
+  vox install mini [--user] [--no-launch]
   vox uninstall
+  vox uninstall mini [--user]
   vox daemon start|stop|status
   vox doctor
   vox models list|install|preload [modelId]
   vox warmup status|start [modelId]
   vox warmup schedule [delayMs] [modelId]
   vox perf dashboard [--client <clientId>] [--route <route>] [--last <n>]
-  vox logs [daemon|performance|voice] [--tail <n>]
+  vox history [list] [--client <clientId>] [--model <id>] [--source file|live] [--limit <n>] [--json]
+  vox history delete <id>
+  vox logs [daemon|performance|voice|history] [--tail <n>]
   vox transcribe file [--model <id>] [--metrics] [--timestamps] <path>
   vox transcribe bench [--model <id>] <path> [runs]
   vox transcribe status

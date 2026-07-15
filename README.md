@@ -8,6 +8,7 @@ Vox is a local-first voice stack for Apple platforms. This repo brings together 
 - `@voxd/client`: Browser SDK. HTTP bridge client for local web integrations.
 - `vox`: Node CLI. Health checks, benchmarks, warm-up scheduling, dashboards.
 - `Vox.app`: Hudson-based macOS menu bar app, packaged as a signed and notarized DMG by release automation.
+- `Minivox`: tiny macOS menu-bar dictation example that embeds Vox directly and copies each transcript.
 
 Apple apps can embed Vox directly. Bun and Node tools can connect to `voxd` over local WebSocket JSON-RPC. Browser clients can connect through the companion HTTP bridge with `@voxd/client`.
 
@@ -22,7 +23,7 @@ Apple apps can embed Vox directly. Bun and Node tools can connect to `voxd` over
 
 Requirements:
 
-- macOS 14+ for the Swift transcription packages; macOS 26+ for the Hudson menu app and demo flows that use Apple Intelligence
+- macOS 14+ for the Swift transcription packages and Minivox; macOS 26+ for the Hudson menu app
 - Bun 1.2+
 - Node 22+
 - Swift 6.2+
@@ -74,36 +75,39 @@ If you are writing a local client, start here:
 - `packages/web-client/` for the browser SDK
 - `swift/` for direct Apple embed mode
 
-### c. demo
+### c. Minivox
 
-To run the standalone macOS demo app:
+To run the tiny menu-bar dictation app:
 
 ```bash
-git clone https://github.com/arach/vox.git
-cd vox
-bun install
-swift run --package-path examples/macos-minimal VoxMinimalExample
+npx -y @voxd/cli@latest install mini
 ```
 
-What the demo does:
+Or install the same signed and notarized release with Homebrew:
+
+```bash
+brew install --cask arach/vox/minivox
+```
+
+What Minivox does:
 
 - records locally from the mic
 - transcribes with Parakeet
-- replies with Apple Intelligence when available
-- falls back to local Qwen 0.6B when Apple Intelligence is not ready
-- speaks back with Kokoro through the MLX audio provider
+- copies the finished dictation to the clipboard
+- keeps Parakeet warm-up and transcription timing visible
 
 Notes:
 
-- The first run may download Parakeet, Kokoro, or the Qwen fallback model.
+- The first dictation may download Parakeet.
 - The app will ask for microphone access.
-- Apple Intelligence is optional for the demo, not required.
 
-The current standalone demo lives in `examples/macos-minimal/` and is a good reference app for direct embed mode.
+Minivox lives in `apps/minivox/` and is the small, single-purpose Vox dictation app.
 
 ## Layout
 
 - `swift/` contains `VoxCore`, `VoxEngine`, `VoxService`, and the `voxd` daemon.
+- `apps/vox` contains the full Vox companion app.
+- `apps/minivox` contains the small menu-bar dictation app.
 - `packages/client` contains the TypeScript SDK for talking to `voxd` over local WebSocket JSON-RPC.
 - `packages/web-client` contains the browser SDK for talking to the local HTTP bridge.
 - `packages/cli` contains the `vox` CLI.
@@ -169,7 +173,7 @@ Speech synthesis supports Apple system voices locally and OpenAI TTS (`gpt-4o-mi
 
 - GitHub Pages deploys from `.github/workflows/deploy-pages.yml` to `https://voxd.cc`
 - npm publishing runs from `.github/workflows/publish-packages.yml` on `v*` tags and publishes `@voxd/sdk`, `@voxd/client`, and `@voxd/cli`
-- DMG builds run from `.github/workflows/release-dmg.yml`. Tag builds create or update the matching GitHub Release and upload `Vox.dmg`.
+- DMG builds run from `.github/workflows/release-dmg.yml`. Tag builds create or update the matching GitHub Release and upload `Vox.dmg` and `Minivox.dmg`.
 - Manual DMG releases can be started from the workflow page with a version. The workflow validates the repo versions, builds the DMG, signs and notarizes it, creates `v<version>` when needed, creates the GitHub Release, and uploads the installer.
 
 Required release secrets:
@@ -179,7 +183,7 @@ Required release secrets:
 - `KEYCHAIN_PASSWORD`
 - `APP_STORE_CONNECT_API_KEY_P8`
 - `APP_STORE_CONNECT_KEY_ID` and `APP_STORE_CONNECT_ISSUER_ID` as repository variables, or secrets if needed
-- `HUDSON_READ_TOKEN` for the private SwiftPM dependency used by the macOS app bundle
+- `HUDSON_DEPLOY_KEY` for the private SwiftPM dependency used by the macOS app bundles
 - `NPM_TOKEN` in the `PRODUCTION` environment for package publishing
 
 The DMG workflow also accepts the older Apple ID notarization secrets (`APPLE_ID`, `APPLE_APP_PASSWORD`, and `APPLE_TEAM_ID`) as a fallback, plus the legacy certificate names (`APPLE_SIGNING_CERT_BASE64` and `APPLE_SIGNING_CERT_PASSWORD`).

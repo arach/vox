@@ -48,7 +48,7 @@ final class AudioRecorder: NSObject {
         }
 
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("vox-minimal-\(UUID().uuidString)")
+            .appendingPathComponent("minivox-\(UUID().uuidString)")
             .appendingPathExtension("wav")
 
         let settings: [String: Any] = [

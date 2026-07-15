@@ -36,6 +36,8 @@ Many voice stacks hide lifecycle, warm-up, and latency. Vox tries to keep those 
 ## Repository layout
 
 - `swift/`: VoxCore, VoxEngine, VoxService, VoxBridge, voxd companion
+- `apps/vox/`: full Vox companion app
+- `apps/minivox/`: small, single-purpose menu-bar dictation app
 - `packages/client/`: `@voxd/sdk` (TypeScript SDK)
 - `packages/web-client/`: `@voxd/client` (browser SDK)
 - `packages/cli/`: `@voxd/cli` (Node CLI)
@@ -55,8 +57,16 @@ Apple app teams embed the Swift packages directly and keep the same provider, wa
 
 ## Reference implementations
 
-- `examples/macos-minimal/` is a good standalone reference for the direct Apple embed path.
+- `apps/minivox/` is the small, single-purpose menu-bar dictation app built on the direct Apple embed path.
 - `packages/client/` and `packages/web-client/` are good companion-mode SDK references in the repo.
+
+Install the signed and notarized Minivox app through the existing CLI or Homebrew:
+
+```bash
+npx -y @voxd/cli@latest install mini
+# or
+brew install --cask arach/vox/minivox
+```
 
 ## Workflows
 

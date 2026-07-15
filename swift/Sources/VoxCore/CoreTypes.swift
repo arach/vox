@@ -274,7 +274,7 @@ public struct WarmupStatus: Codable, Sendable, Equatable {
     }
 }
 
-public struct WordTiming: Sendable, Equatable {
+public struct WordTiming: Codable, Sendable, Equatable {
     public let word: String
     public let start: Double   // seconds
     public let end: Double     // seconds

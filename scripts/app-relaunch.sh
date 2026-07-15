@@ -35,7 +35,7 @@ for arg in "$@"; do
 done
 
 # Match the scratch path used by `bun run app:build` so we share its build cache.
-SCRATCH="$ROOT/app/.build-$(swift --version 2>&1 | shasum | cut -d ' ' -f 1)"
+SCRATCH="$ROOT/apps/vox/.build-$(swift --version 2>&1 | shasum | cut -d ' ' -f 1)"
 
 # ---------------------------------------------------------------------------
 # 1. Stop any running Vox.
@@ -43,7 +43,7 @@ SCRATCH="$ROOT/app/.build-$(swift --version 2>&1 | shasum | cut -d ' ' -f 1)"
 
 INSTALLED_PATTERN='Vox\.app/Contents/MacOS/Vox'
 DEV_BUNDLE_PATTERN='dist/dev/Vox Dev\.app/Contents/MacOS/Vox'
-DEV_PATTERN='app/\.build.*/debug/Vox'
+DEV_PATTERN='apps/vox/\.build.*/debug/Vox'
 ANY_PATTERN="(${INSTALLED_PATTERN}|${DEV_BUNDLE_PATTERN}|${DEV_PATTERN})"
 
 if pgrep -f "$INSTALLED_PATTERN" >/dev/null 2>&1; then
@@ -89,7 +89,7 @@ fi
 
 if $DO_BUILD; then
   say "building Vox app target"
-  swift build --package-path "$ROOT/app" --scratch-path "$SCRATCH"
+  swift build --package-path "$ROOT/apps/vox" --scratch-path "$SCRATCH"
   ok "build complete"
 fi
 
@@ -97,7 +97,7 @@ fi
 # 3. Locate dev binary and launch.
 # ---------------------------------------------------------------------------
 
-BIN_DIR=$(swift build --package-path "$ROOT/app" --scratch-path "$SCRATCH" --show-bin-path)
+BIN_DIR=$(swift build --package-path "$ROOT/apps/vox" --scratch-path "$SCRATCH" --show-bin-path)
 BIN="$BIN_DIR/Vox"
 [ -x "$BIN" ] || fail "binary not found at $BIN (try without --no-build)"
 

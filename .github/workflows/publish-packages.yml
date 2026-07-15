@@ -61,6 +61,25 @@ jobs:
       - name: Build packages
         run: bun run --cwd packages/client build && bun run --cwd packages/cli build && bun run --cwd packages/web-client build
 
+      - name: Wait for matching Minivox release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./packages/cli/package.json').version")
+
+          for attempt in $(seq 1 120); do
+            if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v${VERSION}" \
+              --jq '.assets[].name' 2>/dev/null | grep -qx 'Minivox.dmg'; then
+              echo "Minivox v${VERSION} is available"
+              exit 0
+            fi
+            echo "Waiting for the signed Minivox v${VERSION} release (${attempt}/120)…"
+            sleep 30
+          done
+
+          echo "::error::Minivox v${VERSION} was not published within 60 minutes"
+          exit 1
+
       - name: Publish @voxd/sdk if needed
         working-directory: packages/client
         env:

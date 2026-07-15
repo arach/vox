@@ -111,6 +111,7 @@ export interface FileTranscriptionResult {
   elapsedMs: number;
   metrics?: TranscriptionMetrics;
   words: WordTiming[];
+  historyId?: string;
 }
 
 export interface AnnotationMetrics {
@@ -260,6 +261,58 @@ export interface SessionFinalEvent {
   elapsedMs: number;
   metrics?: TranscriptionMetrics;
   words: WordTiming[];
+  historyId?: string;
+}
+
+export interface StopLiveSessionResult {
+  stopped: boolean;
+  sessionId: string;
+  historyId?: string;
+  result?: SessionFinalEvent;
+}
+
+export type SpeechHistoryKind = "transcription" | "synthesis";
+export type SpeechHistorySource = "file" | "live";
+
+export interface SpeechHistoryRecord {
+  schemaVersion: number;
+  id: string;
+  kind: SpeechHistoryKind;
+  source?: SpeechHistorySource;
+  route: string;
+  sessionId?: string;
+  requestId?: string;
+  clientId: string;
+  originAppId?: string;
+  modelId: string;
+  voiceId?: string;
+  text?: string;
+  textLength: number;
+  words: WordTiming[];
+  elapsedMs: number;
+  metrics?: TranscriptionMetrics | SynthesisMetrics;
+  outcome: string;
+  error?: string;
+  startedAt?: string;
+  completedAt: string;
+  metadata?: Record<string, string>;
+}
+
+export interface HistoryListOptions {
+  kind?: SpeechHistoryKind;
+  source?: SpeechHistorySource;
+  clientId?: string;
+  modelId?: string;
+  sessionId?: string;
+  outcome?: string;
+  limit?: number;
+  before?: string;
+  query?: string;
+}
+
+export interface HistoryListResult {
+  records: SpeechHistoryRecord[];
+  nextCursor?: string;
 }
 
 export interface LiveSessionEvents {
