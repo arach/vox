@@ -1,8 +1,8 @@
 {
   "name": "@voxd/sdk",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "type": "module",
-  "description": "TypeScript client for the Vox local transcription runtime.",
+  "description": "Node and Bun SDK for local transcription and text-to-speech with Vox.",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./src/index.ts",
@@ -14,7 +14,8 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=22"
@@ -27,6 +28,7 @@
     "url": "git+https://github.com/arach/vox.git",
     "directory": "packages/client"
   },
+  "license": "MIT",
   "scripts": {
     "build": "bun build ./src/index.ts --outdir ./dist --target node --format esm"
   }

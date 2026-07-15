@@ -1,13 +1,14 @@
 {
   "name": "@voxd/cli",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "type": "module",
-  "description": "CLI for the Vox local transcription runtime.",
+  "description": "Command-line tools for local transcription and text-to-speech with Vox.",
   "bin": {
     "vox": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=22"
@@ -20,8 +21,9 @@
     "url": "git+https://github.com/arach/vox.git",
     "directory": "packages/cli"
   },
+  "license": "MIT",
   "dependencies": {
-    "@voxd/sdk": "0.4.2"
+    "@voxd/sdk": "0.4.3"
   },
   "scripts": {
     "build": "bun build ./src/index.ts --outdir ./dist --target node --format esm"

@@ -1,8 +1,8 @@
 {
   "name": "@voxd/client",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "type": "module",
-  "description": "Browser client for the Vox Companion local transcription runtime.",
+  "description": "Browser client for local transcription with Vox Companion.",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -17,7 +17,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE"
   ],
   "publishConfig": {
     "access": "public"
