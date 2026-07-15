@@ -28,7 +28,7 @@ Create a signed local app bundle and disk image from the repository root:
 bun run minivox:bundle
 ```
 
-The package is written to `dist/minivox/Minivox.dmg` and copied to the website download directory. Local builds are ad hoc signed by default. Set `MINIVOX_SIGN_IDENTITY` and `MINIVOX_NOTARY_PROFILE` to create a Developer ID-signed and notarized release.
+The package is written to `dist/minivox/Minivox.dmg`. Local builds are ad hoc signed and stay out of the website download directory by default. Set `MINIVOX_SIGN_IDENTITY` and `MINIVOX_NOTARY_PROFILE` to create a Developer ID-signed and notarized release.
 
 ## Core integration
 

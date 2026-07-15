@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn, spawnSync } from "child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "fs";
 import { writeFile } from "fs/promises";
 import { homedir, tmpdir } from "os";
 import { dirname, join, resolve } from "path";
@@ -1342,12 +1342,19 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
-function isMainModule(): boolean {
-  const entrypoint = process.argv[1];
+export function isEntrypoint(entrypoint: string | undefined, modulePath: string): boolean {
   if (!entrypoint) {
     return false;
   }
-  return resolve(entrypoint) === fileURLToPath(import.meta.url);
+  try {
+    return realpathSync(resolve(entrypoint)) === realpathSync(modulePath);
+  } catch {
+    return false;
+  }
+}
+
+function isMainModule(): boolean {
+  return isEntrypoint(process.argv[1], fileURLToPath(import.meta.url));
 }
 
 function printUsage(): void {
