@@ -9,6 +9,11 @@ private enum MinivoxConfig {
     static let asrModelId = "parakeet:v3"
 }
 
+private struct RecordedClip: Sendable {
+    let url: URL
+    let duration: TimeInterval
+}
+
 @MainActor
 final class MinivoxModel: ObservableObject {
     private static let legacyShortcutDefaultsKey = "minivox.dictationShortcut"
@@ -38,16 +43,20 @@ final class MinivoxModel: ObservableObject {
     @Published private(set) var historyErrorMessage: String?
     @Published private(set) var dictationShortcut: DictationShortcut?
     @Published private(set) var isCapturingShortcut = false
+    @Published private(set) var preferredInputDeviceId = ""
+    @Published private(set) var inputDevices: [AudioInputDeviceInfo] = []
 
     private let asr = EngineManager()
     private let historyRecorder = SpeechHistoryRecorder()
-    private let recorder = AudioRecorder()
+    private let recorder = MicrophoneFileRecorder()
     private var shortcutController: GlobalShortcutController?
     private var shortcutEventMonitor: Any?
+    private var recordingStartedAt: Date?
 
     init() {
         UserDefaults.standard.register(defaults: [Self.autoPasteDefaultsKey: true])
         dictationShortcut = Self.loadShortcut()
+        preferredInputDeviceId = (try? VoxPreferences.load())?.speech.preferredInputDeviceId ?? ""
 
         shortcutController = GlobalShortcutController { [weak self] in
             self?.toggleRecording()
@@ -60,7 +69,8 @@ final class MinivoxModel: ObservableObject {
         didLoad = true
 
         Task {
-            await refreshMicrophoneAvailability()
+            refreshInputDevices()
+            refreshMicrophoneAvailability()
             await refreshASRState()
 
             if UserDefaults.standard.bool(forKey: Self.warmUpOnLaunchDefaultsKey), !asrReadyInMemory {
@@ -108,6 +118,28 @@ final class MinivoxModel: ObservableObject {
 
     func refreshAutoPasteAccess() {
         autoPasteAccessGranted = CGPreflightPostEventAccess()
+    }
+
+    var effectiveInputDeviceLabel: String {
+        AudioInputDevices.effectiveLabel(preferredID: preferredInputDeviceId)
+    }
+
+    func refreshInputDevices() {
+        preferredInputDeviceId = (try? VoxPreferences.load())?.speech.preferredInputDeviceId ?? ""
+        inputDevices = AudioInputDevices.available()
+
+        if !preferredInputDeviceId.isEmpty,
+           !inputDevices.contains(where: { $0.id == preferredInputDeviceId }) {
+            preferredInputDeviceId = ""
+            savePreferredInputDevice()
+        }
+    }
+
+    func updatePreferredInputDeviceId(_ deviceId: String) {
+        preferredInputDeviceId = deviceId
+        guard savePreferredInputDevice() else { return }
+        refreshInputDevices()
+        statusMessage = ""
     }
 
     func autoPastePreferenceDidChange(isEnabled: Bool) {
@@ -203,19 +235,19 @@ final class MinivoxModel: ObservableObject {
 
     private func stopRecording() {
         guard isRecording else { return }
-
-        guard let clip = recorder.stop() else {
-            isRecording = false
-            statusMessage = ""
-            return
-        }
-
         isRecording = false
-        recordingDuration = clip.duration
+        let startedAt = recordingStartedAt
+        recordingStartedAt = nil
         statusMessage = ""
 
         Task {
             await runTask {
+                let url = try await self.recorder.stop()
+                let clip = RecordedClip(
+                    url: url,
+                    duration: max(0, Date().timeIntervalSince(startedAt ?? Date()))
+                )
+                self.recordingDuration = clip.duration
                 try await self.transcribe(clip)
             }
         }
@@ -228,35 +260,18 @@ final class MinivoxModel: ObservableObject {
         }
         guard !isRecording else { return }
 
-        await refreshMicrophoneAvailability()
-        let authorization = await AudioRecorder.authorizationStatus()
-        switch authorization {
-        case .authorized:
-            break
-        case .notDetermined:
+        refreshInputDevices()
+        refreshMicrophoneAvailability()
+        if MicrophonePermission.statusString() == "not_determined" {
             NSApplication.shared.activate(ignoringOtherApps: true)
-            let granted = await AudioRecorder.requestMicrophoneAccess()
-            guard granted else {
-                microphoneStatus = "Microphone access denied."
-                lastErrorMessage = microphoneStatus
-                statusMessage = microphoneStatus
-                return
-            }
-            microphoneStatus = "Microphone ready."
-        case .denied, .restricted:
-            microphoneStatus = AudioRecorder.statusMessage(for: authorization)
-            lastErrorMessage = microphoneStatus
-            statusMessage = microphoneStatus
-            return
-        @unknown default:
-            microphoneStatus = "Microphone unavailable."
-            lastErrorMessage = microphoneStatus
-            statusMessage = microphoneStatus
-            return
         }
 
         do {
-            _ = try recorder.start()
+            _ = try await recorder.start(
+                preferredInputDeviceID: preferredInputDeviceId,
+                filePrefix: "minivox"
+            )
+            recordingStartedAt = Date()
             isRecording = true
             recordingDuration = 0
             transcript = ""
@@ -265,7 +280,9 @@ final class MinivoxModel: ObservableObject {
             didCopy = false
             didPaste = false
             statusMessage = ""
+            refreshMicrophoneAvailability()
         } catch {
+            refreshMicrophoneAvailability()
             lastErrorMessage = error.localizedDescription
             statusMessage = error.localizedDescription
         }
@@ -354,8 +371,28 @@ final class MinivoxModel: ObservableObject {
         statusMessage = ""
     }
 
-    private func refreshMicrophoneAvailability() async {
-        microphoneStatus = AudioRecorder.statusMessage(for: await AudioRecorder.authorizationStatus())
+    private func refreshMicrophoneAvailability() {
+        microphoneStatus = switch MicrophonePermission.statusString() {
+        case "authorized": "Microphone ready."
+        case "not_determined": "Request microphone access to record."
+        case "denied": "Microphone access is denied. Enable it in System Settings."
+        case "restricted": "Microphone access is restricted."
+        default: "Microphone access is unavailable."
+        }
+    }
+
+    @discardableResult
+    private func savePreferredInputDevice() -> Bool {
+        do {
+            var preferences = (try? VoxPreferences.load()) ?? VoxPreferences()
+            let normalized = preferredInputDeviceId.trimmingCharacters(in: .whitespacesAndNewlines)
+            preferences.speech.preferredInputDeviceId = normalized.isEmpty ? nil : normalized
+            try preferences.save()
+            return true
+        } catch {
+            statusMessage = error.localizedDescription
+            return false
+        }
     }
 
     private func refreshASRState() async {

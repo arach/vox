@@ -18,7 +18,7 @@ From the repository root:
 swift run --package-path apps/minivox Minivox
 ```
 
-The first dictation may download and load Parakeet. Minivox asks for microphone access when you record for the first time. Use the visible **Warm up Parakeet** control when you want the model ready before you start speaking.
+The first dictation may download and load Parakeet. Minivox asks for microphone access when you record for the first time. Choose a microphone in **Settings**; Minivox shares that input preference with Vox. Use the visible **Warm up Parakeet** control when you want the model ready before you start speaking.
 
 ## Package
 

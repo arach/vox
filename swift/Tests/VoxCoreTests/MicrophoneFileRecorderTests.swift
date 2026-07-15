@@ -1,16 +1,16 @@
 import AVFoundation
 import Foundation
 import Testing
-@testable import VoxService
+@testable import VoxCore
 
-struct MicrophoneRecorderTests {
+struct MicrophoneFileRecorderTests {
     @Test("Manual AVCapture stop errors are recoverable")
     func manualAVCaptureStopErrorIsRecoverable() {
         let error = NSError(domain: AVFoundationErrorDomain, code: -11806, userInfo: [
             NSLocalizedDescriptionKey: "Recording Stopped"
         ])
 
-        #expect(MicrophoneRecorder.isRecoverableStopError(error))
+        #expect(MicrophoneFileRecorder.isRecoverableStopError(error))
     }
 
     @Test("Localized recording stopped errors are recoverable")
@@ -19,15 +19,15 @@ struct MicrophoneRecorderTests {
             NSLocalizedDescriptionKey: "Recording Stopped"
         ])
 
-        #expect(MicrophoneRecorder.isRecoverableStopError(error))
+        #expect(MicrophoneFileRecorder.isRecoverableStopError(error))
     }
 
     @Test("Unrelated recording errors are not recoverable")
     func unrelatedErrorIsNotRecoverable() {
-        let error = NSError(domain: "VoxServiceTests", code: 1, userInfo: [
+        let error = NSError(domain: "VoxCoreTests", code: 1, userInfo: [
             NSLocalizedDescriptionKey: "Disk full"
         ])
 
-        #expect(!MicrophoneRecorder.isRecoverableStopError(error))
+        #expect(!MicrophoneFileRecorder.isRecoverableStopError(error))
     }
 }

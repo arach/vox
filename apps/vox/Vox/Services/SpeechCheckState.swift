@@ -22,11 +22,8 @@ final class SpeechCheckState: ObservableObject {
     @Published var lastSynthesisMetrics: SynthesisMetrics?
 
     private let proxy = DaemonProxy()
+    private let recorder = MicrophoneFileRecorder()
     private var audioPlayer: AVAudioPlayer?
-    private var captureSession: AVCaptureSession?
-    private var captureOutput: AVCaptureAudioFileOutput?
-    private var recordingDelegate: SpeechCheckRecordingDelegate?
-    private var recordingURL: URL?
 
     var voiceSampleText: String {
         SpeechCheckConfig.voiceSampleText
@@ -41,8 +38,14 @@ final class SpeechCheckState: ObservableObject {
 
         Task {
             do {
-                try await requestMicrophoneAccess()
-                try startCapture(inputDeviceId: inputDeviceId)
+                let recording = try await recorder.start(
+                    preferredInputDeviceID: inputDeviceId,
+                    filePrefix: "vox-check"
+                )
+                isRecording = true
+                transcriptText = ""
+                lastTranscriptionMetrics = nil
+                status = "Recording with \(recording.inputDevice.name)..."
             } catch {
                 status = error.localizedDescription
             }
@@ -83,7 +86,7 @@ final class SpeechCheckState: ObservableObject {
 
     func cancelRecording() {
         guard isRecording else { return }
-        resetCapture(removeFile: true)
+        resetCapture()
         status = "Recording cancelled."
     }
 
@@ -138,142 +141,16 @@ final class SpeechCheckState: ObservableObject {
         }
     }
 
-    private func requestMicrophoneAccess() async throws {
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
-        case .authorized:
-            return
-        case .notDetermined:
-            let granted = await AVCaptureDevice.requestAccess(for: .audio)
-            if granted {
-                return
-            }
-            fallthrough
-        case .denied, .restricted:
-            throw NSError(domain: "VoxApp", code: 40, userInfo: [
-                NSLocalizedDescriptionKey: "Microphone access is not allowed for Vox."
-            ])
-        @unknown default:
-            throw NSError(domain: "VoxApp", code: 40, userInfo: [
-                NSLocalizedDescriptionKey: "Microphone access is unavailable."
-            ])
-        }
-    }
-
-    private func startCapture(inputDeviceId: String) throws {
-        let device = try resolveInputDevice(inputDeviceId: inputDeviceId)
-        let input = try AVCaptureDeviceInput(device: device)
-        let output = AVCaptureAudioFileOutput()
-        let session = AVCaptureSession()
-
-        session.beginConfiguration()
-        guard session.canAddInput(input) else {
-            session.commitConfiguration()
-            throw NSError(domain: "VoxApp", code: 42, userInfo: [
-                NSLocalizedDescriptionKey: "Unable to use input device \(device.localizedName)."
-            ])
-        }
-        session.addInput(input)
-
-        guard session.canAddOutput(output) else {
-            session.commitConfiguration()
-            throw NSError(domain: "VoxApp", code: 43, userInfo: [
-                NSLocalizedDescriptionKey: "Unable to create microphone recording output."
-            ])
-        }
-        session.addOutput(output)
-        session.commitConfiguration()
-
-        let fileType = preferredOutputFileType(for: output)
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("vox-check-\(UUID().uuidString)")
-            .appendingPathExtension(fileExtension(for: fileType))
-        let delegate = SpeechCheckRecordingDelegate()
-
-        session.startRunning()
-        output.startRecording(to: url, outputFileType: fileType, recordingDelegate: delegate)
-
-        captureSession = session
-        captureOutput = output
-        recordingDelegate = delegate
-        recordingURL = url
-        isRecording = true
-        transcriptText = ""
-        lastTranscriptionMetrics = nil
-        status = "Recording with \(device.localizedName)..."
-    }
-
     private func stopCapture() async throws -> URL {
-        guard let output = captureOutput, let recordingDelegate else {
-            throw NSError(domain: "VoxApp", code: 44, userInfo: [
-                NSLocalizedDescriptionKey: "No recording is active."
-            ])
-        }
-
-        output.stopRecording()
-        let url = try await recordingDelegate.waitForFinish()
-        resetCapture(removeFile: false, stopOutput: false)
+        let url = try await recorder.stop()
+        isRecording = false
         return url
     }
 
-    private func resetCapture(removeFile: Bool = false, stopOutput: Bool = true) {
-        let url = recordingURL
-        if stopOutput {
-            captureOutput?.stopRecording()
-        }
-        captureSession?.stopRunning()
-        captureSession = nil
-        captureOutput = nil
-        recordingDelegate = nil
-        recordingURL = nil
+    private func resetCapture() {
         isRecording = false
-        if removeFile, let url {
-            try? FileManager.default.removeItem(at: url)
-        }
-    }
-
-    private func resolveInputDevice(inputDeviceId: String) throws -> AVCaptureDevice {
-        let devices = audioInputDevices()
-        let trimmed = inputDeviceId.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty, let device = devices.first(where: { $0.uniqueID == trimmed }) {
-            return device
-        }
-        if let device = AVCaptureDevice.default(for: .audio) ?? devices.first {
-            return device
-        }
-        throw NSError(domain: "VoxApp", code: 45, userInfo: [
-            NSLocalizedDescriptionKey: "No microphone input device is available."
-        ])
-    }
-
-    private func preferredOutputFileType(for output: AVCaptureAudioFileOutput) -> AVFileType {
-        let fileTypes = AVCaptureAudioFileOutput.availableOutputFileTypes()
-        if fileTypes.contains(.wav) {
-            return .wav
-        }
-        if fileTypes.contains(.m4a) {
-            return .m4a
-        }
-        return fileTypes.first ?? .wav
-    }
-
-    private func audioInputDevices() -> [AVCaptureDevice] {
-        AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.microphone],
-            mediaType: .audio,
-            position: .unspecified
-        ).devices
-    }
-
-    private func fileExtension(for fileType: AVFileType) -> String {
-        switch fileType {
-        case .wav:
-            return "wav"
-        case .m4a:
-            return "m4a"
-        case .aiff:
-            return "aiff"
-        default:
-            return "caf"
+        Task {
+            await recorder.cancel()
         }
     }
 
@@ -323,57 +200,5 @@ final class SpeechCheckState: ObservableObject {
             return value.intValue
         }
         return 0
-    }
-}
-
-private final class SpeechCheckRecordingDelegate: NSObject, AVCaptureFileOutputRecordingDelegate, @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<URL, Error>?
-    private var result: Result<URL, Error>?
-
-    func waitForFinish() async throws -> URL {
-        if let result = existingResult() {
-            return try result.get()
-        }
-
-        return try await withCheckedThrowingContinuation { continuation in
-            self.lock.lock()
-            if let result = self.result {
-                self.lock.unlock()
-                continuation.resume(with: result)
-                return
-            }
-            self.continuation = continuation
-            self.lock.unlock()
-        }
-    }
-
-    func fileOutput(
-        _ output: AVCaptureFileOutput,
-        didFinishRecordingTo outputFileURL: URL,
-        from connections: [AVCaptureConnection],
-        error: Error?
-    ) {
-        let result: Result<URL, Error> = if let error {
-            .failure(error)
-        } else {
-            .success(outputFileURL)
-        }
-
-        lock.lock()
-        if let continuation {
-            self.continuation = nil
-            lock.unlock()
-            continuation.resume(with: result)
-        } else {
-            self.result = result
-            lock.unlock()
-        }
-    }
-
-    private func existingResult() -> Result<URL, Error>? {
-        lock.lock()
-        defer { lock.unlock() }
-        return result
     }
 }
