@@ -12,7 +12,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
     private let warmup: WarmupCoordinator
     private let performance = PerformanceRecorder()
     private let history: SpeechHistoryRecorder
-    private let recorder = MicrophoneRecorder()
+    private let recorder = MicrophoneFileRecorder()
     private let sessions = LiveSessionCoordinator()
     private let synthesisSessions = SynthesisSessionCoordinator()
     private let startedAt = Date()
@@ -1111,7 +1111,9 @@ public final class VoxRuntimeService: @unchecked Sendable {
                         "state": SessionState.starting.rawValue,
                         "previous": NSNull()
                     ])
-                    _ = try await self.recorder.start()
+                    _ = try await self.recorder.start(
+                        preferredInputDeviceID: self.preferencesLoader().speech.preferredInputDeviceId
+                    )
                     guard self.sessions.current(id: session.sessionId) != nil else {
                         await self.recorder.cancel()
                         return

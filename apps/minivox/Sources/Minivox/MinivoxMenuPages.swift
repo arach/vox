@@ -39,6 +39,7 @@ struct MinivoxSettingsView: View {
         .preferredColorScheme(selectedAppearance.colorScheme)
         .onAppear {
             model.refreshAutoPasteAccess()
+            model.refreshInputDevices()
         }
         .onDisappear {
             model.cancelShortcutCapture()
@@ -123,6 +124,40 @@ struct MinivoxSettingsView: View {
                     }
                 }
                 .frame(minHeight: 48)
+
+                divider
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Microphone")
+                        Text("Used for dictation")
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    Spacer()
+
+                    Picker(
+                        "Microphone",
+                        selection: Binding(
+                            get: { model.preferredInputDeviceId },
+                            set: { model.updatePreferredInputDeviceId($0) }
+                        )
+                    ) {
+                        Text("System default").tag("")
+
+                        ForEach(model.inputDevices) { device in
+                            Text(device.isSystemDefault ? "\(device.name) · default" : device.name)
+                                .tag(device.id)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .controlSize(.small)
+                    .frame(maxWidth: 164)
+                    .help(model.effectiveInputDeviceLabel)
+                }
+                .frame(minHeight: 44)
 
                 divider
 

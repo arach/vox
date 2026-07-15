@@ -7,12 +7,6 @@ import VoxEngine
 import AppKit
 #endif
 
-struct AudioInputDeviceInfo: Identifiable, Equatable {
-    let id: String
-    let name: String
-    let isSystemDefault: Bool
-}
-
 @MainActor
 final class SpeechPreferencesState: ObservableObject {
     @Published var preferredTranscriptionModelId = ""
@@ -93,13 +87,7 @@ final class SpeechPreferencesState: ObservableObject {
     }
 
     var effectiveInputDeviceLabel: String {
-        if let device = inputDevices.first(where: { $0.id == preferredInputDeviceId }) {
-            return device.name
-        }
-        if let device = inputDevices.first(where: \.isSystemDefault) {
-            return "System default · \(device.name)"
-        }
-        return "System default"
+        AudioInputDevices.effectiveLabel(preferredID: preferredInputDeviceId)
     }
 
     func load() async {
@@ -140,25 +128,7 @@ final class SpeechPreferencesState: ObservableObject {
 
     func refreshInputDevices() {
         microphonePermissionStatus = MicrophonePermission.statusString()
-        let defaultID = AVCaptureDevice.default(for: .audio)?.uniqueID
-        inputDevices = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.microphone],
-            mediaType: .audio,
-            position: .unspecified
-        ).devices
-            .map { device in
-                AudioInputDeviceInfo(
-                    id: device.uniqueID,
-                    name: device.localizedName,
-                    isSystemDefault: device.uniqueID == defaultID
-                )
-            }
-            .sorted { lhs, rhs in
-                if lhs.isSystemDefault != rhs.isSystemDefault {
-                    return lhs.isSystemDefault && !rhs.isSystemDefault
-                }
-                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
-            }
+        inputDevices = AudioInputDevices.available()
 
         if !preferredInputDeviceId.isEmpty,
            !inputDevices.contains(where: { $0.id == preferredInputDeviceId }) {
