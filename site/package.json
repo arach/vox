@@ -17,6 +17,8 @@
   },
   "devDependencies": {
     "@arach/og": "^0.3.0",
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/space-grotesk": "^5.2.10",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

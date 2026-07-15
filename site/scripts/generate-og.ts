@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { execFileSync } from "child_process";
@@ -19,6 +19,18 @@ const siteRoot = process.cwd();
 const publicRoot = join(siteRoot, "public");
 const docsOgRoot = join(publicRoot, "og", "docs");
 const tempRoot = mkdtempSync(join(tmpdir(), "vox-og-"));
+
+function inlineFont(packagePath: string): string {
+  const fontUrl = import.meta.resolve(packagePath);
+  return `data:font/woff2;base64,${readFileSync(new URL(fontUrl)).toString("base64")}`;
+}
+
+const minivoxFonts = {
+  monoRegular: inlineFont("@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2"),
+  monoMedium: inlineFont("@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2"),
+  sansRegular: inlineFont("@fontsource/space-grotesk/files/space-grotesk-latin-400-normal.woff2"),
+  sansMedium: inlineFont("@fontsource/space-grotesk/files/space-grotesk-latin-500-normal.woff2"),
+};
 
 function shellEscape(value: string): string {
   return value
@@ -464,6 +476,379 @@ function renderLandingTemplate(
 </html>`;
 }
 
+function renderMinivoxTemplate() {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      @font-face {
+        font-family: "Space Grotesk";
+        src: url("${minivoxFonts.sansRegular}") format("woff2");
+        font-style: normal;
+        font-weight: 400;
+      }
+
+      @font-face {
+        font-family: "Space Grotesk";
+        src: url("${minivoxFonts.sansMedium}") format("woff2");
+        font-style: normal;
+        font-weight: 500;
+      }
+
+      @font-face {
+        font-family: "IBM Plex Mono";
+        src: url("${minivoxFonts.monoRegular}") format("woff2");
+        font-style: normal;
+        font-weight: 400;
+      }
+
+      @font-face {
+        font-family: "IBM Plex Mono";
+        src: url("${minivoxFonts.monoMedium}") format("woff2");
+        font-style: normal;
+        font-weight: 500;
+      }
+
+      :root {
+        --bg: #050505;
+        --panel: #0d0d0d;
+        --well: #070707;
+        --ink: #f2f2f0;
+        --secondary: #a0a0a0;
+        --muted: #717171;
+        --accent: #ef4444;
+        --line: rgba(255, 255, 255, 0.1);
+        --line-strong: rgba(255, 255, 255, 0.16);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 79% 48%, rgba(239, 68, 68, 0.055), transparent 19rem),
+          var(--bg);
+        color: var(--ink);
+        font-family: "Space Grotesk", sans-serif;
+      }
+
+      .frame {
+        width: 100%;
+        height: 100%;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 430px;
+        align-items: center;
+        gap: 56px;
+        padding: 54px 58px;
+      }
+
+      .copy {
+        align-self: stretch;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-width: 0;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        color: var(--secondary);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .brand-mark {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+
+      .eyebrow {
+        margin-top: 64px;
+        color: var(--muted);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 13px;
+        letter-spacing: 0.17em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 20px 0 0;
+        font-size: 88px;
+        font-weight: 500;
+        line-height: 0.94;
+        letter-spacing: -0.06em;
+        white-space: nowrap;
+      }
+
+      h1 span { color: var(--accent); }
+
+      .description {
+        margin-top: 30px;
+        color: var(--secondary);
+        font-size: 19px;
+        letter-spacing: -0.015em;
+      }
+
+      .url {
+        margin-top: auto;
+        color: var(--muted);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .preview-wrap {
+        width: 430px;
+      }
+
+      .menu-bar {
+        margin: 0 8px 9px 0;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 9px;
+        color: var(--muted);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      .menu-icon {
+        display: grid;
+        width: 25px;
+        height: 25px;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--accent);
+        font-size: 9px;
+      }
+
+      .app {
+        overflow: hidden;
+        border: 1px solid var(--line-strong);
+        border-radius: 22px;
+        background: var(--panel);
+        box-shadow: 0 30px 90px rgba(0, 0, 0, 0.46);
+      }
+
+      .app-header {
+        height: 72px;
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        padding: 0 20px;
+        border-bottom: 1px solid var(--line);
+        background: #090909;
+      }
+
+      .app-icon {
+        display: grid;
+        width: 39px;
+        height: 39px;
+        place-items: center;
+        border-radius: 12px;
+        background: var(--accent);
+        color: #090909;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .app-name {
+        font-size: 15px;
+        font-weight: 500;
+      }
+
+      .status {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 11px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 9px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+
+      .app-body { padding: 20px; }
+
+      .dictate {
+        height: 204px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: var(--well);
+      }
+
+      .mic-ring {
+        display: grid;
+        width: 88px;
+        height: 88px;
+        place-items: center;
+        border: 7px solid rgba(239, 68, 68, 0.72);
+        border-radius: 999px;
+        background: var(--panel);
+        box-shadow: 0 0 48px rgba(239, 68, 68, 0.12);
+      }
+
+      .mic {
+        position: relative;
+        width: 14px;
+        height: 23px;
+        border: 2px solid var(--ink);
+        border-radius: 8px;
+      }
+
+      .mic::before {
+        content: "";
+        position: absolute;
+        left: -7px;
+        top: 10px;
+        width: 24px;
+        height: 17px;
+        border: 2px solid var(--ink);
+        border-top: 0;
+        border-radius: 0 0 14px 14px;
+      }
+
+      .mic::after {
+        content: "";
+        position: absolute;
+        left: 5px;
+        top: 26px;
+        width: 2px;
+        height: 8px;
+        background: var(--ink);
+        box-shadow: -5px 7px 0 0 var(--ink), 0 7px 0 0 var(--ink), 5px 7px 0 0 var(--ink);
+      }
+
+      .dictate-title {
+        margin-top: 22px;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .dictate-hint {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .transcript {
+        margin-top: 15px;
+        padding: 15px 16px 14px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--well);
+      }
+
+      .transcript-top,
+      .app-footer,
+      .metrics {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-family: "IBM Plex Mono", monospace;
+        text-transform: uppercase;
+      }
+
+      .transcript-top {
+        color: var(--muted);
+        font-size: 9px;
+        letter-spacing: 0.12em;
+      }
+
+      .copied { color: var(--accent); }
+
+      .transcript-text {
+        margin-top: 13px;
+        color: var(--secondary);
+        font-size: 13px;
+      }
+
+      .metrics {
+        margin-top: 14px;
+        justify-content: flex-start;
+        gap: 18px;
+        color: #5f5f5f;
+        font-size: 8px;
+        letter-spacing: 0.1em;
+      }
+
+      .app-footer {
+        margin-top: 16px;
+        padding: 0 3px;
+        color: #666;
+        font-size: 8px;
+        letter-spacing: 0.11em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame">
+      <div class="copy">
+        <div class="brand"><span class="brand-mark"></span>Minivox / macOS</div>
+        <div class="eyebrow">// local dictation</div>
+        <h1>Minimalist<br />voice app<span>.</span></h1>
+        <div class="description">Speak here. Paste anywhere.</div>
+        <div class="url">voxd.cc/minivox</div>
+      </div>
+
+      <div class="preview-wrap">
+        <div class="menu-bar"><span class="menu-icon">M</span>menu bar</div>
+        <div class="app">
+          <div class="app-header">
+            <div class="app-icon">M</div>
+            <div class="app-name">Minivox</div>
+            <div class="status"><span class="status-dot"></span>ready</div>
+          </div>
+          <div class="app-body">
+            <div class="dictate">
+              <div class="mic-ring"><div class="mic"></div></div>
+              <div class="dictate-title">Tap to dictate</div>
+              <div class="dictate-hint">Space or click.</div>
+            </div>
+            <div class="transcript">
+              <div class="transcript-top"><span>Dictation</span><span class="copied">✓ Copied</span></div>
+              <div class="transcript-text">Meet me at half past three.</div>
+              <div class="metrics"><span>local</span><span>142ms</span></div>
+            </div>
+            <div class="app-footer"><span>Parakeet ready</span><span>Mic ready</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>`;
+}
+
 function renderToPng(htmlPath: string, outputPath: string) {
   execFileSync("bun", ["x", "@arach/og", htmlPath, "-o", outputPath], {
     cwd: siteRoot,
@@ -477,9 +862,19 @@ function writeTempHtml(name: string, html: string) {
   return output;
 }
 
+function renderMinivoxOg() {
+  renderToPng(
+    writeTempHtml("minivox", renderMinivoxTemplate()),
+    join(publicRoot, "og", "minivox.png"),
+  );
+}
+
 try {
   mkdirSync(docsOgRoot, { recursive: true });
 
+  if (process.argv.includes("--minivox-only")) {
+    renderMinivoxOg();
+  } else {
   renderToPng(join(siteRoot, "og-template.html"), join(publicRoot, "og.png"));
   renderToPng(
     writeTempHtml(
@@ -493,19 +888,7 @@ try {
     join(publicRoot, "og", "web.png"),
   );
 
-  renderToPng(
-    writeTempHtml(
-      "minivox",
-      renderLandingTemplate(
-        "Say it. Minivox types it.",
-        "Minivox",
-        "Tiny local dictation for macOS.",
-        "One small job",
-        ["Click + speak", "Parakeet transcription", "Copied to your clipboard"],
-      ),
-    ),
-    join(publicRoot, "og", "minivox.png"),
-  );
+  renderMinivoxOg();
 
   const docsIndexHtml = writeTempHtml(
     "docs-index",
@@ -543,6 +926,7 @@ try {
       renderDocTemplate(post.title, "Blog", "voxd.cc/blog"),
     );
     renderToPng(html, join(blogOgRoot, `${post.slug}.png`));
+  }
   }
 } finally {
   rmSync(tempRoot, { recursive: true, force: true });
