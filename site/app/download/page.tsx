@@ -1,22 +1,23 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, CheckCircle2, Download, Github, ShieldCheck, TerminalSquare } from "lucide-react";
+import { ArrowUpRight, Check, CheckCircle2, Download, Github, Mic, ShieldCheck, TerminalSquare } from "lucide-react";
 import { CopyCommand } from "../../components/copy-command";
 
 const dmgUrl = "https://github.com/arach/vox/releases/latest/download/Vox.dmg";
 
 export const metadata: Metadata = {
   title: "Download Vox",
-  description: "Download the signed and notarized Vox Companion app for macOS.",
+  description: "Download Vox Companion for macOS, or install Minivox for quick local dictation.",
   openGraph: {
     title: "Download Vox",
-    description: "Download the signed and notarized Vox Companion app for macOS.",
+    description: "Download Vox Companion for macOS, or install Minivox for quick local dictation.",
     images: [{ url: "/og.png" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Download Vox",
-    description: "Download the signed and notarized Vox Companion app for macOS.",
+    description: "Download Vox Companion for macOS, or install Minivox for quick local dictation.",
     images: ["/og.png"],
   },
 };
@@ -95,8 +96,8 @@ export default function DownloadPage() {
       </section>
 
       <section className="border-b border-line">
-        <div className="mx-auto grid max-w-6xl gap-px px-6 py-20 lg:grid-cols-2">
-          <div className="border border-line bg-panel p-8">
+        <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-px px-6 py-20 lg:grid-cols-2">
+          <div className="min-w-0 border border-line bg-panel p-8">
             <div className="mb-5 flex items-center gap-3">
               <Download className="h-4 w-4 text-muted" />
               <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">Mac app</span>
@@ -106,7 +107,7 @@ export default function DownloadPage() {
             </p>
           </div>
 
-          <div className="border border-line bg-panel p-8">
+          <div className="min-w-0 border border-line bg-panel p-8">
             <div className="mb-5 flex items-center gap-3">
               <TerminalSquare className="h-4 w-4 text-muted" />
               <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">CLI</span>
@@ -115,6 +116,110 @@ export default function DownloadPage() {
             <p className="mt-4 text-[14px] leading-7 text-secondary">
               Use the CLI to check your setup, warm up models, run benchmarks, view logs, and generate speech.
             </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="minivox" aria-labelledby="minivox-heading" className="border-b border-line">
+        <div className="mx-auto max-w-6xl px-6 py-16">
+          <div className="mb-5 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
+            <span aria-hidden="true" className="h-px w-8 bg-accent" />
+            A smaller thing entirely
+          </div>
+
+          <div className="overflow-hidden rounded-[18px] border border-line-strong bg-panel shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
+            <div className="grid lg:grid-cols-[0.95fr_1.05fr]">
+              <div className="p-7 sm:p-9 lg:border-r lg:border-line">
+                <div className="flex items-center gap-3">
+                  <Image
+                    src="/minivox-icon.png"
+                    alt=""
+                    width={44}
+                    height={44}
+                    className="h-11 w-11 rounded-[11px] border border-line-strong"
+                  />
+                  <div>
+                    <p className="text-[15px] font-semibold tracking-[-0.015em] text-ink">Minivox</p>
+                    <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted">tiny macOS dictation</p>
+                  </div>
+                </div>
+
+                <h2 id="minivox-heading" className="mt-8 max-w-[13ch] text-balance text-[clamp(1.8rem,3.2vw,2.8rem)] font-medium leading-[1.04] tracking-[-0.045em] text-ink">
+                  One shortcut. One job<span className="text-accent">.</span>
+                </h2>
+                <p className="mt-5 max-w-lg text-[14px] leading-7 text-secondary">
+                  Vox Companion is the speech runtime for apps and tools. Minivox is the finished, single-purpose app: press a shortcut, dictate, and the text lands where you were typing.
+                </p>
+
+                <div className="mt-6 flex flex-wrap gap-2 font-mono text-[9px] uppercase tracking-[0.12em] text-muted">
+                  <span className="rounded-full border border-line px-3 py-1.5">Menu bar</span>
+                  <span className="rounded-full border border-line px-3 py-1.5">On-device</span>
+                  <span className="rounded-full border border-line px-3 py-1.5">Auto-paste</span>
+                </div>
+
+                <Link href="/minivox" className="mt-7 inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-ink transition-colors hover:text-accent focus-visible:text-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-accent">
+                  See Minivox <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
+                </Link>
+              </div>
+
+              <div className="border-t border-line bg-canvas p-5 sm:p-7 lg:border-t-0">
+                <div className="mb-3 flex items-center justify-between font-mono text-[9px] uppercase tracking-[0.14em] text-muted">
+                  <span>Quick preview</span>
+                  <span>menu bar / idle</span>
+                </div>
+
+                <div className="mx-auto max-w-[420px] overflow-hidden rounded-[15px] border border-line-strong bg-panel shadow-[0_24px_70px_rgba(239,68,68,0.06)]">
+                  <div className="flex h-14 items-center gap-3 border-b border-line bg-canvas px-4">
+                    <Image src="/minivox-icon.png" alt="" width={28} height={28} className="h-7 w-7 rounded-[7px]" />
+                    <div>
+                      <p className="text-[12px] font-semibold text-ink">Minivox</p>
+                      <p className="font-mono text-[8px] uppercase tracking-[0.1em] text-muted">local dictation</p>
+                    </div>
+                    <span className="ml-auto inline-flex items-center gap-2 rounded-full border border-line px-2.5 py-1 font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
+                      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" /> ready
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-4 border-b border-line px-5 py-5">
+                    <div className="relative grid h-14 w-14 shrink-0 place-items-center rounded-full border border-accent/50 bg-canvas shadow-[0_0_32px_rgba(239,68,68,0.08)]">
+                      <span aria-hidden="true" className="absolute inset-[5px] rounded-full border border-line" />
+                      <Mic aria-hidden="true" className="h-4 w-4 text-ink" strokeWidth={1.7} />
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-medium text-ink">Ready</p>
+                      <p className="mt-1 font-mono text-[9px] tracking-[0.04em] text-muted">Click or press shortcut</p>
+                    </div>
+                  </div>
+
+                  <div className="flex min-h-20 items-start justify-between gap-5 px-5 py-4">
+                    <div>
+                      <p className="font-mono text-[8px] uppercase tracking-[0.14em] text-muted">Transcription</p>
+                      <p className="mt-2 text-[12px] leading-5 text-secondary">Meet me outside at half past three.</p>
+                    </div>
+                    <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[8px] uppercase tracking-[0.12em] text-accent">
+                      <Check aria-hidden="true" className="h-3 w-3" /> pasted
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 border-t border-line bg-canvas p-5 sm:p-6 lg:grid-cols-[0.55fr_1.45fr] lg:items-center">
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted">Install Minivox</p>
+                <p className="mt-2 text-[13px] text-secondary">Same tiny app, 2 routes.</p>
+              </div>
+              <div className="grid min-w-0 gap-3">
+                <div className="grid min-w-0 gap-2 sm:grid-cols-[5rem_minmax(0,1fr)] sm:items-center">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted">npm</span>
+                  <CopyCommand command="npx -y @voxd/cli@latest install mini" />
+                </div>
+                <div className="grid min-w-0 gap-2 sm:grid-cols-[5rem_minmax(0,1fr)] sm:items-center">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted">Homebrew</span>
+                  <CopyCommand command="brew install --cask arach/vox/minivox" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
