@@ -15,6 +15,9 @@ let package = Package(
             dependencies: [
                 .product(name: "VoxCore", package: "swift"),
                 .product(name: "VoxEngine", package: "swift"),
+            ],
+            resources: [
+                .process("Resources")
             ]
         )
     ]

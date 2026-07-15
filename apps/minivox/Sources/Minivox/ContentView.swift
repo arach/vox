@@ -34,19 +34,8 @@ struct ContentView: View {
         }
         .frame(width: 336)
         .background(palette.background)
-        .background(PopoverWindowConfiguration())
-        .minivoxWindowBackground(palette.background)
-        .overlay {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(palette.background, lineWidth: 2)
-
-                RoundedRectangle(cornerRadius: 13.5, style: .continuous)
-                    .strokeBorder(palette.border, lineWidth: 0.5)
-                    .padding(0.75)
-            }
-            .allowsHitTesting(false)
-        }
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(PopoverWindowConfiguration(colorScheme: effectiveColorScheme))
         .environment(\.colorScheme, effectiveColorScheme)
         .preferredColorScheme(selectedAppearance.colorScheme)
         .animation(.easeOut(duration: 0.14), value: page)
@@ -136,7 +125,39 @@ struct ContentView: View {
                         .fill(palette.recessed)
 
                     Circle()
-                        .strokeBorder(model.isRecording ? palette.accent.opacity(0.7) : palette.border, lineWidth: 0.75)
+                        .strokeBorder(
+                            AngularGradient(
+                                colors: [
+                                    palette.accent.opacity(model.isRecording ? 0.9 : 0.42),
+                                    Color.primary.opacity(0.06),
+                                    palette.accent.opacity(model.isRecording ? 0.48 : 0.12),
+                                    Color.primary.opacity(0.12),
+                                    palette.accent.opacity(model.isRecording ? 0.9 : 0.42),
+                                ],
+                                center: .center
+                            ),
+                            lineWidth: model.isRecording ? 1.2 : 0.8
+                        )
+
+                    ForEach(0..<12, id: \.self) { index in
+                        Capsule(style: .continuous)
+                            .fill(
+                                index.isMultiple(of: 3)
+                                    ? palette.accent.opacity(model.isRecording ? 0.72 : 0.3)
+                                    : Color.primary.opacity(0.1)
+                            )
+                            .frame(width: 0.7, height: 2.3)
+                            .offset(y: -19.5)
+                            .rotationEffect(.degrees(Double(index) * 30))
+                    }
+
+                    Circle()
+                        .fill(model.isRecording ? palette.accent.opacity(0.075) : palette.card)
+                        .frame(width: 35, height: 35)
+
+                    Circle()
+                        .strokeBorder(palette.border, lineWidth: 0.5)
+                        .frame(width: 35, height: 35)
 
                     if model.isWorking || model.isWarmingASR {
                         ProgressView()
@@ -328,25 +349,38 @@ struct ContentView: View {
     }
 }
 
-private extension View {
-    @ViewBuilder
-    func minivoxWindowBackground(_ color: Color) -> some View {
-        if #available(macOS 15.0, *) {
-            containerBackground(color, for: .window)
-        } else {
-            self
-        }
-    }
-}
-
 private struct PopoverWindowConfiguration: NSViewRepresentable {
+    let colorScheme: ColorScheme
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView(frame: .zero)
-        DispatchQueue.main.async {
-            view.window?.hasShadow = false
-        }
+        configureWindow(for: view)
         return view
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {}
+    func updateNSView(_ nsView: NSView, context: Context) {
+        configureWindow(for: nsView)
+    }
+
+    private func configureWindow(for view: NSView) {
+        DispatchQueue.main.async {
+            guard let window = view.window else { return }
+            window.hasShadow = false
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            window.titleVisibility = .hidden
+            window.titlebarAppearsTransparent = true
+            window.styleMask.remove(.titled)
+            window.appearance = NSAppearance(
+                named: colorScheme == .dark ? .darkAqua : .aqua
+            )
+
+            guard let frameView = window.contentView?.superview else { return }
+            frameView.appearance = window.appearance
+            frameView.wantsLayer = true
+            frameView.layer?.backgroundColor = NSColor.clear.cgColor
+            frameView.layer?.borderWidth = 0
+            frameView.layer?.borderColor = NSColor.clear.cgColor
+        }
+    }
 }
