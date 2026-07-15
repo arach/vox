@@ -80,10 +80,13 @@ If you are writing a local client, start here:
 To run the tiny menu-bar dictation app:
 
 ```bash
-git clone https://github.com/arach/vox.git
-cd vox
-bun install
-swift run --package-path apps/minivox Minivox
+npx -y @voxd/cli@latest install mini
+```
+
+Or install the same signed and notarized release with Homebrew:
+
+```bash
+brew install --cask arach/vox/minivox
 ```
 
 What Minivox does:
@@ -170,7 +173,7 @@ Speech synthesis supports Apple system voices locally and OpenAI TTS (`gpt-4o-mi
 
 - GitHub Pages deploys from `.github/workflows/deploy-pages.yml` to `https://voxd.cc`
 - npm publishing runs from `.github/workflows/publish-packages.yml` on `v*` tags and publishes `@voxd/sdk`, `@voxd/client`, and `@voxd/cli`
-- DMG builds run from `.github/workflows/release-dmg.yml`. Tag builds create or update the matching GitHub Release and upload `Vox.dmg`.
+- DMG builds run from `.github/workflows/release-dmg.yml`. Tag builds create or update the matching GitHub Release and upload `Vox.dmg` and `Minivox.dmg`.
 - Manual DMG releases can be started from the workflow page with a version. The workflow validates the repo versions, builds the DMG, signs and notarizes it, creates `v<version>` when needed, creates the GitHub Release, and uploads the installer.
 
 Required release secrets:
@@ -180,7 +183,7 @@ Required release secrets:
 - `KEYCHAIN_PASSWORD`
 - `APP_STORE_CONNECT_API_KEY_P8`
 - `APP_STORE_CONNECT_KEY_ID` and `APP_STORE_CONNECT_ISSUER_ID` as repository variables, or secrets if needed
-- `HUDSON_READ_TOKEN` for the private SwiftPM dependency used by the macOS app bundle
+- `HUDSON_DEPLOY_KEY` for the private SwiftPM dependency used by the macOS app bundles
 - `NPM_TOKEN` in the `PRODUCTION` environment for package publishing
 
 The DMG workflow also accepts the older Apple ID notarization secrets (`APPLE_ID`, `APPLE_APP_PASSWORD`, and `APPLE_TEAM_ID`) as a fallback, plus the legacy certificate names (`APPLE_SIGNING_CERT_BASE64` and `APPLE_SIGNING_CERT_PASSWORD`).

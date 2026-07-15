@@ -30,7 +30,7 @@ export const metadata: Metadata = {
 };
 
 const sourceUrl = "https://github.com/arach/vox/tree/main/apps/minivox";
-const downloadUrl = "/downloads/Minivox.dmg";
+const downloadUrl = "https://github.com/arach/vox/releases/latest/download/Minivox.dmg";
 
 const steps = [
   { idx: "01", icon: MousePointer2, title: "Click", body: "Open Minivox from the menu bar and tap the microphone." },
@@ -61,7 +61,7 @@ export default function MinivoxPage() {
           </Link>
           <nav aria-label="Minivox" className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
             <Link href="/" className="hidden px-2.5 py-1.5 transition-colors hover:text-accent sm:inline-flex">Home</Link>
-            <a href={downloadUrl} download className="px-2.5 py-1.5 transition-colors hover:text-accent">Download</a>
+            <a href={downloadUrl} className="px-2.5 py-1.5 transition-colors hover:text-accent">Download</a>
             <Link href="/docs/apple-embed" className="px-2.5 py-1.5 transition-colors hover:text-accent">Embed guide</Link>
             <Link href={sourceUrl} target="_blank" rel="noreferrer noopener" className="px-2.5 py-1.5 transition-colors hover:text-accent">Source</Link>
           </nav>
@@ -86,7 +86,6 @@ export default function MinivoxPage() {
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <a
                 href={downloadUrl}
-                download
                 className="inline-flex h-11 items-center gap-2 rounded-sm border border-accent bg-accent px-5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-canvas"
               >
                 <Download className="h-3.5 w-3.5" />
@@ -220,14 +219,17 @@ export default function MinivoxPage() {
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// run minivox"}</p>
             <h2 className="mt-4 max-w-[22ch] text-[clamp(1.7rem,3vw,2.5rem)] font-semibold leading-tight tracking-[-0.03em] text-ink">
-              Download the app, or run it from source.
+              Install the app in one line.
             </h2>
             <p className="mt-5 max-w-md text-[15px] leading-7 text-secondary">
-              Minivox requires macOS 14+ and Swift 6.2+. The first dictation may download Parakeet, and the app asks for microphone access the first time you record.
+              npm and Homebrew install the same signed and notarized release. Minivox requires macOS 14+, and the first dictation may download Parakeet.
             </p>
           </div>
           <div>
-            <CopyCommand command="swift run --package-path apps/minivox Minivox" />
+            <div className="space-y-3">
+              <CopyCommand command="npx -y @voxd/cli@latest install mini" />
+              <CopyCommand command="brew install --cask arach/vox/minivox" />
+            </div>
             <div className="mt-5 flex flex-wrap gap-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
               <Link href={sourceUrl} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-2 transition-colors hover:text-accent">
                 Source and setup <ArrowUpRight className="h-3 w-3" />
@@ -245,7 +247,7 @@ export default function MinivoxPage() {
           <span>Minivox · tiny local dictation</span>
           <div className="flex gap-5">
             <Link href="/" className="transition-colors hover:text-accent">/home</Link>
-            <a href={downloadUrl} download className="transition-colors hover:text-accent">/download</a>
+            <a href={downloadUrl} className="transition-colors hover:text-accent">/download</a>
             <Link href="/docs/apple-embed" className="transition-colors hover:text-accent">/embed</Link>
             <Link href={sourceUrl} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-2 transition-colors hover:text-accent">
               <Github className="h-3 w-3" />

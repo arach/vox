@@ -60,6 +60,14 @@ Apple app teams embed the Swift packages directly and keep the same provider, wa
 - `apps/minivox/` is the small, single-purpose menu-bar dictation app built on the direct Apple embed path.
 - `packages/client/` and `packages/web-client/` are good companion-mode SDK references in the repo.
 
+Install the signed and notarized Minivox app through the existing CLI or Homebrew:
+
+```bash
+npx -y @voxd/cli@latest install mini
+# or
+brew install --cask arach/vox/minivox
+```
+
 ## Workflows
 
 These examples assume `vox` is on your `PATH`. In a repo checkout, replace `vox` with `node packages/cli/dist/index.js` after `bun run build`.

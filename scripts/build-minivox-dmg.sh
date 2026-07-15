@@ -14,7 +14,7 @@ VERSION="${MINIVOX_VERSION:-$DEFAULT_VERSION}"
 SIGN_IDENTITY="${MINIVOX_SIGN_IDENTITY:--}"
 NOTARY_PROFILE="${MINIVOX_NOTARY_PROFILE:-}"
 REQUIRE_SIGNED_RELEASE="${MINIVOX_REQUIRE_SIGNED_RELEASE:-}"
-PUBLISH_SITE_DOWNLOAD="${MINIVOX_PUBLISH_SITE_DOWNLOAD:-1}"
+PUBLISH_SITE_DOWNLOAD="${MINIVOX_PUBLISH_SITE_DOWNLOAD:-0}"
 
 if [ -n "$REQUIRE_SIGNED_RELEASE" ]; then
     if [ "$SIGN_IDENTITY" = "-" ] || [ -z "$NOTARY_PROFILE" ]; then
@@ -154,6 +154,11 @@ else
 fi
 
 hdiutil verify "$BUILD_DIR/$DMG_NAME"
+if [ -n "$REQUIRE_SIGNED_RELEASE" ]; then
+    spctl --assess --type open --context context:primary-signature -v "$BUILD_DIR/$DMG_NAME" 2>&1
+else
+    spctl --assess --type open --context context:primary-signature -v "$BUILD_DIR/$DMG_NAME" 2>&1 || true
+fi
 
 if [ "$PUBLISH_SITE_DOWNLOAD" = "1" ]; then
     mkdir -p "$(dirname "$SITE_DOWNLOAD")"
