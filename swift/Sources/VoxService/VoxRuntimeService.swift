@@ -56,6 +56,14 @@ public final class VoxRuntimeService: @unchecked Sendable {
             startedAt: startedAt
         )
         try RuntimeRegistry.write(runtime)
+
+        let speechPreferences = preferencesLoader().speech
+        if speechPreferences.modelDownloadPolicy.warmsAtServiceStart {
+            let modelId = resolveTranscriptionModelId(speechPreferences.preferredTranscriptionModelId)
+            Task { [warmup] in
+                _ = await warmup.start(modelId: modelId, requestedBy: "service-start")
+            }
+        }
     }
 
     public func stop() {
@@ -308,6 +316,19 @@ public final class VoxRuntimeService: @unchecked Sendable {
 
         let preferences = currentPreferences()
         return normalizePreferenceValue(preferences.speech.preferredTranscriptionModelId) ?? "parakeet:v3"
+    }
+
+    private func requireInstalledModelWhenDownloadsAreDisabled(modelId: String) async throws {
+        guard currentPreferences().speech.modelDownloadPolicy == .never else { return }
+
+        let models = await asrEngine.models()
+        let model = models.first { $0.id == modelId }
+        guard model?.installed == true else {
+            throw NSError(domain: "VoxService", code: 12, userInfo: [
+                NSLocalizedDescriptionKey:
+                    "model_download_disabled: \(modelId) is not installed; choose an automatic download policy or install it explicitly"
+            ])
+        }
     }
 
     private func resolveSynthesisModelId(_ requestedModelId: String?) -> String {
@@ -1095,6 +1116,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
             Task {
                 var startingSession: LiveSessionCoordinator.Session?
                 do {
+                    let speechPreferences = self.preferencesLoader().speech
                     try await self.ensureMicrophoneAccessForLiveSession()
                     let session = try self.sessions.begin(
                         connectionID: connectionID,
@@ -1112,7 +1134,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
                         "previous": NSNull()
                     ])
                     _ = try await self.recorder.start(
-                        preferredInputDeviceID: self.preferencesLoader().speech.preferredInputDeviceId
+                        preferredInputDeviceID: speechPreferences.preferredInputDeviceId
                     )
                     guard self.sessions.current(id: session.sessionId) != nil else {
                         await self.recorder.cancel()
@@ -1125,7 +1147,9 @@ public final class VoxRuntimeService: @unchecked Sendable {
                         "state": SessionState.recording.rawValue,
                         "previous": SessionState.starting.rawValue
                     ])
-                    _ = await self.warmup.start(modelId: modelId, requestedBy: clientId)
+                    if speechPreferences.modelDownloadPolicy.warmsOnFirstUse {
+                        _ = await self.warmup.start(modelId: modelId, requestedBy: clientId)
+                    }
                 } catch {
                     if let session = startingSession {
                         _ = self.sessions.finish(id: session.sessionId)
@@ -1319,6 +1343,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
                     let audioURL = try await self.recorder.stop()
                     defer { try? FileManager.default.removeItem(at: audioURL) }
 
+                    try await self.requireInstalledModelWhenDownloadsAreDisabled(modelId: session.modelId)
                     let output = try await self.asrEngine.transcribe(url: audioURL, modelId: session.modelId)
                     guard let finished = self.sessions.finish(id: session.sessionId) else {
                         return

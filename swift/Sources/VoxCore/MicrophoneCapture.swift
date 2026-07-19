@@ -119,6 +119,7 @@ public enum MicrophoneCaptureError: LocalizedError, Sendable {
     }
 }
 
+#if os(macOS)
 public actor MicrophoneFileRecorder {
     private let log = VoxLog.audio
 
@@ -346,3 +347,31 @@ private final class MicrophoneFileRecordingDelegate: NSObject, AVCaptureFileOutp
         return result
     }
 }
+#else
+/// The companion recorder uses `AVCaptureAudioFileOutput`, which Apple only
+/// exposes on macOS. iOS clients compile the shared runtime types but provide
+/// capture through their app layer (for example HudsonVoice's AVAudioEngine
+/// recorder) or a paired Mac runtime.
+public actor MicrophoneFileRecorder {
+    public init() {}
+
+    public var isRecording: Bool { false }
+
+    public func start(
+        preferredInputDeviceID: String? = nil,
+        filePrefix: String = "vox"
+    ) async throws -> MicrophoneRecording {
+        throw MicrophoneCaptureError.permissionUnavailable
+    }
+
+    public func stop() async throws -> URL {
+        throw MicrophoneCaptureError.noActiveRecording
+    }
+
+    public func cancel() {}
+
+    static func isRecoverableStopError(_ error: Error) -> Bool {
+        false
+    }
+}
+#endif

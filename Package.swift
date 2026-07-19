@@ -18,6 +18,7 @@ let package = Package(
     products: [
         .library(name: "VoxCore", targets: ["VoxCore"]),
         .library(name: "VoxEngine", targets: ["VoxEngine"]),
+        .library(name: "HudsonSpeechEngine", targets: ["HudsonSpeechEngine"]),
         .library(name: "VoxService", targets: ["VoxService"]),
         .library(name: "VoxBridge", targets: ["VoxBridge"]),
         .executable(name: "voxbridge", targets: ["VoxBridgeRunner"]),
@@ -31,18 +32,23 @@ let package = Package(
             path: "swift/Sources/VoxCore"
         ),
         .target(
-            name: "VoxEngine",
+            name: "HudsonSpeechEngine",
             dependencies: [
                 "VoxCore"
             ],
-            path: "swift/Sources/VoxEngine",
+            path: "swift/Sources/HudsonSpeechEngine",
             resources: [
                 .copy("Resources/mlx_audio_provider.py")
             ]
         ),
         .target(
+            name: "VoxEngine",
+            dependencies: ["HudsonSpeechEngine"],
+            path: "swift/Sources/VoxEngine"
+        ),
+        .target(
             name: "VoxService",
-            dependencies: ["VoxCore", "VoxEngine"],
+            dependencies: ["VoxCore", "HudsonSpeechEngine"],
             path: "swift/Sources/VoxService"
         ),
         .target(
@@ -57,12 +63,12 @@ let package = Package(
         ),
         .executableTarget(
             name: "VoxTTSRunner",
-            dependencies: ["VoxCore", "VoxEngine"],
+            dependencies: ["VoxCore", "HudsonSpeechEngine"],
             path: "swift/Sources/VoxTTSRunner"
         ),
         .executableTarget(
             name: "voxd",
-            dependencies: ["VoxCore", "VoxEngine", "VoxService"],
+            dependencies: ["VoxCore", "HudsonSpeechEngine", "VoxService"],
             path: "swift/Sources/voxd",
             exclude: ["Info.plist"],
             linkerSettings: [
@@ -81,12 +87,12 @@ let package = Package(
         ),
         .testTarget(
             name: "VoxServiceTests",
-            dependencies: ["VoxCore", "VoxEngine", "VoxService"],
+            dependencies: ["VoxCore", "HudsonSpeechEngine", "VoxService"],
             path: "swift/Tests/VoxServiceTests"
         ),
         .testTarget(
             name: "VoxEngineTests",
-            dependencies: ["VoxEngine"],
+            dependencies: ["HudsonSpeechEngine"],
             path: "swift/Tests/VoxEngineTests"
         ),
         .testTarget(

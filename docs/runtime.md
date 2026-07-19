@@ -22,6 +22,20 @@ Warm-up is a public API, not a hidden side effect. It applies to both ASR and TT
 
 Typical pattern: create a `VoxClient` with a stable `clientId`, warm when the user opens a voice affordance, then transcribe or synthesize once the model is ready.
 
+The ASR model itself is never embedded in the Swift product. Automatic
+acquisition for live transcription is controlled by
+`VoxSpeechPreferences.modelDownloadPolicy`:
+
+| Value | Behavior |
+|-------|----------|
+| `never` | Never download automatically. Live transcription requires an already-installed model or an explicit install/warm-up request. |
+| `on_first_use` | Start warm-up with the first live transcription session. This is the default. |
+| `eager` | Start warm-up when `voxd` starts. |
+
+The explicit `models.install`, `models.preload`, and `warmup.*` routes remain
+available under every policy; choosing one of those routes is itself an
+operator/user request to acquire the model.
+
 ## File Transcription
 
 `transcribe.file` is best for benchmarks because it takes mic capture out of the measurement. Returns transcript text, word-level timestamps, `modelId`, elapsed time, and stage metrics.

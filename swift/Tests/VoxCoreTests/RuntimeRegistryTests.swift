@@ -45,7 +45,8 @@ struct RuntimeRegistryTests {
                 preferredTranscriptionModelId: "mlx-community/whisper-large-v3",
                 preferredSynthesisModelId: "openai-tts:alloy",
                 preferredSynthesisVoiceId: "alloy",
-                preferredInputDeviceId: "system-mic"
+                preferredInputDeviceId: "system-mic",
+                modelDownloadPolicy: .eager
             )
         )
 
@@ -54,6 +55,21 @@ struct RuntimeRegistryTests {
         let loaded = try VoxPreferences.load()
         #expect(loaded == preferences)
         #expect(FileManager.default.fileExists(atPath: RuntimePaths.preferencesFileURL().path))
+    }
+
+    @Test("Legacy speech preferences acquire the model on first use")
+    func legacySpeechPreferencesDefaultDownloadPolicy() throws {
+        let data = Data(#"{"preferredTranscriptionModelId":"parakeet:v3"}"#.utf8)
+
+        let preferences = try JSONDecoder().decode(VoxSpeechPreferences.self, from: data)
+
+        #expect(preferences.modelDownloadPolicy == .onFirstUse)
+        #expect(!VoxModelDownloadPolicy.never.warmsAtServiceStart)
+        #expect(!VoxModelDownloadPolicy.never.warmsOnFirstUse)
+        #expect(!VoxModelDownloadPolicy.onFirstUse.warmsAtServiceStart)
+        #expect(VoxModelDownloadPolicy.onFirstUse.warmsOnFirstUse)
+        #expect(VoxModelDownloadPolicy.eager.warmsAtServiceStart)
+        #expect(VoxModelDownloadPolicy.eager.warmsOnFirstUse)
     }
 
     @Test("Microphone permission doctor details include remediation")

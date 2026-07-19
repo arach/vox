@@ -130,7 +130,7 @@ Warm-up must remain explicit.
 - ASR warm-up: `EngineManager.preload(modelId:progress:)`
 - TTS warm-up: `TTSEngineManager.preload(modelId:voiceId:progress:)`
 
-Do not hide warm-up behind app launch side effects unless the product intentionally wants that behavior. Prefer warming on intent or at a predictable app state transition.
+Do not hide warm-up behind app launch side effects unless the product intentionally chooses the `.eager` model download policy. Prefer `.onFirstUse` or warming on intent at a predictable app state transition.
 
 ## Telemetry
 
