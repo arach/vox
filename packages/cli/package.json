@@ -1,6 +1,6 @@
 {
   "name": "@voxd/cli",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "type": "module",
   "description": "Command-line tools for local transcription and text-to-speech with Vox.",
   "bin": {
@@ -23,7 +23,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@voxd/sdk": "0.4.5"
+    "@voxd/sdk": "0.4.6"
   },
   "scripts": {
     "build": "bun build ./src/index.ts --outdir ./dist --target node --format esm"

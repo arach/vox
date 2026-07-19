@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "path";
 import {
   isEntrypoint,
   installMinivoxCommand,
+  minivoxPostInstallInstructions,
   minivoxReleaseDownloadURL,
   parseMinivoxInstallOptions,
   removeMinivoxCommand,
@@ -53,6 +54,16 @@ describe("Minivox installer", () => {
     expect(() => parseMinivoxInstallOptions(["--quiet", "--verbose"])).toThrow(
       "Use either --quiet or --verbose",
     );
+  });
+
+  it("explains the first dictation after installation", () => {
+    const launched = minivoxPostInstallInstructions(true).join("\n");
+    expect(launched).toContain("running in your menu bar");
+    expect(launched).toContain("⌥Space to start");
+    expect(launched).toContain("⌥Space again to stop");
+    expect(launched).toContain("minivox settings");
+
+    expect(minivoxPostInstallInstructions(false)[0]).toContain("open Minivox");
   });
 
   it("installs the command in a user-owned bin directory", () => {

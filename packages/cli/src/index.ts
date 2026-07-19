@@ -1070,6 +1070,21 @@ export function parseMinivoxInstallOptions(args: string[]): MinivoxInstallOption
   };
 }
 
+export function minivoxPostInstallInstructions(launched: boolean): string[] {
+  return [
+    launched
+      ? "Minivox is running in your menu bar."
+      : "Next, open Minivox from Applications or run `minivox`.",
+    "",
+    "Use Minivox:",
+    "  1. Put the text cursor where you want your dictation.",
+    "  2. Press ⌥Space to start. Allow microphone access if asked.",
+    "  3. Press ⌥Space again to stop. Minivox copies the text and pastes it when Accessibility access is enabled.",
+    "",
+    "Change the shortcut or microphone: minivox settings",
+  ];
+}
+
 function resolveMinivoxApplicationsDirectory(user: boolean): string {
   const override = process.env.MINIVOX_APPLICATIONS_DIR;
   if (override) return override;
@@ -1191,6 +1206,9 @@ async function installMinivox(options: MinivoxInstallOptions): Promise<void> {
 
     if (options.launch) {
       runMinivoxInstallerCommand("open", [destination], options);
+    }
+    for (const line of minivoxPostInstallInstructions(options.launch)) {
+      minivoxInstallLog(options, line);
     }
   } catch (error) {
     if (applicationsDirectory === "/Applications") {
