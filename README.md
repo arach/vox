@@ -83,6 +83,14 @@ To run the tiny menu-bar dictation app:
 npx -y @voxd/cli@latest install mini
 ```
 
+The installer opens Minivox automatically. Look for the waveform in the menu bar, then:
+
+1. Put the text cursor where you want your dictation.
+2. Press **⌥Space** to start and allow microphone access if asked.
+3. Press **⌥Space** again to stop. Minivox copies the result and pastes it when Accessibility access is enabled.
+
+Run `minivox settings` to change the shortcut or microphone. The first dictation may download Parakeet.
+
 Or install the same signed and notarized release with Homebrew:
 
 ```bash

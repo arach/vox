@@ -218,7 +218,10 @@ export default function DownloadPage() {
                   <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted">Homebrew</span>
                   <CopyCommand command="brew install --cask arach/vox/minivox" />
                 </div>
-                <p className="font-mono text-[9px] text-muted">npm setup also accepts --quiet or --verbose.</p>
+                <p className="text-[11px] leading-5 text-secondary">
+                  After installation, use the waveform in the menu bar: put your cursor in any text field, press <span className="font-mono text-ink">⌥Space</span> to start, then press it again to transcribe and paste.
+                </p>
+                <p className="font-mono text-[9px] text-muted">The first use asks for microphone access. npm setup also accepts --quiet or --verbose.</p>
               </div>
             </div>
           </div>

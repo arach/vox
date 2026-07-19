@@ -13,6 +13,7 @@
 - full companion app: `apps/vox/`
 - Minivox dictation app: `apps/minivox/`
 - Minivox install: `npx -y @voxd/cli@latest install mini` or `brew install --cask arach/vox/minivox`
+- Minivox first use: the installer launches the menu-bar app; put the cursor in a text field, press `⌥Space` to start, then press `⌥Space` again to stop and copy/paste the transcript
 - Minivox command: `minivox`, `minivox settings`, `minivox quit`
 - Minivox npm install output: `--quiet` or `--verbose`
 - model focus: `parakeet:v3` for ASR, `gpt-4o-mini-tts` for default TTS

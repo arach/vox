@@ -219,10 +219,10 @@ export default function MinivoxPage() {
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// run minivox"}</p>
             <h2 className="mt-4 max-w-[22ch] text-[clamp(1.7rem,3vw,2.5rem)] font-semibold leading-tight tracking-[-0.03em] text-ink">
-              Install the app in one line.
+              Install, then dictate.
             </h2>
             <p className="mt-5 max-w-md text-[15px] leading-7 text-secondary">
-              npm and Homebrew install the same signed and notarized release. Minivox requires macOS 14+, and the first dictation may download Parakeet.
+              npm and Homebrew install the same signed and notarized release. The installer opens Minivox automatically; look for its waveform in the menu bar.
             </p>
           </div>
           <div>
@@ -233,6 +233,17 @@ export default function MinivoxPage() {
             <p className="mt-3 font-mono text-[10px] leading-5 text-muted">
               Installs the <span className="text-ink">minivox</span> command too. Add <span className="text-ink">--quiet</span> or <span className="text-ink">--verbose</span> to control setup output.
             </p>
+            <div className="mt-6 border-l-2 border-accent pl-5">
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">After installation</p>
+              <ol className="mt-3 space-y-2 text-[14px] leading-6 text-secondary">
+                <li><span className="mr-2 font-mono text-accent">01</span>Put the text cursor where you want your dictation.</li>
+                <li><span className="mr-2 font-mono text-accent">02</span>Press <span className="font-mono text-ink">⌥Space</span> to start, then allow microphone access.</li>
+                <li><span className="mr-2 font-mono text-accent">03</span>Press <span className="font-mono text-ink">⌥Space</span> again to stop. Minivox copies the text and pastes it when Accessibility access is enabled.</li>
+              </ol>
+              <p className="mt-3 text-[12px] leading-5 text-muted">
+                The first dictation may download Parakeet. Open <span className="font-mono text-ink">minivox settings</span> to change the shortcut or microphone.
+              </p>
+            </div>
             <div className="mt-5 flex flex-wrap gap-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
               <Link href={sourceUrl} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-2 transition-colors hover:text-accent">
                 Source and setup <ArrowUpRight className="h-3 w-3" />
