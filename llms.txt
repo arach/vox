@@ -4,7 +4,7 @@
 
 ## Choose a surface
 
-- Apple app process: VoxCore + VoxEngine
+- Apple app process: VoxCore + VoxEngine (+ optional VoxAppleSpeech)
 - Bun or Node tool: voxd + @voxd/sdk
 - Browser app: Vox Companion + @voxd/client
 - Operator workflow: @voxd/cli

@@ -17,6 +17,7 @@ let package = Package(
         .library(name: "VoxCore", targets: ["VoxCore"]),
         .library(name: "VoxEngine", targets: ["VoxEngine"]),
         .library(name: "HudsonSpeechEngine", targets: ["HudsonSpeechEngine"]),
+        .library(name: "VoxAppleSpeech", targets: ["VoxAppleSpeech"]),
         .library(name: "VoxService", targets: ["VoxService"]),
         .library(name: "VoxBridge", targets: ["VoxBridge"]),
         .executable(name: "voxbridge", targets: ["VoxBridgeRunner"]),
@@ -39,6 +40,10 @@ let package = Package(
         .target(
             name: "VoxEngine",
             dependencies: ["HudsonSpeechEngine"]
+        ),
+        .target(
+            name: "VoxAppleSpeech",
+            dependencies: ["VoxCore", "VoxEngine"]
         ),
         .target(
             name: "VoxService",
@@ -80,6 +85,10 @@ let package = Package(
         .testTarget(
             name: "VoxEngineTests",
             dependencies: ["HudsonSpeechEngine"]
+        ),
+        .testTarget(
+            name: "VoxAppleSpeechTests",
+            dependencies: ["VoxAppleSpeech", "VoxCore", "VoxEngine"]
         ),
         .testTarget(
             name: "VoxBridgeTests",

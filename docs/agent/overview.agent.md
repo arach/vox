@@ -6,6 +6,7 @@
   - companion mode: `voxd` for web, browser, and shared-process clients
 - default ASR embed engine: `EngineManager()` -> `ParakeetProvider()`
 - default TTS embed engine: `TTSEngineManager()` -> `TTSProviderRegistry`
+- optional Apple TTS playback: `VoxAppleSpeech` / `AppleSpeechOutputController`
 - companion service: `VoxRuntimeService`
 - CLI: `@voxd/cli` (Bun)
 - companion SDK: `@voxd/sdk` (TypeScript, WebSocket JSON-RPC to `voxd`)

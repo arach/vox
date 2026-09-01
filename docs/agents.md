@@ -9,7 +9,7 @@ Use this page to choose the right Vox surface before editing code or proposing a
 
 | Caller | Use | Do not use by default |
 |---|---|---|
-| macOS or iOS app process | `VoxCore` + `VoxEngine` | `voxd`, `@voxd/sdk`, `@voxd/client` |
+| macOS or iOS app process | `VoxCore` + `VoxEngine` (+ optional `VoxAppleSpeech`) | `voxd`, `@voxd/sdk`, `@voxd/client` |
 | Bun or Node tool | `voxd` + `@voxd/sdk` | browser bridge |
 | Web app or browser extension | Vox Companion + `@voxd/client` | direct WebSocket RPC |
 | Operator or benchmark workflow | `@voxd/cli` | custom scripts that hide metrics |
@@ -22,6 +22,7 @@ Warm-up is always explicit. Preserve `clientId`, `route`, `modelId`, and `voiceI
 |---|---|
 | Swift package products and platforms | `swift/Package.swift` |
 | ASR/TTS provider behavior | `swift/Sources/VoxEngine/` |
+| Optional Apple speech output | `swift/Sources/VoxAppleSpeech/` |
 | Full Vox companion app | `apps/vox/` |
 | Minivox dictation app | `apps/minivox/` |
 | Runtime routes and session ownership | `swift/Sources/VoxService/VoxRuntimeService.swift` |

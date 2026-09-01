@@ -15,7 +15,7 @@
 
 | Caller | Default Vox surface |
 |---|---|
-| macOS or iOS app process | `VoxCore` + `VoxEngine` |
+| macOS or iOS app process | `VoxCore` + `VoxEngine` (+ optional `VoxAppleSpeech`) |
 | Bun or Node tool | `voxd` + `@voxd/sdk` |
 | Web app or browser extension | Vox Companion + `@voxd/client` |
 | Operator or benchmark workflow | `@voxd/cli` |
@@ -30,6 +30,7 @@ Do not put `voxd`, `@voxd/sdk`, or `@voxd/client` inside an Apple app unless the
 | Daemon | `swift/Sources/voxd/main.swift` |
 | Runtime service | `swift/Sources/VoxService/` |
 | ASR, annotation, and TTS engines | `swift/Sources/VoxEngine/` |
+| Optional Apple speech output | `swift/Sources/VoxAppleSpeech/` |
 | Shared Swift types and telemetry | `swift/Sources/VoxCore/` |
 | Vox companion app | `apps/vox/` |
 | Minivox dictation app | `apps/minivox/` |

@@ -1,7 +1,7 @@
 # Agent Routing Facts
 
 - choose integration mode before choosing packages
-- Apple app process: `VoxCore` + `VoxEngine`
+- Apple app process: `VoxCore` + `VoxEngine` (+ optional `VoxAppleSpeech`)
 - Bun/Node tool: `voxd` + `@voxd/sdk`
 - browser: Vox Companion + `@voxd/client`
 - operator workflow: `@voxd/cli`
