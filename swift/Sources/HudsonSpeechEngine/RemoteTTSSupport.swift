@@ -4,6 +4,10 @@ enum RemoteTTSSupport {
     static let maximumVendorMessageLength = 240
 
     static func firstNonEmpty(_ values: String?...) -> String? {
+        firstNonEmpty(Array(values))
+    }
+
+    static func firstNonEmpty(_ values: [String?]) -> String? {
         for value in values {
             let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             if !trimmed.isEmpty {
@@ -11,6 +15,25 @@ enum RemoteTTSSupport {
             }
         }
         return nil
+    }
+
+    /// Per-request non-empty secrets win. If `env` contains any of `keys`
+    /// (even empty or whitespace), process fallback is suppressed so a host
+    /// can fence ambient secrets. Process env is used only when `env` is nil
+    /// or omits every listed key.
+    static func resolveSecret(
+        lentValues: [String?],
+        env: [String: String]?,
+        processEnv: [String: String],
+        keys: [String]
+    ) -> String? {
+        if let lent = firstNonEmpty(lentValues) {
+            return lent
+        }
+        if let env, keys.contains(where: { env[$0] != nil }) {
+            return firstNonEmpty(keys.map { env[$0] })
+        }
+        return firstNonEmpty(keys.map { processEnv[$0] })
     }
 
     static func isCancellation(_ error: Error) -> Bool {

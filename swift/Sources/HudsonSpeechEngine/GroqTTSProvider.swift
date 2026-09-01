@@ -192,12 +192,15 @@ public actor GroqTTSProvider: TTSProvider {
         env: [String: String]?,
         processEnv: [String: String]
     ) -> String? {
-        RemoteTTSSupport.firstNonEmpty(
-            providerCredentials["GROQ_API_KEY"],
-            providerCredentials["groqApiKey"],
-            providerCredentials["groq_api_key"],
-            env?["GROQ_API_KEY"],
-            processEnv["GROQ_API_KEY"]
+        RemoteTTSSupport.resolveSecret(
+            lentValues: [
+                providerCredentials["GROQ_API_KEY"],
+                providerCredentials["groqApiKey"],
+                providerCredentials["groq_api_key"]
+            ],
+            env: env,
+            processEnv: processEnv,
+            keys: ["GROQ_API_KEY"]
         )
     }
 

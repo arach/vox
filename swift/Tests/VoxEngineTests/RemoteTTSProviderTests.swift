@@ -29,6 +29,44 @@ struct RemoteTTSProviderTests {
         ) == nil)
     }
 
+    @Test("explicit empty or whitespace NVIDIA env aliases fence process secrets")
+    func nvidiaEmptyEnvFencesProcessSecrets() {
+        #expect(NVIDIAMagpieTTSProvider.resolveConfiguredAPIKey(
+            env: ["NV_API_KEY": ""],
+            processEnv: ["NV_API_KEY": "process-secret", "NVIDIA_API_KEY": "alias-secret"]
+        ) == nil)
+        #expect(NVIDIAMagpieTTSProvider.resolveAPIKey(
+            providerCredentials: [:],
+            env: ["NV_API_KEY": "   "],
+            processEnv: ["NVIDIA_API_KEY": "process-secret"]
+        ) == nil)
+        #expect(NVIDIAMagpieTTSProvider.resolveAPIKey(
+            providerCredentials: [:],
+            env: ["NVIDIA_API_KEY": ""],
+            processEnv: ["NV_API_KEY": "process-secret"]
+        ) == nil)
+        #expect(NVIDIAMagpieTTSProvider.resolveAPIKey(
+            providerCredentials: [:],
+            env: [:],
+            processEnv: ["NV_API_KEY": "process-secret"]
+        ) == "process-secret")
+        #expect(NVIDIAMagpieTTSProvider.resolveAPIKey(
+            providerCredentials: [:],
+            env: ["NVIDIA_TTS_URL": "https://example.test"],
+            processEnv: ["NVIDIA_API_KEY": " process-alias "]
+        ) == "process-alias")
+        #expect(NVIDIAMagpieTTSProvider.resolveAPIKey(
+            providerCredentials: [:],
+            env: nil,
+            processEnv: ["NV_API_KEY": "process-secret"]
+        ) == "process-secret")
+        #expect(NVIDIAMagpieTTSProvider.resolveAPIKey(
+            providerCredentials: ["nv_api_key": " lent "],
+            env: ["NV_API_KEY": ""],
+            processEnv: ["NV_API_KEY": "process-secret"]
+        ) == "lent")
+    }
+
     @Test("NVIDIA derives language and display name from Magpie voice ids")
     func nvidiaLanguageAndDisplayName() {
         #expect(NVIDIAMagpieTTSProvider.language(for: "Magpie-Multilingual.EN-US.Aria") == "en-US")
@@ -227,6 +265,39 @@ struct RemoteTTSProviderTests {
         ) == "env")
     }
 
+    @Test("explicit empty or whitespace GROQ_API_KEY fences process secrets")
+    func groqEmptyEnvFencesProcessSecrets() {
+        #expect(GroqTTSProvider.resolveConfiguredAPIKey(
+            env: ["GROQ_API_KEY": ""],
+            processEnv: ["GROQ_API_KEY": "process-secret"]
+        ) == nil)
+        #expect(GroqTTSProvider.resolveAPIKey(
+            providerCredentials: [:],
+            env: ["GROQ_API_KEY": "  "],
+            processEnv: ["GROQ_API_KEY": "process-secret"]
+        ) == nil)
+        #expect(GroqTTSProvider.resolveAPIKey(
+            providerCredentials: [:],
+            env: [:],
+            processEnv: ["GROQ_API_KEY": "process-secret"]
+        ) == "process-secret")
+        #expect(GroqTTSProvider.resolveAPIKey(
+            providerCredentials: [:],
+            env: ["GROQ_BASE_URL": "https://example.test"],
+            processEnv: ["GROQ_API_KEY": " process-secret "]
+        ) == "process-secret")
+        #expect(GroqTTSProvider.resolveAPIKey(
+            providerCredentials: [:],
+            env: nil,
+            processEnv: ["GROQ_API_KEY": "process-secret"]
+        ) == "process-secret")
+        #expect(GroqTTSProvider.resolveAPIKey(
+            providerCredentials: ["groqApiKey": " lent "],
+            env: ["GROQ_API_KEY": ""],
+            processEnv: ["GROQ_API_KEY": "process-secret"]
+        ) == "lent")
+    }
+
     @Test("Groq sends the OpenAI-compatible Orpheus WAV contract")
     func groqRequestContract() async throws {
         let wav = try validWAV()
@@ -341,6 +412,44 @@ struct RemoteTTSProviderTests {
             providerCredentials: ["googleApiKey": " lent "],
             env: ["GEMINI_API_KEY": "env"],
             processEnv: [:]
+        ) == "lent")
+    }
+
+    @Test("explicit empty or whitespace Gemini/Google env aliases fence process secrets")
+    func geminiEmptyEnvFencesProcessSecrets() {
+        #expect(GeminiTTSProvider.resolveConfiguredAPIKey(
+            env: ["GEMINI_API_KEY": ""],
+            processEnv: ["GEMINI_API_KEY": "process-secret", "GOOGLE_API_KEY": "google-secret"]
+        ) == nil)
+        #expect(GeminiTTSProvider.resolveAPIKey(
+            providerCredentials: [:],
+            env: ["GOOGLE_API_KEY": "  "],
+            processEnv: ["GEMINI_API_KEY": "process-secret"]
+        ) == nil)
+        #expect(GeminiTTSProvider.resolveAPIKey(
+            providerCredentials: [:],
+            env: ["GOOGLE_GENAI_API_KEY": ""],
+            processEnv: ["GOOGLE_API_KEY": "process-secret"]
+        ) == nil)
+        #expect(GeminiTTSProvider.resolveAPIKey(
+            providerCredentials: [:],
+            env: [:],
+            processEnv: ["GEMINI_API_KEY": "process-secret"]
+        ) == "process-secret")
+        #expect(GeminiTTSProvider.resolveAPIKey(
+            providerCredentials: [:],
+            env: ["GEMINI_BASE_URL": "https://example.test"],
+            processEnv: ["GOOGLE_API_KEY": " process-google "]
+        ) == "process-google")
+        #expect(GeminiTTSProvider.resolveAPIKey(
+            providerCredentials: [:],
+            env: nil,
+            processEnv: ["GOOGLE_GENAI_API_KEY": "process-genai"]
+        ) == "process-genai")
+        #expect(GeminiTTSProvider.resolveAPIKey(
+            providerCredentials: ["GOOGLE_API_KEY": " lent "],
+            env: ["GEMINI_API_KEY": ""],
+            processEnv: ["GEMINI_API_KEY": "process-secret"]
         ) == "lent")
     }
 

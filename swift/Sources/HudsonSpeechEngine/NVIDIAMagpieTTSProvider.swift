@@ -254,17 +254,18 @@ public actor NVIDIAMagpieTTSProvider: TTSProvider {
         env: [String: String]?,
         processEnv: [String: String]
     ) -> String? {
-        RemoteTTSSupport.firstNonEmpty(
-            providerCredentials["NV_API_KEY"],
-            providerCredentials["NVIDIA_API_KEY"],
-            providerCredentials["nvApiKey"],
-            providerCredentials["nvidiaApiKey"],
-            providerCredentials["nv_api_key"],
-            providerCredentials["nvidia_api_key"],
-            env?["NV_API_KEY"],
-            env?["NVIDIA_API_KEY"],
-            processEnv["NV_API_KEY"],
-            processEnv["NVIDIA_API_KEY"]
+        RemoteTTSSupport.resolveSecret(
+            lentValues: [
+                providerCredentials["NV_API_KEY"],
+                providerCredentials["NVIDIA_API_KEY"],
+                providerCredentials["nvApiKey"],
+                providerCredentials["nvidiaApiKey"],
+                providerCredentials["nv_api_key"],
+                providerCredentials["nvidia_api_key"]
+            ],
+            env: env,
+            processEnv: processEnv,
+            keys: ["NV_API_KEY", "NVIDIA_API_KEY"]
         )
     }
 

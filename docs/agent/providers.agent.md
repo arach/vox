@@ -13,6 +13,7 @@
 - Groq Orpheus: WAV `response_format`, 200-character limit, `GROQ_API_KEY`, require structurally valid WAV
 - Gemini TTS: Generate Content AUDIO for 2.5 and `gemini-3.1-flash-tts-preview`, wrap `audio/L16` as WAV, `GEMINI_API_KEY`/`GOOGLE_API_KEY`, voice `Rasalgethi`
 - per-request `credentials` allowlist: OpenAI, NVIDIA, Groq, Gemini/Google only; never ElevenLabs/MiniMax; never log keys
+- explicit empty/whitespace provider env key or alias fences process credential fallback; process env is used only when that key is absent from `env`
 - remote providers participate in defaults only when configured; aliases such as `magpie`/`groq-tts`/`google-tts` block canonical default overwrite
 - default TTS model remains `gpt-4o-mini-tts` when OpenAI is configured
 - reserve stdout for protocol messages and send logs to stderr

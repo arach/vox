@@ -283,22 +283,21 @@ public actor GeminiTTSProvider: TTSProvider {
         env: [String: String]?,
         processEnv: [String: String]
     ) -> String? {
-        RemoteTTSSupport.firstNonEmpty(
-            providerCredentials["GEMINI_API_KEY"],
-            providerCredentials["GOOGLE_API_KEY"],
-            providerCredentials["GOOGLE_GENAI_API_KEY"],
-            providerCredentials["geminiApiKey"],
-            providerCredentials["googleApiKey"],
-            providerCredentials["googleGenaiApiKey"],
-            providerCredentials["gemini_api_key"],
-            providerCredentials["google_api_key"],
-            providerCredentials["google_genai_api_key"],
-            env?["GEMINI_API_KEY"],
-            env?["GOOGLE_API_KEY"],
-            env?["GOOGLE_GENAI_API_KEY"],
-            processEnv["GEMINI_API_KEY"],
-            processEnv["GOOGLE_API_KEY"],
-            processEnv["GOOGLE_GENAI_API_KEY"]
+        RemoteTTSSupport.resolveSecret(
+            lentValues: [
+                providerCredentials["GEMINI_API_KEY"],
+                providerCredentials["GOOGLE_API_KEY"],
+                providerCredentials["GOOGLE_GENAI_API_KEY"],
+                providerCredentials["geminiApiKey"],
+                providerCredentials["googleApiKey"],
+                providerCredentials["googleGenaiApiKey"],
+                providerCredentials["gemini_api_key"],
+                providerCredentials["google_api_key"],
+                providerCredentials["google_genai_api_key"]
+            ],
+            env: env,
+            processEnv: processEnv,
+            keys: ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENAI_API_KEY"]
         )
     }
 
