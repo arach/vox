@@ -4,6 +4,21 @@ enum RemoteTTSSupport {
     static let maximumVendorMessageLength = 240
     static let plainTextClipLength = 120
 
+    static func joiningURL(_ baseURL: URL, path: String) -> URL? {
+        var base = baseURL.absoluteString
+        while base.hasSuffix("/") {
+            base.removeLast()
+        }
+        guard !base.isEmpty else {
+            return nil
+        }
+        var suffix = path
+        while suffix.hasPrefix("/") {
+            suffix.removeFirst()
+        }
+        return URL(string: "\(base)/\(suffix)")
+    }
+
     static func firstNonEmpty(_ values: String?...) -> String? {
         firstNonEmpty(Array(values))
     }
@@ -134,36 +149,16 @@ enum RemoteTTSSupport {
     }
 
     static func redactPlainText(_ text: String, sensitiveValues: [String]) -> String {
-        if containsSensitivePlainText(text, sensitiveValues: sensitiveValues) {
+        let values = sensitiveValues
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if !values.isEmpty {
             return "request failed"
         }
         return redactExactSensitiveValues(
             String(text.prefix(plainTextClipLength)),
             sensitiveValues: sensitiveValues
         )
-    }
-
-    static func containsSensitivePlainText(_ text: String, sensitiveValues: [String]) -> Bool {
-        let values = sensitiveValues
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        for value in values {
-            if text.localizedCaseInsensitiveContains(value) {
-                return true
-            }
-            let prefixLength = min(plainTextClipLength, value.count)
-            if prefixLength >= minimumExactRedactionLength {
-                let prefix = String(value.prefix(prefixLength))
-                if text.localizedCaseInsensitiveContains(prefix) {
-                    return true
-                }
-            }
-            if text.count >= minimumExactRedactionLength,
-               value.lowercased().hasPrefix(text.lowercased()) {
-                return true
-            }
-        }
-        return false
     }
 
     static func utf8PlainText(from data: Data) -> String? {

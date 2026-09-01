@@ -14,61 +14,37 @@ public enum TTSDefaultModelSelector {
             return entry.models ?? []
         }
 
-        if availableConfiguredModels.contains(TTSDefaults.modelId) {
-            return TTSDefaults.modelId
-        }
-
-        if let preferredOpenAIModel = availableConfiguredModels.first(where: isOpenAIModel) {
-            return preferredOpenAIModel
-        }
-
-        if let preferredRemoteModel = availableConfiguredModels.first(where: isRemoteAPIModel) {
-            return preferredRemoteModel
-        }
-
-        if availableConfiguredModels.contains(TTSDefaults.localModelId) {
-            return TTSDefaults.localModelId
-        }
-
-        if let firstAvailable = availableConfiguredModels.first {
-            return firstAvailable
+        if let preferred = preferredModelId(from: availableConfiguredModels) {
+            return preferred
         }
 
         let configuredModels = entries.flatMap { $0.models ?? [] }
-        return configuredModels.first ?? TTSDefaults.modelId
+        return preferredModelId(from: configuredModels) ?? TTSDefaults.modelId
     }
 
     public static func defaultModelId(from models: [TTSModelInfo]) -> String {
         let available = models.filter { $0.available && $0.installed }
         let candidates = available.isEmpty ? models : available
-        let ids = candidates.map(\.id)
+        return preferredModelId(from: candidates.map(\.id)) ?? TTSDefaults.modelId
+    }
 
-        if ids.contains(TTSDefaults.modelId) {
+    public static func preferredModelId(from modelIds: [String]) -> String? {
+        let unique = Set(modelIds)
+        guard !unique.isEmpty else {
+            return nil
+        }
+        if unique.contains(TTSDefaults.modelId) {
             return TTSDefaults.modelId
         }
-        if let preferredOpenAIModel = ids.first(where: isOpenAIModel) {
-            return preferredOpenAIModel
+        for family in TTSProviderFamily.defaultSelectionOrder {
+            if let modelId = family.rankedModelIDs.first(where: { unique.contains($0) }) {
+                return modelId
+            }
         }
-        if let preferredRemoteModel = ids.first(where: isRemoteAPIModel) {
-            return preferredRemoteModel
-        }
-        if ids.contains(TTSDefaults.localModelId) {
+        if unique.contains(TTSDefaults.localModelId) {
             return TTSDefaults.localModelId
         }
-        return ids.first ?? TTSDefaults.modelId
-    }
-
-    private static func isOpenAIModel(_ modelId: String) -> Bool {
-        OpenAITTSProvider.supportedModelIDs.contains(modelId)
-    }
-
-    private static func isRemoteAPIModel(_ modelId: String) -> Bool {
-        OpenAITTSProvider.supportedModelIDs.contains(modelId)
-            || ElevenLabsTTSProvider.supportedModelIDs.contains(modelId)
-            || MiniMaxTTSProvider.supportedModelIDs.contains(modelId)
-            || NVIDIAMagpieTTSProvider.supportedModelIDs.contains(modelId)
-            || GroqTTSProvider.supportedModelIDs.contains(modelId)
-            || GeminiTTSProvider.supportedModelIDs.contains(modelId)
+        return modelIds.first
     }
 
     private static func isAvailableForDefaultSelection(

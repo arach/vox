@@ -54,4 +54,36 @@ public enum TTSProviderFamily: String, Sendable, CaseIterable {
             return "mlx-audio"
         }
     }
+
+    public static let defaultSelectionOrder: [TTSProviderFamily] = [
+        .openai,
+        .elevenlabs,
+        .minimax,
+        .nvidia,
+        .groq,
+        .gemini,
+        .avspeech,
+        .mlxAudio
+    ]
+
+    public var rankedModelIDs: [String] {
+        switch self {
+        case .openai:
+            return OpenAITTSProvider.supportedModelIDs
+        case .elevenlabs:
+            return ElevenLabsTTSProvider.supportedModelIDs
+        case .minimax:
+            return MiniMaxTTSProvider.supportedModelIDs
+        case .nvidia:
+            return NVIDIAMagpieTTSProvider.supportedModelIDs
+        case .groq:
+            return GroqTTSProvider.supportedModelIDs
+        case .gemini:
+            return GeminiTTSProvider.supportedModelIDs
+        case .avspeech:
+            return [AVSpeechSynthesizerProvider.modelID]
+        case .mlxAudio:
+            return []
+        }
+    }
 }

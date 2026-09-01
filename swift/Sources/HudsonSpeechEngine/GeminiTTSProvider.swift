@@ -279,7 +279,7 @@ public actor GeminiTTSProvider: TTSProvider {
         guard let encodedModel = modelId.addingPercentEncoding(withAllowedCharacters: pathAllowed) else {
             return nil
         }
-        return URL(string: "\(baseURL.absoluteString)/models/\(encodedModel):generateContent")
+        return RemoteTTSSupport.joiningURL(baseURL, path: "models/\(encodedModel):generateContent")
     }
 
     static func resolveAPIKey(

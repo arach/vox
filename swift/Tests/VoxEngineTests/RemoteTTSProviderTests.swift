@@ -491,7 +491,7 @@ struct RemoteTTSProviderTests {
         let url = try #require(request.url)
         #expect(request.value(forHTTPHeaderField: "x-goog-api-key") == "synthetic-test-key")
         #expect(url.query == nil)
-        #expect(url.absoluteString.contains("/models/gemini-2.5-flash-preview-tts:generateContent"))
+        #expect(url.absoluteString == "https://example.test/v1beta/models/gemini-2.5-flash-preview-tts:generateContent")
 
         let body = try #require(MockHTTPURLProtocol.lastBody)
         let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
@@ -512,6 +512,63 @@ struct RemoteTTSProviderTests {
         #expect(littleEndianUInt32(in: output.audioData, at: 24) == 22_050)
         #expect(littleEndianUInt32(in: output.audioData, at: 40) == UInt32(pcm.count))
         #expect(output.audioData.suffix(pcm.count) == pcm)
+    }
+
+    @Test("Gemini generateContent URL joins GEMINI_BASE_URL with or without a trailing slash")
+    func geminiGenerateContentURLJoinsTrailingSlash() {
+        let modelId = GeminiTTSProvider.defaultModelID
+        let expected = "https://example.test/v1beta/models/\(modelId):generateContent"
+        let withoutSlash = GeminiTTSProvider.generateContentURL(
+            baseURL: URL(string: "https://example.test/v1beta")!,
+            modelId: modelId
+        )
+        let withSlash = GeminiTTSProvider.generateContentURL(
+            baseURL: URL(string: "https://example.test/v1beta/")!,
+            modelId: modelId
+        )
+        let withExtraSlashes = GeminiTTSProvider.generateContentURL(
+            baseURL: URL(string: "https://example.test/v1beta///")!,
+            modelId: modelId
+        )
+        #expect(withoutSlash?.absoluteString == expected)
+        #expect(withSlash?.absoluteString == expected)
+        #expect(withExtraSlashes?.absoluteString == expected)
+    }
+
+    @Test("Gemini synthesis normalizes a trailing-slash GEMINI_BASE_URL")
+    func geminiTrailingSlashBaseURLDoesNotDuplicatePath() async throws {
+        let pcm = Data([0x00, 0x01, 0x02, 0x03])
+        let responseObject: [String: Any] = [
+            "candidates": [[
+                "content": [
+                    "parts": [[
+                        "inlineData": [
+                            "mimeType": "audio/L16;codec=pcm;rate=24000;channels=1",
+                            "data": pcm.base64EncodedString()
+                        ]
+                    ]]
+                ]
+            ]]
+        ]
+        let session = MockHTTPURLProtocol.session(
+            body: try JSONSerialization.data(withJSONObject: responseObject),
+            contentType: "application/json"
+        )
+        let provider = GeminiTTSProvider(
+            env: [
+                "GEMINI_API_KEY": "synthetic-test-key",
+                "GEMINI_BASE_URL": "https://example.test/v1beta/"
+            ],
+            session: session
+        )
+
+        _ = try await provider.synthesize(SynthesisRequest(
+            text: "Hello Vox",
+            modelId: GeminiTTSProvider.defaultModelID
+        ))
+        let url = try #require(MockHTTPURLProtocol.lastRequest?.url)
+        #expect(url.absoluteString == "https://example.test/v1beta/models/gemini-2.5-flash-preview-tts:generateContent")
+        #expect(!url.absoluteString.contains("/v1beta//models/"))
     }
 
     @Test("Gemini rejects malformed PCM metadata and incomplete frames")
@@ -794,7 +851,8 @@ struct RemoteTTSProviderTests {
             vendor: "Groq TTS",
             sensitiveValues: [longPrompt]
         )
-        #expect(unrelated.contains("quota exceeded"))
+        #expect(unrelated == "Groq TTS: request failed")
+        #expect(!unrelated.contains("quota"))
         #expect(!unrelated.contains(token))
 
         let jsonKeepsQuota = RemoteTTSSupport.sanitizeVendorMessage(
@@ -811,9 +869,53 @@ struct RemoteTTSProviderTests {
             vendor: "NVIDIA Magpie",
             sensitiveValues: [longPrompt]
         )
-        #expect(secretPlain.contains("upstream"))
-        #expect(secretPlain.contains("[redacted]"))
+        #expect(secretPlain == "NVIDIA Magpie: request failed")
         #expect(!secretPlain.contains("nvapi-secret-key"))
+        #expect(!secretPlain.contains("upstream"))
+
+        let secretJSON = RemoteTTSSupport.sanitizeVendorMessage(
+            from: Data("{\"error\":{\"message\":\"upstream Bearer nvapi-secret-key denied\"}}".utf8),
+            vendor: "NVIDIA Magpie",
+            sensitiveValues: [longPrompt]
+        )
+        #expect(secretJSON.contains("upstream"))
+        #expect(secretJSON.contains("[redacted]"))
+        #expect(!secretJSON.contains("nvapi-secret-key"))
+
+        let voiceDiscovery = RemoteTTSSupport.sanitizeVendorMessage(
+            from: Data("quota exceeded".utf8),
+            vendor: "NVIDIA Magpie"
+        )
+        #expect(voiceDiscovery.contains("quota exceeded"))
+    }
+
+    @Test("plain-text vendor errors fail closed on a distinctive prompt fragment")
+    func plainTextErrorsFailClosedOnPromptFragment() {
+        let prompt = "UNIQUE-PROMPT-PREFIX-" + String(repeating: "x", count: 279)
+        #expect(prompt.count == 300)
+        let fragment = String(prompt.prefix(20))
+        let body = "quota: \(fragment)"
+        #expect(body.contains("quota: "))
+        #expect(fragment.count == 20)
+
+        let message = RemoteTTSSupport.sanitizeVendorMessage(
+            from: Data(body.utf8),
+            vendor: "Groq TTS",
+            sensitiveValues: [prompt]
+        )
+        #expect(message == "Groq TTS: request failed")
+        #expect(!message.contains(fragment))
+        #expect(!message.contains("quota"))
+        #expect(!message.contains(prompt))
+
+        let jsonKeepsQuota = RemoteTTSSupport.sanitizeVendorMessage(
+            from: Data("{\"error\":{\"message\":\"quota exceeded\"}}".utf8),
+            vendor: "NVIDIA Magpie",
+            sensitiveValues: [prompt]
+        )
+        #expect(jsonKeepsQuota.contains("quota"))
+        #expect(!jsonKeepsQuota.contains(fragment))
+        #expect(!jsonKeepsQuota.contains(prompt))
     }
 
     @Test("NVIDIA synthesis HTTP errors drop an echoed request prompt")

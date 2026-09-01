@@ -402,4 +402,141 @@ struct TTSDefaultModelSelectorTests {
             environment: ["GEMINI_API_KEY": "process-secret"]
         ) == GeminiTTSProvider.defaultModelID)
     }
+
+    @Test("app registry and daemon config share NVIDIA+Groq+Gemini ranking independent of input order")
+    func multiRemoteRankingAgreesAcrossSurfaces() async {
+        let nvidia = ProviderEntry(
+            id: "nvidia",
+            kind: .tts,
+            builtin: true,
+            models: NVIDIAMagpieTTSProvider.supportedModelIDs,
+            env: ["NV_API_KEY": "synthetic-test-key"]
+        )
+        let groq = ProviderEntry(
+            id: "groq",
+            kind: .tts,
+            builtin: true,
+            models: GroqTTSProvider.supportedModelIDs,
+            env: ["GROQ_API_KEY": "synthetic-test-key"]
+        )
+        let gemini = ProviderEntry(
+            id: "gemini",
+            kind: .tts,
+            builtin: true,
+            models: GeminiTTSProvider.supportedModelIDs,
+            env: ["GEMINI_API_KEY": "synthetic-test-key"]
+        )
+        let avspeech = ProviderEntry(
+            id: "avspeech",
+            kind: .tts,
+            builtin: true,
+            models: [TTSDefaults.localModelId]
+        )
+
+        for ordered in permutations([nvidia, groq, gemini]) {
+            let config = ProvidersConfig(providers: ordered + [avspeech])
+            let fromConfig = TTSDefaultModelSelector.defaultModelId(for: config, environment: [:])
+
+            var models = [
+                TTSModelInfo(
+                    id: TTSDefaults.localModelId,
+                    name: "AVSpeech",
+                    backend: "avspeech",
+                    installed: true,
+                    preloaded: true,
+                    available: true
+                )
+            ]
+            models.append(contentsOf: ordered.flatMap { entry in
+                (entry.models ?? []).map { modelId in
+                    TTSModelInfo(
+                        id: modelId,
+                        name: modelId,
+                        backend: entry.id,
+                        installed: true,
+                        preloaded: false,
+                        available: true
+                    )
+                }
+            })
+            let alphabetical = models.sorted {
+                $0.id.localizedCaseInsensitiveCompare($1.id) == .orderedAscending
+            }
+            let reversed = Array(models.reversed())
+            let registryModels = await TTSProviderRegistry(config: config).models()
+
+            #expect(fromConfig == NVIDIAMagpieTTSProvider.modelID)
+            #expect(TTSDefaultModelSelector.defaultModelId(from: models) == NVIDIAMagpieTTSProvider.modelID)
+            #expect(TTSDefaultModelSelector.defaultModelId(from: alphabetical) == NVIDIAMagpieTTSProvider.modelID)
+            #expect(TTSDefaultModelSelector.defaultModelId(from: reversed) == NVIDIAMagpieTTSProvider.modelID)
+            #expect(TTSDefaultModelSelector.defaultModelId(from: registryModels) == NVIDIAMagpieTTSProvider.modelID)
+            #expect(fromConfig == TTSDefaultModelSelector.defaultModelId(from: registryModels))
+        }
+    }
+
+    @Test("canonical ranking prefers Groq over Gemini and OpenAI over every remote")
+    func canonicalRankingPrefersEarlierFamilies() {
+        let groqThenGemini = [
+            availableModel(id: GeminiTTSProvider.defaultModelID, backend: "gemini"),
+            availableModel(id: GroqTTSProvider.defaultModelID, backend: "groq"),
+            availableModel(id: TTSDefaults.localModelId, backend: "avspeech")
+        ]
+        let geminiThenGroq = Array(groqThenGemini.reversed())
+        #expect(TTSDefaultModelSelector.defaultModelId(from: groqThenGemini) == GroqTTSProvider.defaultModelID)
+        #expect(TTSDefaultModelSelector.defaultModelId(from: geminiThenGroq) == GroqTTSProvider.defaultModelID)
+
+        let configGeminiFirst = ProvidersConfig(providers: [
+            ProviderEntry(
+                id: "gemini",
+                kind: .tts,
+                builtin: true,
+                models: GeminiTTSProvider.supportedModelIDs,
+                env: ["GEMINI_API_KEY": "synthetic-test-key"]
+            ),
+            ProviderEntry(
+                id: "groq",
+                kind: .tts,
+                builtin: true,
+                models: GroqTTSProvider.supportedModelIDs,
+                env: ["GROQ_API_KEY": "synthetic-test-key"]
+            ),
+            ProviderEntry(
+                id: "avspeech",
+                kind: .tts,
+                builtin: true,
+                models: [TTSDefaults.localModelId]
+            )
+        ])
+        #expect(TTSDefaultModelSelector.defaultModelId(for: configGeminiFirst, environment: [:]) == GroqTTSProvider.defaultModelID)
+
+        let allRemotes = [
+            availableModel(id: GeminiTTSProvider.defaultModelID, backend: "gemini"),
+            availableModel(id: GroqTTSProvider.defaultModelID, backend: "groq"),
+            availableModel(id: NVIDIAMagpieTTSProvider.modelID, backend: "nvidia"),
+            availableModel(id: TTSDefaults.modelId, backend: "openai"),
+            availableModel(id: TTSDefaults.localModelId, backend: "avspeech")
+        ]
+        #expect(TTSDefaultModelSelector.defaultModelId(from: allRemotes) == TTSDefaults.modelId)
+        #expect(TTSDefaultModelSelector.defaultModelId(from: allRemotes.reversed()) == TTSDefaults.modelId)
+    }
+
+    private func availableModel(id: String, backend: String) -> TTSModelInfo {
+        TTSModelInfo(
+            id: id,
+            name: id,
+            backend: backend,
+            installed: true,
+            preloaded: false,
+            available: true
+        )
+    }
+
+    private func permutations<T>(_ items: [T]) -> [[T]] {
+        guard items.count > 1 else { return [items] }
+        return items.indices.flatMap { index -> [[T]] in
+            var remaining = items
+            let head = remaining.remove(at: index)
+            return permutations(remaining).map { [head] + $0 }
+        }
+    }
 }

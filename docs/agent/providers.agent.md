@@ -14,9 +14,9 @@
 - Gemini TTS: Generate Content AUDIO for 2.5 and `gemini-3.1-flash-tts-preview`, wrap `audio/L16` as WAV, `GEMINI_API_KEY`/`GOOGLE_API_KEY`, voice `Rasalgethi`
 - per-request `credentials` allowlist: OpenAI, NVIDIA, Groq, Gemini/Google only; never ElevenLabs/MiniMax; never log keys
 - explicit empty/whitespace provider env key or alias fences process credential fallback for resolution and default model selection; process env is used only when that key is absent from `env`
-- synthesis HTTP errors redact the exact request text; plain-text bodies fail closed on prompt prefixes; voice discovery has no prompt
+- NVIDIA Magpie, Groq, and Gemini synthesis HTTP errors redact the exact request text; JSON diagnostics keep secret redaction; plain-text bodies fail closed whenever synthesis sensitive values are supplied; voice discovery has no prompt; older providers keep their existing error surfaces
 - remote providers participate in defaults only when configured; aliases such as `magpie`/`groq-tts`/`google-tts` block canonical default overwrite
-- default TTS model remains `gpt-4o-mini-tts` when OpenAI is configured
+- default TTS ranking is independent of config and registry order: OpenAI `gpt-4o-mini-tts`, ElevenLabs, MiniMax, NVIDIA, Groq, Gemini, then AVSpeech
 - reserve stdout for protocol messages and send logs to stderr
 - provider state may cache weights, but crash/restart must remain safe
 - canonical implementations: `swift/Sources/HudsonSpeechEngine/` builtin TTS providers plus `ExternalTTSProvider.swift`
