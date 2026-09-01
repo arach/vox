@@ -28,24 +28,31 @@ public struct SpeechAudioOutputRoute: Sendable, Equatable {
 }
 
 /// Synthesis identity is reported separately from the physical audio-output route.
+///
+/// `backend` is `TTSModelInfo.backend` when known. It is not a provider id.
+/// Requested model/voice stay on the request fields; actual model/voice are
+/// filled in after resolve or generation.
 public struct SpeechSynthesisIdentity: Sendable, Equatable {
+    public var requestedModelId: String
     public var modelId: String
+    public var requestedVoiceId: String?
     public var voiceId: String?
     public var backend: String?
-    public var providerId: String?
     public var delivery: SpeechOutputDelivery
 
     public init(
-        modelId: String,
+        requestedModelId: String,
+        modelId: String? = nil,
+        requestedVoiceId: String? = nil,
         voiceId: String? = nil,
         backend: String? = nil,
-        providerId: String? = nil,
         delivery: SpeechOutputDelivery
     ) {
-        self.modelId = modelId
+        self.requestedModelId = requestedModelId
+        self.modelId = modelId ?? requestedModelId
+        self.requestedVoiceId = requestedVoiceId
         self.voiceId = voiceId
         self.backend = backend
-        self.providerId = providerId
         self.delivery = delivery
     }
 }
@@ -108,8 +115,10 @@ public enum SpeechOutputError: Error, Sendable, Equatable, LocalizedError {
     case missingText
     case unsupportedVoice(String)
     case noSystemVoices
+    case audioSessionFailed(String)
     case playerFailedToStart
     case playerFailed(String)
+    case playerFactoryFailed(String)
     case generationFailed(String)
 
     public var errorDescription: String? {
@@ -120,9 +129,13 @@ public enum SpeechOutputError: Error, Sendable, Equatable, LocalizedError {
             return "Unsupported voice: \(voiceId)"
         case .noSystemVoices:
             return "No system speech voices are available."
+        case .audioSessionFailed(let message):
+            return message
         case .playerFailedToStart:
             return "Audio player failed to start."
         case .playerFailed(let message):
+            return message
+        case .playerFactoryFailed(let message):
             return message
         case .generationFailed(let message):
             return message

@@ -70,7 +70,11 @@ public actor AppleSpeechOutputController {
             }
 
             if let audioSession {
-                try audioSession.prepareForSpeechOutput()
+                do {
+                    try audioSession.prepareForSpeechOutput()
+                } catch {
+                    throw SpeechOutputError.audioSessionFailed(error.localizedDescription)
+                }
             }
 
             let models = await engine.models()
@@ -82,10 +86,11 @@ public actor AppleSpeechOutputController {
                 backend: model?.backend
             )
             session.synthesis = SpeechSynthesisIdentity(
+                requestedModelId: session.request.modelId,
                 modelId: session.request.modelId,
+                requestedVoiceId: session.request.voiceId,
                 voiceId: session.request.voiceId,
                 backend: model?.backend,
-                providerId: model?.backend,
                 delivery: delivery
             )
             session.audioOutput = SpeechOutputCapabilities.audioOutput(for: delivery)
@@ -115,14 +120,9 @@ public actor AppleSpeechOutputController {
         session.synthesis.voiceId = voice.identifier
         if session.synthesis.backend == nil {
             session.synthesis.backend = "avspeech"
-            session.synthesis.providerId = "avspeech"
         }
 
-        let utterance = SpeechOutputUtterance(
-            text: session.request.text,
-            requestId: session.request.requestId,
-            generation: session.generation
-        )
+        let utterance = AVSpeechUtterance(string: session.request.text)
         utterance.voice = voice
         utterance.prefersAssistiveTechnologySettings = false
         if let rate = Self.speechRate(from: session.request.speed) {
@@ -158,24 +158,32 @@ public actor AppleSpeechOutputController {
         emit(.starting, for: session)
         guard isActive(session.generation) else { return }
 
-        let player = try playerFactory(output.audioData)
+        let player: any SpeechAudioPlaying
+        do {
+            player = try playerFactory(output.audioData)
+        } catch {
+            throw SpeechOutputError.playerFactoryFailed(error.localizedDescription)
+        }
+
+        let generation = session.generation
         player.attach { [weak self] event in
             guard let self else { return }
-            Task { await self.handlePlayer(event, generation: session.generation) }
+            Task { await self.handlePlayer(event, generation: generation) }
         }
         session.player = player
 
         guard isActive(session.generation) else {
-            player.stop()
+            detachPlayer(session)
             return
         }
 
         let started = player.play()
         if !isActive(session.generation) {
-            player.stop()
+            detachPlayer(session)
             return
         }
         guard started else {
+            detachPlayer(session)
             throw SpeechOutputError.playerFailedToStart
         }
 
@@ -208,10 +216,7 @@ public actor AppleSpeechOutputController {
 
     private func interruptCurrent(emitting phase: SpeechOutputPhase) {
         guard let session = current else { return }
-        session.cancelled = true
-        session.task?.cancel()
-        synthesizer.stop(generation: session.generation)
-        session.player?.stop()
+        abandon(session)
         emit(phase, for: session)
         current = nil
     }
@@ -222,8 +227,24 @@ public actor AppleSpeechOutputController {
         error: String? = nil
     ) {
         guard isActive(generation), let session = current else { return }
+        abandon(session)
         emit(phase, for: session, error: error)
         current = nil
+    }
+
+    private func abandon(_ session: Session) {
+        session.cancelled = true
+        session.task?.cancel()
+        session.task = nil
+        synthesizer.stop(generation: session.generation)
+        detachPlayer(session)
+    }
+
+    private func detachPlayer(_ session: Session) {
+        guard let player = session.player else { return }
+        player.stop()
+        player.detach()
+        session.player = nil
     }
 
     private func isActive(_ generation: UInt64) -> Bool {
@@ -289,7 +310,9 @@ private final class Session: @unchecked Sendable {
         self.generation = generation
         let capability = SpeechOutputCapabilities.capability(forModelId: request.modelId)
         self.synthesis = SpeechSynthesisIdentity(
+            requestedModelId: request.modelId,
             modelId: request.modelId,
+            requestedVoiceId: request.voiceId,
             voiceId: request.voiceId,
             delivery: capability.delivery
         )

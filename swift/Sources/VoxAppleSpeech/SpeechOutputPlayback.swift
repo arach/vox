@@ -33,8 +33,10 @@ public protocol SystemSpeechSynthesizing: AnyObject, Sendable {
 }
 
 /// Generated-audio sink. `play()` returning `false` is a failure.
+/// `detach()` clears the callback and must not retain the owning session.
 public protocol SpeechAudioPlaying: AnyObject, Sendable {
     func attach(callback: @escaping @Sendable (SpeechAudioPlayerEvent) -> Void)
+    func detach()
     func play() -> Bool
     func stop()
 }
@@ -47,107 +49,160 @@ public protocol SpeechAudioSessionConfiguring: Sendable {
     func prepareForSpeechOutput() throws
 }
 
+protocol SpeechWorkScheduling: AnyObject, Sendable {
+    func enqueue(_ work: @escaping @Sendable () -> Void)
+}
+
+protocol SpeechSynthesizerEngine: AnyObject, Sendable {
+    func speak(_ utterance: AVSpeechUtterance)
+    func stopSpeaking()
+}
+
 private struct UncheckedSpeechUtterance: @unchecked Sendable {
     let utterance: AVSpeechUtterance
-
-    init(_ utterance: AVSpeechUtterance) {
-        self.utterance = utterance
-    }
 }
 
-final class SpeechOutputUtterance: AVSpeechUtterance, @unchecked Sendable {
-    let requestId: String
+private struct TrackedUtterance {
+    let utterance: AVSpeechUtterance
     let generation: UInt64
+    let requestId: String
+}
 
-    init(text: String, requestId: String, generation: UInt64) {
-        self.requestId = requestId
-        self.generation = generation
-        super.init(string: text)
-    }
-
-    required init?(coder: NSCoder) {
-        nil
+final class MainQueueSpeechWorkScheduler: SpeechWorkScheduling, @unchecked Sendable {
+    func enqueue(_ work: @escaping @Sendable () -> Void) {
+        DispatchQueue.main.async(execute: work)
     }
 }
 
-public final class AVSpeechSynthesizerSink: NSObject, SystemSpeechSynthesizing, AVSpeechSynthesizerDelegate, @unchecked Sendable {
-    private let synthesizer = AVSpeechSynthesizer()
+final class AVFoundationSpeechSynthesizerEngine: SpeechSynthesizerEngine, @unchecked Sendable {
+    let synthesizer = AVSpeechSynthesizer()
+
+    func speak(_ utterance: AVSpeechUtterance) {
+        synthesizer.speak(utterance)
+    }
+
+    func stopSpeaking() {
+        synthesizer.stopSpeaking(at: .immediate)
+    }
+}
+
+/// Production live-speech sink. Cancellation is recorded under the lock before
+/// `stopSpeaking` is queued so a generation stopped during the enqueue window
+/// cannot become audible. Speak/stop always hop through the scheduler; there
+/// is no main-thread fast path. Utterance metadata is tracked explicitly, so
+/// ordinary `AVSpeechUtterance` values still emit generation and request identity.
+final class AVSpeechSynthesizerSink: NSObject, SystemSpeechSynthesizing, AVSpeechSynthesizerDelegate, @unchecked Sendable {
+    private let engine: any SpeechSynthesizerEngine
+    private let scheduler: any SpeechWorkScheduling
     private let lock = NSLock()
     private var callback: (@Sendable (SystemSpeechEvent) -> Void)?
-    private var cancelledGenerations: [UInt64] = []
     private var speakingGeneration: UInt64?
+    /// Queued speak proceeds only while this entry remains. `stop(generation:)`
+    /// removes matching entries, so rapid replacements cannot revive a stale
+    /// generation after a bounded cancel list would have evicted it.
+    private var pending: [ObjectIdentifier: TrackedUtterance] = [:]
 
-    public override init() {
-        super.init()
-        synthesizer.delegate = self
+    convenience override init() {
+        let engine = AVFoundationSpeechSynthesizerEngine()
+        self.init(engine: engine, scheduler: MainQueueSpeechWorkScheduler())
+        engine.synthesizer.delegate = self
     }
 
-    public func setCallback(_ callback: @escaping @Sendable (SystemSpeechEvent) -> Void) {
+    init(engine: any SpeechSynthesizerEngine, scheduler: any SpeechWorkScheduling) {
+        self.engine = engine
+        self.scheduler = scheduler
+        super.init()
+    }
+
+    func setCallback(_ callback: @escaping @Sendable (SystemSpeechEvent) -> Void) {
         lock.lock()
         self.callback = callback
         lock.unlock()
     }
 
-    public func speak(_ utterance: AVSpeechUtterance, generation: UInt64, requestId: String) {
-        let boxed = UncheckedSpeechUtterance(utterance)
-        runOnSynthesizerQueue {
-            guard !self.isCancelled(generation) else { return }
-            self.speakingGeneration = generation
-            self.synthesizer.speak(boxed.utterance)
+    func speak(_ utterance: AVSpeechUtterance, generation: UInt64, requestId: String) {
+        let boxed = UncheckedSpeechUtterance(utterance: utterance)
+        let identifier = ObjectIdentifier(utterance)
+        lock.lock()
+        pending[identifier] = TrackedUtterance(
+            utterance: utterance,
+            generation: generation,
+            requestId: requestId
+        )
+        lock.unlock()
+
+        scheduler.enqueue { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            guard let tracked = self.pending[identifier], tracked.generation == generation else {
+                self.lock.unlock()
+                return
+            }
+            self.speakingGeneration = tracked.generation
+            self.lock.unlock()
+            self.engine.speak(boxed.utterance)
         }
     }
 
-    public func stop(generation: UInt64) {
-        runOnSynthesizerQueue {
-            self.markCancelled(generation)
-            if self.speakingGeneration == nil || self.speakingGeneration == generation {
-                self.speakingGeneration = nil
-                self.synthesizer.stopSpeaking(at: .immediate)
+    func stop(generation: UInt64) {
+        lock.lock()
+        pending = pending.filter { $0.value.generation != generation }
+        if speakingGeneration == generation {
+            speakingGeneration = nil
+        }
+        lock.unlock()
+
+        scheduler.enqueue { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            let current = self.speakingGeneration
+            let stillPending = self.pending.values.contains { $0.generation == generation }
+            self.lock.unlock()
+            guard !stillPending else { return }
+            if current == nil || current == generation {
+                self.engine.stopSpeaking()
             }
         }
     }
 
-    public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
-        emit(.didStart, from: utterance)
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        handleEngineEvent(.didStart, identifier: ObjectIdentifier(utterance))
     }
 
-    public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        emit(.didFinish, from: utterance)
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        handleEngineEvent(.didFinish, identifier: ObjectIdentifier(utterance))
     }
 
-    public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        emit(.didCancel, from: utterance)
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        handleEngineEvent(.didCancel, identifier: ObjectIdentifier(utterance))
     }
 
-    private func emit(_ kind: SystemSpeechEvent.Kind, from utterance: AVSpeechUtterance) {
-        guard let tracked = utterance as? SpeechOutputUtterance else { return }
-        let callback = lockedCallback()
+    func handleEngineEvent(_ kind: SystemSpeechEvent.Kind, identifier: ObjectIdentifier) {
+        lock.lock()
+        let tracked = pending[identifier]
+        if kind == .didFinish || kind == .didCancel {
+            pending.removeValue(forKey: identifier)
+            if let tracked, speakingGeneration == tracked.generation {
+                speakingGeneration = nil
+            }
+        }
+        let callback = self.callback
+        lock.unlock()
+
+        guard let tracked else { return }
         callback?(SystemSpeechEvent(kind: kind, generation: tracked.generation, requestId: tracked.requestId))
     }
 
-    private func lockedCallback() -> (@Sendable (SystemSpeechEvent) -> Void)? {
+    func hasPendingGeneration(_ generation: UInt64) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        return callback
+        return pending.values.contains { $0.generation == generation }
     }
 
-    private func isCancelled(_ generation: UInt64) -> Bool {
-        cancelledGenerations.contains(generation)
-    }
-
-    private func markCancelled(_ generation: UInt64) {
-        cancelledGenerations.append(generation)
-        if cancelledGenerations.count > 32 {
-            cancelledGenerations.removeFirst(cancelledGenerations.count - 32)
-        }
-    }
-
-    private func runOnSynthesizerQueue(_ work: @escaping @Sendable () -> Void) {
-        if Thread.isMainThread {
-            work()
-        } else {
-            DispatchQueue.main.async(execute: work)
-        }
+    var currentSpeakingGeneration: UInt64? {
+        lock.lock()
+        defer { lock.unlock() }
+        return speakingGeneration
     }
 }
 
@@ -172,6 +227,13 @@ public final class AVAudioPlayerSink: NSObject, SpeechAudioPlaying, AVAudioPlaye
         lock.unlock()
     }
 
+    public func detach() {
+        lock.lock()
+        callback = nil
+        lock.unlock()
+        player.delegate = nil
+    }
+
     public func play() -> Bool {
         player.prepareToPlay()
         return player.play()
@@ -179,6 +241,7 @@ public final class AVAudioPlayerSink: NSObject, SpeechAudioPlaying, AVAudioPlaye
 
     public func stop() {
         player.stop()
+        detach()
     }
 
     public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {

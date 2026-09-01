@@ -49,7 +49,7 @@ let package = Package(
         ),
         .target(
             name: "VoxAppleSpeech",
-            dependencies: ["VoxEngine"],
+            dependencies: ["VoxCore", "VoxEngine"],
             path: "swift/Sources/VoxAppleSpeech"
         ),
         .target(
@@ -103,7 +103,7 @@ let package = Package(
         ),
         .testTarget(
             name: "VoxAppleSpeechTests",
-            dependencies: ["VoxAppleSpeech", "HudsonSpeechEngine"],
+            dependencies: ["VoxAppleSpeech", "VoxCore", "VoxEngine"],
             path: "swift/Tests/VoxAppleSpeechTests"
         ),
         .testTarget(

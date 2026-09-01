@@ -83,6 +83,7 @@
 - new requests replace pending generation/playback
 - stop/cancel are idempotent and must cancel Task, player, and synthesizer during the enqueue window
 - events report resolving/generating, starting, playing, finished, cancelled, failed
+- synthesis identity reports requested vs actual model/voice, not a guessed provider id
 - synthesis identity is separate from the physical audio-output route
 - do not put reply dedupe, markdown flattening, fallback copy, preference storage, queue priority, or telemetry double-recording in this controller
 

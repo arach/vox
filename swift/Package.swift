@@ -43,7 +43,7 @@ let package = Package(
         ),
         .target(
             name: "VoxAppleSpeech",
-            dependencies: ["VoxEngine"]
+            dependencies: ["VoxCore", "VoxEngine"]
         ),
         .target(
             name: "VoxService",
@@ -88,7 +88,7 @@ let package = Package(
         ),
         .testTarget(
             name: "VoxAppleSpeechTests",
-            dependencies: ["VoxAppleSpeech", "HudsonSpeechEngine"]
+            dependencies: ["VoxAppleSpeech", "VoxCore", "VoxEngine"]
         ),
         .testTarget(
             name: "VoxBridgeTests",

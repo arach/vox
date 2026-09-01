@@ -137,7 +137,7 @@ Use it when an Apple app wants one controller per audible surface that:
 - replaces the previous pending generation or playback when a new request starts
 - cancels the in-flight `Task`, audio player, and system synthesizer on idempotent `stop()` / `cancel()`, including during the enqueue window
 - reports typed phases (`resolving` or `generating`, `starting`, `playing`, `finished`, `cancelled`, `failed`)
-- reports synthesis/provider/model/voice identity separately from the physical audio-output route
+- reports requested vs actual model/voice identity separately from the physical audio-output route; it does not invent a provider id
 
 Do not treat this controller as browser playback, OpenScout Ranger policy, or app product policy. Reply dedupe, markdown flattening, fallback copy, preference storage, queue priority, and telemetry double-recording stay in the app.
 
