@@ -311,7 +311,7 @@ Warm-up must remain explicit.
 - ASR warm-up: `EngineManager.preload(modelId:progress:)`
 - TTS warm-up: `TTSEngineManager.preload(modelId:voiceId:progress:)`
 
-Do not hide warm-up behind app launch side effects unless the product intentionally wants that behavior. Prefer warming on intent or at a predictable app state transition.
+Do not hide warm-up behind app launch side effects unless the product intentionally chooses the `.eager` model download policy. Prefer `.onFirstUse` or warming on intent at a predictable app state transition.
 
 ## Telemetry
 
@@ -420,6 +420,20 @@ Warm-up is a public API, not a hidden side effect. It applies to both ASR and TT
 - `warmup.schedule` -- warm after a delay
 
 Typical pattern: create a `VoxClient` with a stable `clientId`, warm when the user opens a voice affordance, then transcribe or synthesize once the model is ready.
+
+The ASR model itself is never embedded in the Swift product. Automatic
+acquisition for live transcription is controlled by
+`VoxSpeechPreferences.modelDownloadPolicy`:
+
+| Value | Behavior |
+|-------|----------|
+| `never` | Never download automatically. Live transcription requires an already-installed model or an explicit install/warm-up request. |
+| `on_first_use` | Start warm-up with the first live transcription session. This is the default. |
+| `eager` | Start warm-up when `voxd` starts. |
+
+The explicit `models.install`, `models.preload`, and `warmup.*` routes remain
+available under every policy; choosing one of those routes is itself an
+operator/user request to acquire the model.
 
 ## File Transcription
 
@@ -551,6 +565,9 @@ Built-in providers include:
 - `openai-tts` for remote TTS
 - `elevenlabs` for ElevenLabs remote TTS
 - `minimax` for MiniMax remote TTS
+- `nvidia` for NVIDIA Magpie remote TTS
+- `groq` for Groq Orpheus remote TTS
+- `gemini` for Gemini remote TTS
 - `mlx-audio` for built-in external bridging across both ASR and TTS
 
 ## Provider Config
@@ -601,6 +618,33 @@ Providers are registered in `~/.vox/providers.json`:
       }
     },
     {
+      "id": "nvidia",
+      "kind": "tts",
+      "builtin": true,
+      "models": ["magpie-tts-multilingual"],
+      "env": {
+        "NV_API_KEY": "..."
+      }
+    },
+    {
+      "id": "groq",
+      "kind": "tts",
+      "builtin": true,
+      "models": ["canopylabs/orpheus-v1-english"],
+      "env": {
+        "GROQ_API_KEY": "..."
+      }
+    },
+    {
+      "id": "gemini",
+      "kind": "tts",
+      "builtin": true,
+      "models": ["gemini-2.5-flash-preview-tts"],
+      "env": {
+        "GEMINI_API_KEY": "..."
+      }
+    },
+    {
       "id": "mlx-audio",
       "kind": "asr",
       "builtin": true,
@@ -636,8 +680,9 @@ Notes:
 
 - Register ASR and TTS as separate entries even when they share the same `id`.
 - `models` is optional for external providers now. Vox can call `models()` and route dynamically from the returned list.
-- Built-in remote TTS providers read their API keys from `env` first, then from process environment. `ELEVENLABS_BASE_URL`, `ELEVENLABS_OUTPUT_FORMAT`, and `MINIMAX_BASE_URL` can override vendor defaults.
-- If `providers.json` contains only ASR entries, Vox falls back to default TTS providers. The inverse is also true.
+- Built-in remote TTS providers read their API keys from per-request `credentials` first, then provider `env`, then the process environment. `ELEVENLABS_BASE_URL`, `ELEVENLABS_OUTPUT_FORMAT`, `MINIMAX_BASE_URL`, `NVIDIA_TTS_URL`, `NVIDIA_VOICES_URL`, `GROQ_BASE_URL`, and `GEMINI_BASE_URL` can override vendor defaults.
+- NVIDIA Magpie accepts `NV_API_KEY` and the `NVIDIA_API_KEY` compatibility alias. Gemini accepts `GEMINI_API_KEY`, `GOOGLE_API_KEY`, and `GOOGLE_GENAI_API_KEY`.
+- If `providers.json` contains only ASR entries, Vox falls back to default TTS providers. The inverse is also true. The default TTS model remains `gpt-4o-mini-tts` when OpenAI is configured.
 
 ### OpenAI TTS timeout
 
@@ -649,6 +694,42 @@ Notes:
 - maximum accepted value: `30` seconds
 
 The timeout can be set in the provider `env` block or the daemon process environment.
+
+### NVIDIA Magpie TTS
+
+`nvidia` is the first-class Vox home for NVIDIA Magpie TTS Multilingual, using the hosted NVIDIA Developer Inference contract:
+
+- model id: `magpie-tts-multilingual`
+- voice discovery: `GET /v1/audio/list_voices`
+- synthesis: multipart `POST /v1/audio/synthesize`
+- encoding: `LINEAR_PCM` at `44100` Hz
+- default voice: `Magpie-Multilingual.EN-US.Aria`
+- language is inferred from the Magpie voice id (`EN-US` → `en-US`)
+- credentials: `NV_API_KEY`, with `NVIDIA_API_KEY` as a compatibility alias
+- URL overrides: `NVIDIA_TTS_URL`, `NVIDIA_VOICES_URL`, or `NVIDIA_BASE_URL`
+
+If Magpie returns raw LINEAR PCM rather than a WAV container, Vox wraps the PCM as 16-bit 44.1 kHz WAV so the public `SynthesisOutput` contract stays `format: "wav"`.
+
+### Groq Orpheus TTS
+
+`groq` uses Groq's OpenAI-compatible speech endpoint and requests `response_format: "wav"`:
+
+- models: `canopylabs/orpheus-v1-english`, `canopylabs/orpheus-arabic-saudi`
+- default voice: `autumn`
+- input limit: 200 characters; longer text is rejected rather than truncated
+- credentials: `GROQ_API_KEY`
+- URL override: `GROQ_BASE_URL` (default `https://api.groq.com/openai/v1`)
+
+### Gemini TTS
+
+`gemini` uses the Gemini Generate Content API with `responseModalities: ["AUDIO"]`:
+
+- models: `gemini-2.5-flash-preview-tts`, `gemini-2.5-pro-preview-tts`
+- default voice: `Puck`
+- credentials: `GEMINI_API_KEY`, with `GOOGLE_API_KEY` / `GOOGLE_GENAI_API_KEY` as aliases
+- URL override: `GEMINI_BASE_URL` (default `https://generativelanguage.googleapis.com/v1beta`)
+
+Gemini typically returns `audio/L16` PCM. Vox wraps that PCM in a WAV container so callers still receive `SynthesisOutput.format = "wav"`. This is a lossless PCM container wrap, not a transcode.
 
 ## Protocol Methods
 
@@ -1501,7 +1582,7 @@ Model-facing speech layer:
 - annotation provider routing and speaker-attribution contracts
 - TTS provider routing and voice discovery
 - Parakeet inference
-- AVSpeech, OpenAI, and external synthesis backends
+- AVSpeech, OpenAI, ElevenLabs, MiniMax, NVIDIA Magpie, Groq, Gemini, and external synthesis backends
 - stage-level timing
 
 ### VoxService
@@ -2148,7 +2229,7 @@ Source: docs/agent/architecture.agent.md
 # Architecture Facts
 
 - `VoxCore`: shared types, paths, traces, and performance records
-- `VoxEngine`: provider routing, model lifecycle, audio preparation, ASR, annotation, and TTS
+- `VoxEngine`: provider routing, model lifecycle, audio preparation, ASR, annotation, and TTS (AVSpeech, OpenAI, ElevenLabs, MiniMax, NVIDIA Magpie, Groq, Gemini, external)
 - `VoxService`: daemon RPC, sessions, warm-up, capture, and telemetry
 - `VoxBridge`: narrow browser-facing HTTP transport
 - `@voxd/sdk`: WebSocket companion client for Bun/Node
@@ -2218,9 +2299,15 @@ Source: docs/agent/providers.agent.md
 - TTS methods: `voices`, `synthesize`
 - ASR results require `metrics.inferenceMs` and `metrics.totalMs`
 - TTS results require `metrics.totalMs`; prefer `synthesisMs`
+- builtin TTS ids: `avspeech`, `openai-tts`, `elevenlabs`, `minimax`, `nvidia`, `groq`, `gemini`
+- NVIDIA Magpie: model `magpie-tts-multilingual`, `NV_API_KEY`/`NVIDIA_API_KEY`, LINEAR_PCM 44.1 kHz, dynamic `list_voices`
+- Groq Orpheus: WAV `response_format`, 200-character limit, `GROQ_API_KEY`
+- Gemini TTS: Generate Content AUDIO, wrap `audio/L16` as WAV, `GEMINI_API_KEY`/`GOOGLE_API_KEY`
+- remote TTS credentials: per-request `credentials`, then provider `env`, then process environment
+- default TTS model remains `gpt-4o-mini-tts` when OpenAI is configured
 - reserve stdout for protocol messages and send logs to stderr
 - provider state may cache weights, but crash/restart must remain safe
-- canonical implementations: `swift/Sources/VoxEngine/ExternalProvider.swift` and `ExternalTTSProvider.swift`
+- canonical implementations: `swift/Sources/HudsonSpeechEngine/` builtin TTS providers plus `ExternalTTSProvider.swift`
 
 # Quickstart Facts
 

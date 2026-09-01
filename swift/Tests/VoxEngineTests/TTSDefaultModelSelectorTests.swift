@@ -118,4 +118,46 @@ struct TTSDefaultModelSelectorTests {
 
         #expect(modelId == ElevenLabsTTSProvider.supportedModelIDs[0])
     }
+
+    @Test("default selector skips NVIDIA, Groq, and Gemini without API keys")
+    func skipsNewRemoteProvidersWithoutAPIKeys() {
+        let config = TTSDefaultProviderConfig.inProcess()
+        let modelId = TTSDefaultModelSelector.defaultModelId(for: config, environment: [:])
+        #expect(modelId == TTSDefaults.localModelId)
+        #expect(config.providers.contains(where: { $0.id == "nvidia" }))
+        #expect(config.providers.contains(where: { $0.id == "groq" }))
+        #expect(config.providers.contains(where: { $0.id == "gemini" }))
+        #expect(config.providers.first(where: { $0.id == "openai-tts" })?.models?.contains(TTSDefaults.modelId) == true)
+    }
+
+    @Test("default selector can use NVIDIA when configured and OpenAI is unavailable")
+    func prefersNVIDIAWhenConfigured() {
+        let config = ProvidersConfig(providers: [
+            ProviderEntry(
+                id: "openai-tts",
+                kind: .tts,
+                builtin: true,
+                models: [TTSDefaults.modelId]
+            ),
+            ProviderEntry(
+                id: "nvidia",
+                kind: .tts,
+                builtin: true,
+                models: NVIDIAMagpieTTSProvider.supportedModelIDs
+            ),
+            ProviderEntry(
+                id: "avspeech",
+                kind: .tts,
+                builtin: true,
+                models: [TTSDefaults.localModelId]
+            )
+        ])
+
+        let modelId = TTSDefaultModelSelector.defaultModelId(
+            for: config,
+            environment: ["NV_API_KEY": "test-key"]
+        )
+
+        #expect(modelId == NVIDIAMagpieTTSProvider.modelID)
+    }
 }

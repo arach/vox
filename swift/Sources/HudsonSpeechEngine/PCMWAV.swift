@@ -1,0 +1,94 @@
+import Foundation
+
+enum PCMWAV {
+    static func isWave(_ data: Data) -> Bool {
+        data.count >= 12
+            && data.starts(with: Data("RIFF".utf8))
+            && data[8..<12] == Data("WAVE".utf8)
+    }
+
+    static func wrap(
+        pcm: Data,
+        sampleRate: UInt32,
+        channelCount: UInt16 = 1,
+        bitsPerSample: UInt16 = 16
+    ) throws -> Data {
+        guard !pcm.isEmpty else {
+            throw PCMWAVError.emptyAudio
+        }
+        guard (8_000...192_000).contains(sampleRate), (1...8).contains(channelCount) else {
+            throw PCMWAVError.unsupportedParameters
+        }
+        let blockAlign = channelCount * bitsPerSample / 8
+        guard blockAlign > 0, pcm.count.isMultiple(of: Int(blockAlign)) else {
+            throw PCMWAVError.incompleteFrame
+        }
+        guard pcm.count <= Int(UInt32.max) - 36 else {
+            throw PCMWAVError.unsupportedParameters
+        }
+
+        let byteRate = sampleRate * UInt32(channelCount) * UInt32(bitsPerSample) / 8
+        var wav = Data("RIFF".utf8)
+        wav.appendLittleEndian(UInt32(36 + pcm.count))
+        wav.append(Data("WAVEfmt ".utf8))
+        wav.appendLittleEndian(UInt32(16))
+        wav.appendLittleEndian(UInt16(1))
+        wav.appendLittleEndian(channelCount)
+        wav.appendLittleEndian(sampleRate)
+        wav.appendLittleEndian(byteRate)
+        wav.appendLittleEndian(blockAlign)
+        wav.appendLittleEndian(bitsPerSample)
+        wav.append(Data("data".utf8))
+        wav.appendLittleEndian(UInt32(pcm.count))
+        wav.append(pcm)
+        return wav
+    }
+
+    static func wavIfNeeded(
+        _ data: Data,
+        sampleRate: UInt32,
+        channelCount: UInt16 = 1,
+        bitsPerSample: UInt16 = 16
+    ) throws -> Data {
+        if isWave(data) {
+            return data
+        }
+        return try wrap(
+            pcm: data,
+            sampleRate: sampleRate,
+            channelCount: channelCount,
+            bitsPerSample: bitsPerSample
+        )
+    }
+}
+
+enum PCMWAVError: Error, LocalizedError {
+    case emptyAudio
+    case unsupportedParameters
+    case incompleteFrame
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyAudio:
+            return "Cannot wrap empty PCM audio as WAV."
+        case .unsupportedParameters:
+            return "Unsupported PCM WAV parameters."
+        case .incompleteFrame:
+            return "PCM audio is not aligned to a complete sample frame."
+        }
+    }
+}
+
+extension Data {
+    mutating func appendLittleEndian(_ value: UInt16) {
+        append(UInt8(value & 0xff))
+        append(UInt8((value >> 8) & 0xff))
+    }
+
+    mutating func appendLittleEndian(_ value: UInt32) {
+        append(UInt8(value & 0xff))
+        append(UInt8((value >> 8) & 0xff))
+        append(UInt8((value >> 16) & 0xff))
+        append(UInt8((value >> 24) & 0xff))
+    }
+}

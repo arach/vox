@@ -58,6 +58,15 @@ func bundledTTSModels() -> [String] {
     if miniMaxTTSAvailable() {
         models.append(contentsOf: MiniMaxTTSProvider.supportedModelIDs)
     }
+    if nvidiaTTSAvailable() {
+        models.append(contentsOf: NVIDIAMagpieTTSProvider.supportedModelIDs)
+    }
+    if groqTTSAvailable() {
+        models.append(contentsOf: GroqTTSProvider.supportedModelIDs)
+    }
+    if geminiTTSAvailable() {
+        models.append(contentsOf: GeminiTTSProvider.supportedModelIDs)
+    }
     models.append(AVSpeechSynthesizerProvider.modelID)
     return models
 }
@@ -72,6 +81,20 @@ func elevenLabsTTSAvailable() -> Bool {
 
 func miniMaxTTSAvailable() -> Bool {
     hasEnvironmentValue("MINIMAX_API_KEY")
+}
+
+func nvidiaTTSAvailable() -> Bool {
+    hasEnvironmentValue("NV_API_KEY") || hasEnvironmentValue("NVIDIA_API_KEY")
+}
+
+func groqTTSAvailable() -> Bool {
+    hasEnvironmentValue("GROQ_API_KEY")
+}
+
+func geminiTTSAvailable() -> Bool {
+    hasEnvironmentValue("GEMINI_API_KEY")
+        || hasEnvironmentValue("GOOGLE_API_KEY")
+        || hasEnvironmentValue("GOOGLE_GENAI_API_KEY")
 }
 
 func hasEnvironmentValue(_ key: String) -> Bool {

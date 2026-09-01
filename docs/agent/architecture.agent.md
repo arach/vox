@@ -1,7 +1,7 @@
 # Architecture Facts
 
 - `VoxCore`: shared types, paths, traces, and performance records
-- `VoxEngine`: provider routing, model lifecycle, audio preparation, ASR, annotation, and TTS
+- `VoxEngine`: provider routing, model lifecycle, audio preparation, ASR, annotation, and TTS (AVSpeech, OpenAI, ElevenLabs, MiniMax, NVIDIA Magpie, Groq, Gemini, external)
 - `VoxService`: daemon RPC, sessions, warm-up, capture, and telemetry
 - `VoxBridge`: narrow browser-facing HTTP transport
 - `@voxd/sdk`: WebSocket companion client for Bun/Node

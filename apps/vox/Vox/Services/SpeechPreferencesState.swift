@@ -338,12 +338,15 @@ final class SpeechPreferencesState: ObservableObject {
 
     private func isRemoteSynthesisModel(_ model: TTSModelInfo) -> Bool {
         switch model.backend.lowercased() {
-        case "openai", "elevenlabs", "minimax":
+        case "openai", "elevenlabs", "minimax", "nvidia", "groq", "gemini":
             return true
         default:
             return OpenAITTSProvider.supportedModelIDs.contains(model.id)
                 || ElevenLabsTTSProvider.supportedModelIDs.contains(model.id)
                 || MiniMaxTTSProvider.supportedModelIDs.contains(model.id)
+                || NVIDIAMagpieTTSProvider.supportedModelIDs.contains(model.id)
+                || GroqTTSProvider.supportedModelIDs.contains(model.id)
+                || GeminiTTSProvider.supportedModelIDs.contains(model.id)
         }
     }
 

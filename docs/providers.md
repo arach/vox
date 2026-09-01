@@ -20,6 +20,9 @@ Built-in providers include:
 - `openai-tts` for remote TTS
 - `elevenlabs` for ElevenLabs remote TTS
 - `minimax` for MiniMax remote TTS
+- `nvidia` for NVIDIA Magpie remote TTS
+- `groq` for Groq Orpheus remote TTS
+- `gemini` for Gemini remote TTS
 - `mlx-audio` for built-in external bridging across both ASR and TTS
 
 ## Provider Config
@@ -70,6 +73,33 @@ Providers are registered in `~/.vox/providers.json`:
       }
     },
     {
+      "id": "nvidia",
+      "kind": "tts",
+      "builtin": true,
+      "models": ["magpie-tts-multilingual"],
+      "env": {
+        "NV_API_KEY": "..."
+      }
+    },
+    {
+      "id": "groq",
+      "kind": "tts",
+      "builtin": true,
+      "models": ["canopylabs/orpheus-v1-english"],
+      "env": {
+        "GROQ_API_KEY": "..."
+      }
+    },
+    {
+      "id": "gemini",
+      "kind": "tts",
+      "builtin": true,
+      "models": ["gemini-2.5-flash-preview-tts"],
+      "env": {
+        "GEMINI_API_KEY": "..."
+      }
+    },
+    {
       "id": "mlx-audio",
       "kind": "asr",
       "builtin": true,
@@ -105,8 +135,9 @@ Notes:
 
 - Register ASR and TTS as separate entries even when they share the same `id`.
 - `models` is optional for external providers now. Vox can call `models()` and route dynamically from the returned list.
-- Built-in remote TTS providers read their API keys from `env` first, then from process environment. `ELEVENLABS_BASE_URL`, `ELEVENLABS_OUTPUT_FORMAT`, and `MINIMAX_BASE_URL` can override vendor defaults.
-- If `providers.json` contains only ASR entries, Vox falls back to default TTS providers. The inverse is also true.
+- Built-in remote TTS providers read their API keys from per-request `credentials` first, then provider `env`, then the process environment. `ELEVENLABS_BASE_URL`, `ELEVENLABS_OUTPUT_FORMAT`, `MINIMAX_BASE_URL`, `NVIDIA_TTS_URL`, `NVIDIA_VOICES_URL`, `GROQ_BASE_URL`, and `GEMINI_BASE_URL` can override vendor defaults.
+- NVIDIA Magpie accepts `NV_API_KEY` and the `NVIDIA_API_KEY` compatibility alias. Gemini accepts `GEMINI_API_KEY`, `GOOGLE_API_KEY`, and `GOOGLE_GENAI_API_KEY`.
+- If `providers.json` contains only ASR entries, Vox falls back to default TTS providers. The inverse is also true. The default TTS model remains `gpt-4o-mini-tts` when OpenAI is configured.
 
 ### OpenAI TTS timeout
 
@@ -118,6 +149,42 @@ Notes:
 - maximum accepted value: `30` seconds
 
 The timeout can be set in the provider `env` block or the daemon process environment.
+
+### NVIDIA Magpie TTS
+
+`nvidia` is the first-class Vox home for NVIDIA Magpie TTS Multilingual, using the hosted NVIDIA Developer Inference contract:
+
+- model id: `magpie-tts-multilingual`
+- voice discovery: `GET /v1/audio/list_voices`
+- synthesis: multipart `POST /v1/audio/synthesize`
+- encoding: `LINEAR_PCM` at `44100` Hz
+- default voice: `Magpie-Multilingual.EN-US.Aria`
+- language is inferred from the Magpie voice id (`EN-US` → `en-US`)
+- credentials: `NV_API_KEY`, with `NVIDIA_API_KEY` as a compatibility alias
+- URL overrides: `NVIDIA_TTS_URL`, `NVIDIA_VOICES_URL`, or `NVIDIA_BASE_URL`
+
+If Magpie returns raw LINEAR PCM rather than a WAV container, Vox wraps the PCM as 16-bit 44.1 kHz WAV so the public `SynthesisOutput` contract stays `format: "wav"`.
+
+### Groq Orpheus TTS
+
+`groq` uses Groq's OpenAI-compatible speech endpoint and requests `response_format: "wav"`:
+
+- models: `canopylabs/orpheus-v1-english`, `canopylabs/orpheus-arabic-saudi`
+- default voice: `autumn`
+- input limit: 200 characters; longer text is rejected rather than truncated
+- credentials: `GROQ_API_KEY`
+- URL override: `GROQ_BASE_URL` (default `https://api.groq.com/openai/v1`)
+
+### Gemini TTS
+
+`gemini` uses the Gemini Generate Content API with `responseModalities: ["AUDIO"]`:
+
+- models: `gemini-2.5-flash-preview-tts`, `gemini-2.5-pro-preview-tts`
+- default voice: `Puck`
+- credentials: `GEMINI_API_KEY`, with `GOOGLE_API_KEY` / `GOOGLE_GENAI_API_KEY` as aliases
+- URL override: `GEMINI_BASE_URL` (default `https://generativelanguage.googleapis.com/v1beta`)
+
+Gemini typically returns `audio/L16` PCM. Vox wraps that PCM in a WAV container so callers still receive `SynthesisOutput.format = "wav"`. This is a lossless PCM container wrap, not a transcode.
 
 ## Protocol Methods
 

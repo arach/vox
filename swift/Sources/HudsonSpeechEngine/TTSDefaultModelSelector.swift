@@ -46,6 +46,9 @@ public enum TTSDefaultModelSelector {
         OpenAITTSProvider.supportedModelIDs.contains(modelId)
             || ElevenLabsTTSProvider.supportedModelIDs.contains(modelId)
             || MiniMaxTTSProvider.supportedModelIDs.contains(modelId)
+            || NVIDIAMagpieTTSProvider.supportedModelIDs.contains(modelId)
+            || GroqTTSProvider.supportedModelIDs.contains(modelId)
+            || GeminiTTSProvider.supportedModelIDs.contains(modelId)
     }
 
     private static func isAvailableForDefaultSelection(
@@ -62,6 +65,21 @@ public enum TTSDefaultModelSelector {
         case "minimax", "minimax-tts":
             return hasValue(entry.env?["MINIMAX_API_KEY"])
                 || hasValue(environment["MINIMAX_API_KEY"])
+        case "nvidia", "nvidia-tts", "magpie", "magpie-tts", "nvidia-magpie":
+            return hasValue(entry.env?["NV_API_KEY"])
+                || hasValue(entry.env?["NVIDIA_API_KEY"])
+                || hasValue(environment["NV_API_KEY"])
+                || hasValue(environment["NVIDIA_API_KEY"])
+        case "groq", "groq-tts":
+            return hasValue(entry.env?["GROQ_API_KEY"])
+                || hasValue(environment["GROQ_API_KEY"])
+        case "gemini", "gemini-tts", "google-tts", "google-gemini-tts":
+            return hasValue(entry.env?["GEMINI_API_KEY"])
+                || hasValue(entry.env?["GOOGLE_API_KEY"])
+                || hasValue(entry.env?["GOOGLE_GENAI_API_KEY"])
+                || hasValue(environment["GEMINI_API_KEY"])
+                || hasValue(environment["GOOGLE_API_KEY"])
+                || hasValue(environment["GOOGLE_GENAI_API_KEY"])
         default:
             return true
         }

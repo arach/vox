@@ -20,6 +20,12 @@ public actor TTSProviderRegistry: TTSProvider {
                     provider = ElevenLabsTTSProvider(env: entry.env)
                 case "minimax", "minimax-tts":
                     provider = MiniMaxTTSProvider(env: entry.env)
+                case "nvidia", "nvidia-tts", "magpie", "magpie-tts", "nvidia-magpie":
+                    provider = NVIDIAMagpieTTSProvider(env: entry.env)
+                case "groq", "groq-tts":
+                    provider = GroqTTSProvider(env: entry.env)
+                case "gemini", "gemini-tts", "google-tts", "google-gemini-tts":
+                    provider = GeminiTTSProvider(env: entry.env)
                 case "mlx-audio", "mlx_audio", "mlx-audio-tts", "mlx_audio_tts":
                     #if os(macOS)
                     do {

@@ -268,6 +268,44 @@ struct ProviderRegistryTests {
         await registry.shutdown()
     }
 
+    @Test("TTS registry registers NVIDIA, Groq, and Gemini aliases")
+    func ttsRegistryRegistersNewProviderAliases() async throws {
+        let config = ProvidersConfig(providers: [
+            ProviderEntry(
+                id: "magpie",
+                kind: .tts,
+                builtin: true,
+                models: NVIDIAMagpieTTSProvider.supportedModelIDs,
+                env: ["NV_API_KEY": "synthetic-test-key"]
+            ),
+            ProviderEntry(
+                id: "groq-tts",
+                kind: .tts,
+                builtin: true,
+                models: GroqTTSProvider.supportedModelIDs,
+                env: ["GROQ_API_KEY": "synthetic-test-key"]
+            ),
+            ProviderEntry(
+                id: "google-tts",
+                kind: .tts,
+                builtin: true,
+                models: GeminiTTSProvider.supportedModelIDs,
+                env: ["GEMINI_API_KEY": "synthetic-test-key"]
+            )
+        ])
+
+        let registry = TTSProviderRegistry(config: config)
+        let models = await registry.models()
+        let ids = Set(models.map(\.id))
+
+        #expect(ids.contains(NVIDIAMagpieTTSProvider.modelID))
+        #expect(ids.contains(GroqTTSProvider.defaultModelID))
+        #expect(ids.contains(GeminiTTSProvider.defaultModelID))
+        #expect(models.first(where: { $0.id == NVIDIAMagpieTTSProvider.modelID })?.backend == "nvidia")
+        #expect(models.first(where: { $0.id == GroqTTSProvider.defaultModelID })?.backend == "groq")
+        #expect(models.first(where: { $0.id == GeminiTTSProvider.defaultModelID })?.backend == "gemini")
+    }
+
     private func repositoryRoot(filePath: String = #filePath) -> URL {
         URL(fileURLWithPath: filePath)
             .deletingLastPathComponent()

@@ -29,6 +29,24 @@ public enum TTSDefaultProviderConfig {
                 models: MiniMaxTTSProvider.supportedModelIDs
             ),
             ProviderEntry(
+                id: "nvidia",
+                kind: .tts,
+                builtin: true,
+                models: NVIDIAMagpieTTSProvider.supportedModelIDs
+            ),
+            ProviderEntry(
+                id: "groq",
+                kind: .tts,
+                builtin: true,
+                models: GroqTTSProvider.supportedModelIDs
+            ),
+            ProviderEntry(
+                id: "gemini",
+                kind: .tts,
+                builtin: true,
+                models: GeminiTTSProvider.supportedModelIDs
+            ),
+            ProviderEntry(
                 id: "avspeech",
                 kind: .tts,
                 builtin: true,

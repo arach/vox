@@ -24,7 +24,7 @@ Model-facing speech layer:
 - annotation provider routing and speaker-attribution contracts
 - TTS provider routing and voice discovery
 - Parakeet inference
-- AVSpeech, OpenAI, and external synthesis backends
+- AVSpeech, OpenAI, ElevenLabs, MiniMax, NVIDIA Magpie, Groq, Gemini, and external synthesis backends
 - stage-level timing
 
 ### VoxService
