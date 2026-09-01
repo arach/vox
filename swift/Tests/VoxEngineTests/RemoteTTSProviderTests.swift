@@ -805,6 +805,15 @@ struct RemoteTTSProviderTests {
         #expect(jsonKeepsQuota.contains("quota"))
         #expect(!jsonKeepsQuota.contains(token))
         #expect(jsonKeepsQuota.contains("[redacted]"))
+
+        let secretPlain = RemoteTTSSupport.sanitizeVendorMessage(
+            from: Data("upstream Bearer nvapi-secret-key denied".utf8),
+            vendor: "NVIDIA Magpie",
+            sensitiveValues: [longPrompt]
+        )
+        #expect(secretPlain.contains("upstream"))
+        #expect(secretPlain.contains("[redacted]"))
+        #expect(!secretPlain.contains("nvapi-secret-key"))
     }
 
     @Test("NVIDIA synthesis HTTP errors drop an echoed request prompt")

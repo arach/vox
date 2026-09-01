@@ -256,6 +256,19 @@ struct TTSDefaultModelSelectorTests {
             ]),
             environment: ["NV_API_KEY": "process-secret"]
         ) == NVIDIAMagpieTTSProvider.modelID)
+        #expect(TTSDefaultModelSelector.defaultModelId(
+            for: ProvidersConfig(providers: [
+                avspeech,
+                ProviderEntry(
+                    id: "nvidia",
+                    kind: .tts,
+                    builtin: true,
+                    models: NVIDIAMagpieTTSProvider.supportedModelIDs,
+                    env: ["NV_API_KEY": "", "NVIDIA_API_KEY": " env-alias "]
+                )
+            ]),
+            environment: ["NV_API_KEY": "process-secret"]
+        ) == NVIDIAMagpieTTSProvider.modelID)
     }
 
     @Test("blank GROQ_API_KEY fences process secrets for default selection")
@@ -289,6 +302,19 @@ struct TTSDefaultModelSelectorTests {
 
         #expect(TTSDefaultModelSelector.defaultModelId(
             for: blank,
+            environment: ["GROQ_API_KEY": "process-secret"]
+        ) == TTSDefaults.localModelId)
+        #expect(TTSDefaultModelSelector.defaultModelId(
+            for: ProvidersConfig(providers: [
+                avspeech,
+                ProviderEntry(
+                    id: "groq",
+                    kind: .tts,
+                    builtin: true,
+                    models: GroqTTSProvider.supportedModelIDs,
+                    env: ["GROQ_API_KEY": "   "]
+                )
+            ]),
             environment: ["GROQ_API_KEY": "process-secret"]
         ) == TTSDefaults.localModelId)
         #expect(TTSDefaultModelSelector.defaultModelId(
@@ -361,6 +387,19 @@ struct TTSDefaultModelSelectorTests {
         #expect(TTSDefaultModelSelector.defaultModelId(
             for: missing,
             environment: ["GOOGLE_GENAI_API_KEY": "process-genai"]
+        ) == GeminiTTSProvider.defaultModelID)
+        #expect(TTSDefaultModelSelector.defaultModelId(
+            for: ProvidersConfig(providers: [
+                avspeech,
+                ProviderEntry(
+                    id: "gemini",
+                    kind: .tts,
+                    builtin: true,
+                    models: GeminiTTSProvider.supportedModelIDs,
+                    env: ["GEMINI_API_KEY": "", "GOOGLE_API_KEY": " env-google "]
+                )
+            ]),
+            environment: ["GEMINI_API_KEY": "process-secret"]
         ) == GeminiTTSProvider.defaultModelID)
     }
 }
