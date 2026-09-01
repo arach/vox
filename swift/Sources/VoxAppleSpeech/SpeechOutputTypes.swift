@@ -146,8 +146,8 @@ public enum SpeechOutputError: Error, Sendable, Equatable, LocalizedError {
 /// Provider-neutral synthesis speed mapped onto AVSpeech utterance rates.
 ///
 /// `1.0` is the platform default, `0.25` is minimum, and `4.0` is maximum.
-public enum SpeechOutputRate {
-    public static func map(
+enum SpeechOutputRate {
+    static func map(
         speed: Double,
         minimum: Float,
         defaultRate: Float,
@@ -163,19 +163,19 @@ public enum SpeechOutputRate {
     }
 }
 
-public struct SystemVoiceDescriptor: Sendable, Equatable {
-    public var identifier: String
-    public var language: String
+struct SystemVoiceDescriptor: Sendable, Equatable {
+    var identifier: String
+    var language: String
 
-    public init(identifier: String, language: String) {
+    init(identifier: String, language: String) {
         self.identifier = identifier
         self.language = language
     }
 }
 
 /// Picks a system voice from an explicit id or BCP-47 preferred languages.
-public enum SystemVoiceResolver {
-    public static func languageCandidates(preferredLanguages: [String]) -> [String] {
+enum SystemVoiceResolver {
+    static func languageCandidates(preferredLanguages: [String]) -> [String] {
         var tags: [String] = []
         for language in preferredLanguages {
             let tag = language.replacingOccurrences(of: "_", with: "-")
@@ -189,7 +189,7 @@ public enum SystemVoiceResolver {
         return tags
     }
 
-    public static func resolve(
+    static func resolve(
         voiceId: String?,
         voices: [SystemVoiceDescriptor],
         preferredLanguages: [String]

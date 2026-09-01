@@ -737,13 +737,19 @@ private final class FakeSystemSpeechSynthesizer: SystemSpeechSynthesizing, @unch
     private var callback: (@Sendable (SystemSpeechEvent) -> Void)?
     private var cancelled: Set<UInt64> = []
     private var utterances: [SpokenUtteranceSnapshot] = []
-    private(set) var stopGenerations: [UInt64] = []
+    private var recordedStopGenerations: [UInt64] = []
     private var speakingGeneration: UInt64?
 
     var spokenCount: Int {
         lock.lock()
         defer { lock.unlock() }
         return utterances.count
+    }
+
+    var stopGenerations: [UInt64] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedStopGenerations
     }
 
     private var lastSpoken: SpokenUtteranceSnapshot? {
@@ -777,7 +783,7 @@ private final class FakeSystemSpeechSynthesizer: SystemSpeechSynthesizing, @unch
     func stop(generation: UInt64) {
         lock.lock()
         cancelled.insert(generation)
-        stopGenerations.append(generation)
+        recordedStopGenerations.append(generation)
         if speakingGeneration == generation {
             speakingGeneration = nil
         }
@@ -809,8 +815,20 @@ private final class FakeSystemSpeechSynthesizer: SystemSpeechSynthesizing, @unch
 private class BaseAudioPlayer: SpeechAudioPlaying, @unchecked Sendable {
     private let lock = NSLock()
     private var callback: (@Sendable (SpeechAudioPlayerEvent) -> Void)?
-    private(set) var playCount = 0
-    private(set) var stopCount = 0
+    private var recordedPlayCount = 0
+    private var recordedStopCount = 0
+
+    var playCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedPlayCount
+    }
+
+    var stopCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedStopCount
+    }
 
     func attach(callback: @escaping @Sendable (SpeechAudioPlayerEvent) -> Void) {
         lock.lock()
@@ -826,14 +844,14 @@ private class BaseAudioPlayer: SpeechAudioPlaying, @unchecked Sendable {
 
     func play() -> Bool {
         lock.lock()
-        playCount += 1
+        recordedPlayCount += 1
         lock.unlock()
         return true
     }
 
     func stop() {
         lock.lock()
-        stopCount += 1
+        recordedStopCount += 1
         lock.unlock()
     }
 

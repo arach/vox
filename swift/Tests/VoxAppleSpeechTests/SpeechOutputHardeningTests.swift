@@ -91,8 +91,10 @@ struct AVAudioPlayerSinkTests {
         #expect(scheduler.asyncCount == 1)
     }
 
-    @Test("main-queue play returns without deadlocking")
-    func mainQueuePlayReturnsWithoutDeadlocking() {
+    @Test("main-queue play uses the inline Thread.isMainThread fast path")
+    @MainActor
+    func mainQueuePlayUsesInlineFastPath() {
+        #expect(Thread.isMainThread)
         let engine = RecordingAudioPlayerEngine()
         let sink = AVAudioPlayerSink(engine: engine, scheduler: MainQueueAudioPlayerScheduler())
         let started = sink.play()
