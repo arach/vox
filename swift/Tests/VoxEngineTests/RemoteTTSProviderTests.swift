@@ -756,6 +756,57 @@ struct RemoteTTSProviderTests {
         #expect(!oneCharacterMessage.contains("quota exceeded"))
     }
 
+    @Test("plain-text vendor errors do not keep a clipped prefix of a long prompt")
+    func plainTextErrorsDropLongPromptPrefixes() {
+        let token = "secret-prompt-token-"
+        let longPrompt = String(repeating: token, count: 20)
+        #expect(longPrompt.count > RemoteTTSSupport.plainTextClipLength)
+        let prefix = String(longPrompt.prefix(RemoteTTSSupport.plainTextClipLength))
+
+        let clippedBody = RemoteTTSSupport.sanitizeVendorMessage(
+            from: Data(prefix.utf8),
+            vendor: "Groq TTS",
+            sensitiveValues: [longPrompt]
+        )
+        #expect(clippedBody == "Groq TTS: request failed")
+        #expect(!clippedBody.contains(prefix))
+        #expect(!clippedBody.contains(token))
+
+        let fullBody = RemoteTTSSupport.sanitizeVendorMessage(
+            from: Data(longPrompt.utf8),
+            vendor: "NVIDIA Magpie",
+            sensitiveValues: [longPrompt]
+        )
+        #expect(fullBody == "NVIDIA Magpie: request failed")
+        #expect(!fullBody.contains(token))
+
+        let prefixedBody = RemoteTTSSupport.sanitizeVendorMessage(
+            from: Data("quota exceeded \(prefix)".utf8),
+            vendor: "Gemini TTS",
+            sensitiveValues: [longPrompt]
+        )
+        #expect(prefixedBody == "Gemini TTS: request failed")
+        #expect(!prefixedBody.contains(token))
+        #expect(!prefixedBody.contains("quota"))
+
+        let unrelated = RemoteTTSSupport.sanitizeVendorMessage(
+            from: Data("quota exceeded".utf8),
+            vendor: "Groq TTS",
+            sensitiveValues: [longPrompt]
+        )
+        #expect(unrelated.contains("quota exceeded"))
+        #expect(!unrelated.contains(token))
+
+        let jsonKeepsQuota = RemoteTTSSupport.sanitizeVendorMessage(
+            from: Data("{\"error\":{\"message\":\"quota exceeded for input \(longPrompt)\"}}".utf8),
+            vendor: "NVIDIA Magpie",
+            sensitiveValues: [longPrompt]
+        )
+        #expect(jsonKeepsQuota.contains("quota"))
+        #expect(!jsonKeepsQuota.contains(token))
+        #expect(jsonKeepsQuota.contains("[redacted]"))
+    }
+
     @Test("NVIDIA synthesis HTTP errors drop an echoed request prompt")
     func nvidiaHTTPErrorStripsEchoedPrompt() async {
         let prompt = "Hello secret prompt"

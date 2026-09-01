@@ -192,4 +192,175 @@ struct TTSDefaultModelSelectorTests {
 
         #expect(TTSDefaultModelSelector.defaultModelId(from: models) == NVIDIAMagpieTTSProvider.modelID)
     }
+
+    @Test("blank NVIDIA env aliases fence process secrets for default selection")
+    func nvidiaBlankEnvFencesDefaultSelection() {
+        let avspeech = ProviderEntry(
+            id: "avspeech",
+            kind: .tts,
+            builtin: true,
+            models: [TTSDefaults.localModelId]
+        )
+        let blankPrimary = ProvidersConfig(providers: [
+            avspeech,
+            ProviderEntry(
+                id: "nvidia",
+                kind: .tts,
+                builtin: true,
+                models: NVIDIAMagpieTTSProvider.supportedModelIDs,
+                env: ["NV_API_KEY": ""]
+            )
+        ])
+        let blankAlias = ProvidersConfig(providers: [
+            avspeech,
+            ProviderEntry(
+                id: "magpie",
+                kind: .tts,
+                builtin: true,
+                models: NVIDIAMagpieTTSProvider.supportedModelIDs,
+                env: ["NVIDIA_API_KEY": "  "]
+            )
+        ])
+        let missingKeys = ProvidersConfig(providers: [
+            avspeech,
+            ProviderEntry(
+                id: "nvidia",
+                kind: .tts,
+                builtin: true,
+                models: NVIDIAMagpieTTSProvider.supportedModelIDs,
+                env: ["NVIDIA_TTS_URL": "https://example.test"]
+            )
+        ])
+
+        #expect(TTSDefaultModelSelector.defaultModelId(
+            for: blankPrimary,
+            environment: ["NV_API_KEY": "process-secret", "NVIDIA_API_KEY": "alias-secret"]
+        ) == TTSDefaults.localModelId)
+        #expect(TTSDefaultModelSelector.defaultModelId(
+            for: blankAlias,
+            environment: ["NV_API_KEY": "process-secret"]
+        ) == TTSDefaults.localModelId)
+        #expect(TTSDefaultModelSelector.defaultModelId(
+            for: missingKeys,
+            environment: ["NVIDIA_API_KEY": "process-secret"]
+        ) == NVIDIAMagpieTTSProvider.modelID)
+        #expect(TTSDefaultModelSelector.defaultModelId(
+            for: ProvidersConfig(providers: [
+                avspeech,
+                ProviderEntry(
+                    id: "nvidia",
+                    kind: .tts,
+                    builtin: true,
+                    models: NVIDIAMagpieTTSProvider.supportedModelIDs
+                )
+            ]),
+            environment: ["NV_API_KEY": "process-secret"]
+        ) == NVIDIAMagpieTTSProvider.modelID)
+    }
+
+    @Test("blank GROQ_API_KEY fences process secrets for default selection")
+    func groqBlankEnvFencesDefaultSelection() {
+        let avspeech = ProviderEntry(
+            id: "avspeech",
+            kind: .tts,
+            builtin: true,
+            models: [TTSDefaults.localModelId]
+        )
+        let blank = ProvidersConfig(providers: [
+            avspeech,
+            ProviderEntry(
+                id: "groq-tts",
+                kind: .tts,
+                builtin: true,
+                models: GroqTTSProvider.supportedModelIDs,
+                env: ["GROQ_API_KEY": ""]
+            )
+        ])
+        let missing = ProvidersConfig(providers: [
+            avspeech,
+            ProviderEntry(
+                id: "groq",
+                kind: .tts,
+                builtin: true,
+                models: GroqTTSProvider.supportedModelIDs,
+                env: ["GROQ_BASE_URL": "https://example.test"]
+            )
+        ])
+
+        #expect(TTSDefaultModelSelector.defaultModelId(
+            for: blank,
+            environment: ["GROQ_API_KEY": "process-secret"]
+        ) == TTSDefaults.localModelId)
+        #expect(TTSDefaultModelSelector.defaultModelId(
+            for: missing,
+            environment: ["GROQ_API_KEY": " process-secret "]
+        ) == GroqTTSProvider.defaultModelID)
+    }
+
+    @Test("blank Gemini/Google env aliases fence process secrets for default selection")
+    func geminiBlankEnvFencesDefaultSelection() {
+        let avspeech = ProviderEntry(
+            id: "avspeech",
+            kind: .tts,
+            builtin: true,
+            models: [TTSDefaults.localModelId]
+        )
+        let blankGemini = ProvidersConfig(providers: [
+            avspeech,
+            ProviderEntry(
+                id: "gemini",
+                kind: .tts,
+                builtin: true,
+                models: GeminiTTSProvider.supportedModelIDs,
+                env: ["GEMINI_API_KEY": ""]
+            )
+        ])
+        let blankGoogle = ProvidersConfig(providers: [
+            avspeech,
+            ProviderEntry(
+                id: "google-tts",
+                kind: .tts,
+                builtin: true,
+                models: GeminiTTSProvider.supportedModelIDs,
+                env: ["GOOGLE_API_KEY": "  "]
+            )
+        ])
+        let blankGenai = ProvidersConfig(providers: [
+            avspeech,
+            ProviderEntry(
+                id: "gemini-tts",
+                kind: .tts,
+                builtin: true,
+                models: GeminiTTSProvider.supportedModelIDs,
+                env: ["GOOGLE_GENAI_API_KEY": ""]
+            )
+        ])
+        let missing = ProvidersConfig(providers: [
+            avspeech,
+            ProviderEntry(
+                id: "gemini",
+                kind: .tts,
+                builtin: true,
+                models: GeminiTTSProvider.supportedModelIDs,
+                env: ["GEMINI_BASE_URL": "https://example.test"]
+            )
+        ])
+
+        #expect(TTSDefaultModelSelector.defaultModelId(
+            for: blankGemini,
+            environment: ["GEMINI_API_KEY": "process-secret", "GOOGLE_API_KEY": "google-secret"]
+        ) == TTSDefaults.localModelId)
+        #expect(TTSDefaultModelSelector.defaultModelId(
+            for: blankGoogle,
+            environment: ["GEMINI_API_KEY": "process-secret"]
+        ) == TTSDefaults.localModelId)
+        #expect(TTSDefaultModelSelector.defaultModelId(
+            for: blankGenai,
+            environment: ["GOOGLE_API_KEY": "process-secret"]
+        ) == TTSDefaults.localModelId)
+        #expect(TTSDefaultModelSelector.defaultModelId(
+            for: missing,
+            environment: ["GOOGLE_GENAI_API_KEY": "process-genai"]
+        ) == GeminiTTSProvider.defaultModelID)
+    }
 }

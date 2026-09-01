@@ -86,23 +86,39 @@ public enum TTSDefaultModelSelector {
             return hasValue(entry.env?["MINIMAX_API_KEY"])
                 || hasValue(environment["MINIMAX_API_KEY"])
         case .nvidia:
-            return hasValue(entry.env?["NV_API_KEY"])
-                || hasValue(entry.env?["NVIDIA_API_KEY"])
-                || hasValue(environment["NV_API_KEY"])
-                || hasValue(environment["NVIDIA_API_KEY"])
+            return hasConfiguredSecret(
+                entry.env,
+                processEnv: environment,
+                keys: ["NV_API_KEY", "NVIDIA_API_KEY"]
+            )
         case .groq:
-            return hasValue(entry.env?["GROQ_API_KEY"])
-                || hasValue(environment["GROQ_API_KEY"])
+            return hasConfiguredSecret(
+                entry.env,
+                processEnv: environment,
+                keys: ["GROQ_API_KEY"]
+            )
         case .gemini:
-            return hasValue(entry.env?["GEMINI_API_KEY"])
-                || hasValue(entry.env?["GOOGLE_API_KEY"])
-                || hasValue(entry.env?["GOOGLE_GENAI_API_KEY"])
-                || hasValue(environment["GEMINI_API_KEY"])
-                || hasValue(environment["GOOGLE_API_KEY"])
-                || hasValue(environment["GOOGLE_GENAI_API_KEY"])
+            return hasConfiguredSecret(
+                entry.env,
+                processEnv: environment,
+                keys: ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENAI_API_KEY"]
+            )
         case .avspeech, .mlxAudio, nil:
             return true
         }
+    }
+
+    private static func hasConfiguredSecret(
+        _ env: [String: String]?,
+        processEnv: [String: String],
+        keys: [String]
+    ) -> Bool {
+        RemoteTTSSupport.resolveSecret(
+            lentValues: [],
+            env: env,
+            processEnv: processEnv,
+            keys: keys
+        ) != nil
     }
 
     private static func hasValue(_ value: String?) -> Bool {

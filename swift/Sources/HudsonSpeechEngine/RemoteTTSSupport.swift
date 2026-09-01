@@ -2,6 +2,7 @@ import Foundation
 
 enum RemoteTTSSupport {
     static let maximumVendorMessageLength = 240
+    static let plainTextClipLength = 120
 
     static func firstNonEmpty(_ values: String?...) -> String? {
         firstNonEmpty(Array(values))
@@ -69,9 +70,22 @@ enum RemoteTTSSupport {
         vendor: String,
         sensitiveValues: [String] = []
     ) -> String {
-        let extracted = extractVendorMessage(from: data) ?? "HTTP error"
-        let withoutPrompt = redactExactSensitiveValues(extracted, sensitiveValues: sensitiveValues)
-        return sanitize("\(vendor): \(withoutPrompt)")
+        let extracted: String
+        if let jsonMessage = extractJSONVendorMessage(from: data) {
+            extracted = redactExactSensitiveValues(jsonMessage, sensitiveValues: sensitiveValues)
+        } else if let plain = utf8PlainText(from: data) {
+            extracted = redactPlainText(plain, sensitiveValues: sensitiveValues)
+        } else {
+            extracted = "HTTP error"
+        }
+        return sanitize("\(vendor): \(extracted)")
+    }
+
+    static func extractVendorMessage(from data: Data) -> String? {
+        if let jsonMessage = extractJSONVendorMessage(from: data) {
+            return jsonMessage
+        }
+        return utf8PlainText(from: data).map { String($0.prefix(plainTextClipLength)) }
     }
 
     static func redactExactSensitiveValues(
@@ -106,19 +120,59 @@ enum RemoteTTSSupport {
             || (value.count >= 2 && value.contains(where: \.isWhitespace))
     }
 
-    static func extractVendorMessage(from data: Data) -> String? {
-        guard let object = try? JSONSerialization.jsonObject(with: data) else {
-            return clippedPlainText(from: data)
+    static func extractJSONVendorMessage(from data: Data) -> String? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
         }
-        if let json = object as? [String: Any] {
-            if let detail = stringValue(json["detail"]) { return detail }
-            if let message = stringValue(json["message"]) { return message }
-            if let error = stringValue(json["error"]) { return error }
-            if let error = json["error"] as? [String: Any], let message = stringValue(error["message"]) {
-                return message
+        if let detail = stringValue(object["detail"]) { return detail }
+        if let message = stringValue(object["message"]) { return message }
+        if let error = stringValue(object["error"]) { return error }
+        if let error = object["error"] as? [String: Any], let message = stringValue(error["message"]) {
+            return message
+        }
+        return nil
+    }
+
+    static func redactPlainText(_ text: String, sensitiveValues: [String]) -> String {
+        if containsSensitivePlainText(text, sensitiveValues: sensitiveValues) {
+            return "request failed"
+        }
+        return redactExactSensitiveValues(
+            String(text.prefix(plainTextClipLength)),
+            sensitiveValues: sensitiveValues
+        )
+    }
+
+    static func containsSensitivePlainText(_ text: String, sensitiveValues: [String]) -> Bool {
+        let values = sensitiveValues
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        for value in values {
+            if text.localizedCaseInsensitiveContains(value) {
+                return true
+            }
+            let prefixLength = min(plainTextClipLength, value.count)
+            if prefixLength >= minimumExactRedactionLength {
+                let prefix = String(value.prefix(prefixLength))
+                if text.localizedCaseInsensitiveContains(prefix) {
+                    return true
+                }
+            }
+            if text.count >= minimumExactRedactionLength,
+               value.lowercased().hasPrefix(text.lowercased()) {
+                return true
             }
         }
-        return clippedPlainText(from: data)
+        return false
+    }
+
+    static func utf8PlainText(from data: Data) -> String? {
+        guard let text = String(data: data, encoding: .utf8) else { return nil }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || trimmed.hasPrefix("{") || trimmed.hasPrefix("<") {
+            return nil
+        }
+        return trimmed
     }
 
     static func sanitize(_ message: String) -> String {
@@ -136,15 +190,6 @@ enum RemoteTTSSupport {
         guard let value = value as? String else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
-    }
-
-    private static func clippedPlainText(from data: Data) -> String? {
-        guard let text = String(data: data, encoding: .utf8) else { return nil }
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty || trimmed.hasPrefix("{") || trimmed.hasPrefix("<") {
-            return nil
-        }
-        return String(trimmed.prefix(120))
     }
 
     private static func redactSecrets(_ text: String) -> String {
