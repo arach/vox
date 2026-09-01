@@ -143,6 +143,82 @@ public enum SpeechOutputError: Error, Sendable, Equatable, LocalizedError {
     }
 }
 
+/// Provider-neutral synthesis speed mapped onto AVSpeech utterance rates.
+///
+/// `1.0` is the platform default, `0.25` is minimum, and `4.0` is maximum.
+public enum SpeechOutputRate {
+    public static func map(
+        speed: Double,
+        minimum: Float,
+        defaultRate: Float,
+        maximum: Float
+    ) -> Float {
+        let clamped = min(max(speed, 0.25), 4.0)
+        if clamped <= 1.0 {
+            let t = Float((clamped - 0.25) / 0.75)
+            return minimum + t * (defaultRate - minimum)
+        }
+        let t = Float((clamped - 1.0) / 3.0)
+        return defaultRate + t * (maximum - defaultRate)
+    }
+}
+
+public struct SystemVoiceDescriptor: Sendable, Equatable {
+    public var identifier: String
+    public var language: String
+
+    public init(identifier: String, language: String) {
+        self.identifier = identifier
+        self.language = language
+    }
+}
+
+/// Picks a system voice from an explicit id or BCP-47 preferred languages.
+public enum SystemVoiceResolver {
+    public static func languageCandidates(preferredLanguages: [String]) -> [String] {
+        var tags: [String] = []
+        for language in preferredLanguages {
+            let tag = language.replacingOccurrences(of: "_", with: "-")
+            if !tags.contains(where: { $0.caseInsensitiveCompare(tag) == .orderedSame }) {
+                tags.append(tag)
+            }
+        }
+        if !tags.contains(where: { $0.caseInsensitiveCompare("en-US") == .orderedSame }) {
+            tags.append("en-US")
+        }
+        return tags
+    }
+
+    public static func resolve(
+        voiceId: String?,
+        voices: [SystemVoiceDescriptor],
+        preferredLanguages: [String]
+    ) throws -> SystemVoiceDescriptor {
+        guard !voices.isEmpty else {
+            throw SpeechOutputError.noSystemVoices
+        }
+
+        if let voiceId {
+            if let voice = voices.first(where: { $0.identifier == voiceId }) {
+                return voice
+            }
+            throw SpeechOutputError.unsupportedVoice(voiceId)
+        }
+
+        for tag in languageCandidates(preferredLanguages: preferredLanguages) {
+            if let voice = voices.first(where: { Self.matches(language: $0.language, tag: tag) }) {
+                return voice
+            }
+        }
+        return voices[0]
+    }
+
+    private static func matches(language: String, tag: String) -> Bool {
+        language.replacingOccurrences(of: "_", with: "-")
+            .caseInsensitiveCompare(tag) == .orderedSame
+    }
+}
+
 public enum SpeechOutputCapabilities {
     public static func delivery(forModelId modelId: String, backend: String? = nil) -> SpeechOutputDelivery {
         if modelId == TTSDefaults.localModelId {

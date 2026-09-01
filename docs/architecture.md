@@ -69,6 +69,7 @@ Daemon-side orchestration:
 | Surface | Owns |
 |---------|------|
 | Swift runtime | Daemon lifecycle, audio prep, model lifecycle, provider routing, transcription, annotation, synthesis, perf recording |
+| VoxAppleSpeech | Optional per-audible-surface Apple playback: live system speech, generated-audio sinks, replace/stop/cancel, typed phase events |
 | TypeScript SDK | Connection lifecycle, typed request/response shapes, live-session ergonomics, transcription and synthesis metric parsing |
 | Browser SDK | Companion discovery, audio upload, job polling, live sessions over HTTP bridge |
 | CLI | Operator commands, terminal output (human and machine), warm-up controls, transcription, synthesis, dashboards |

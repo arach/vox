@@ -444,6 +444,61 @@ struct AppleSpeechOutputControllerTests {
         #expect(decodeCollector.terminalCount(for: decodeRequest.requestId) == 1)
     }
 
+    @Test("speed 1.0 maps to the platform default utterance rate")
+    func speedOneMapsToDefaultUtteranceRate() async throws {
+        let voice = try #require(AVSpeechSynthesisVoice.speechVoices().first)
+        let synthesizer = FakeSystemSpeechSynthesizer()
+        let collector = EventCollector()
+        let controller = AppleSpeechOutputController(
+            engine: TTSEngineManager(provider: RecordingTTSProvider(
+                modelId: TTSDefaults.localModelId,
+                backend: "avspeech"
+            )),
+            synthesizer: synthesizer,
+            playerFactory: { _ in ImmediateAudioPlayer() },
+            onEvent: collector.handle
+        )
+        let request = SynthesisRequest(
+            text: "default rate",
+            modelId: TTSDefaults.localModelId,
+            voiceId: voice.identifier,
+            speed: 1.0
+        )
+        await controller.speak(request)
+        let spoken = try await synthesizer.waitForSpeak()
+        #expect(spoken.rate == AVSpeechUtteranceDefaultSpeechRate)
+        _ = try await collector.wait(for: .starting, requestId: request.requestId)
+    }
+
+    @Test("dropping the controller during generation prevents late playback")
+    func droppingControllerDuringGenerationPreventsLatePlayback() async throws {
+        let provider = GatedTTSProvider(modelId: "test-tts")
+        let player = ImmediateAudioPlayer()
+        let collector = EventCollector()
+        var controller: AppleSpeechOutputController? = AppleSpeechOutputController(
+            engine: TTSEngineManager(provider: provider),
+            synthesizer: FakeSystemSpeechSynthesizer(),
+            playerFactory: { _ in player },
+            onEvent: collector.handle
+        )
+
+        let request = SynthesisRequest(text: "drop during generate", modelId: "test-tts")
+        await controller!.speak(request)
+        _ = try await collector.wait(for: .generating, requestId: request.requestId)
+        await provider.waitUntilStarted()
+
+        let weakBox = WeakControllerBox(controller)
+        controller = nil
+        try await waitUntil { weakBox.isNil }
+
+        await provider.releaseSynthesis()
+        try await Task.sleep(nanoseconds: 40_000_000)
+
+        #expect(player.playCount == 0)
+        #expect(!collector.phases(for: request.requestId).contains(.playing))
+        #expect(!collector.phases(for: request.requestId).contains(.finished))
+    }
+
     @Test("each request emits exactly one terminal event")
     func eachRequestEmitsExactlyOneTerminalEvent() async throws {
         let collector = EventCollector()
@@ -569,6 +624,32 @@ struct AVSpeechSynthesizerSinkTests {
         #expect(!sink.hasPendingGeneration(8))
         #expect(sink.hasPendingGeneration(41))
     }
+
+    @Test("started generation keeps metadata after stop until the terminal event")
+    func startedGenerationKeepsMetadataAfterStopUntilTerminalEvent() {
+        let scheduler = DeferredSpeechWorkScheduler()
+        let engine = RecordingSpeechEngine()
+        let sink = AVSpeechSynthesizerSink(engine: engine, scheduler: scheduler)
+        let utterance = AVSpeechUtterance(string: "started")
+        let collector = EventCollector()
+        sink.setCallback(collector.handleEvent)
+
+        sink.speak(utterance, generation: 4, requestId: "started")
+        scheduler.flush()
+        #expect(sink.hasPendingGeneration(4))
+        #expect(sink.currentSpeakingGeneration == 4)
+
+        sink.stop(generation: 4)
+        #expect(sink.hasPendingGeneration(4))
+        scheduler.flush()
+
+        sink.handleEngineEvent(.didStart, identifier: ObjectIdentifier(utterance))
+        #expect(collector.systemEvents.map(\.kind) == [.didStart])
+        #expect(collector.systemEvents.first?.generation == 4)
+
+        sink.handleEngineEvent(.didCancel, identifier: ObjectIdentifier(utterance))
+        #expect(!sink.hasPendingGeneration(4))
+    }
 }
 
 private struct TestFailure: Error, LocalizedError {
@@ -648,6 +729,7 @@ private struct WaitTimeout: Error, CustomStringConvertible {
 private struct SpokenUtteranceSnapshot: Sendable {
     var voiceIdentifier: String?
     var prefersAssistiveTechnologySettings: Bool
+    var rate: Float
 }
 
 private final class FakeSystemSpeechSynthesizer: SystemSpeechSynthesizing, @unchecked Sendable {
@@ -679,7 +761,8 @@ private final class FakeSystemSpeechSynthesizer: SystemSpeechSynthesizing, @unch
     func speak(_ utterance: AVSpeechUtterance, generation: UInt64, requestId: String) {
         let snapshot = SpokenUtteranceSnapshot(
             voiceIdentifier: utterance.voice?.identifier,
-            prefersAssistiveTechnologySettings: utterance.prefersAssistiveTechnologySettings
+            prefersAssistiveTechnologySettings: utterance.prefersAssistiveTechnologySettings,
+            rate: utterance.rate
         )
         lock.lock()
         if cancelled.contains(generation) {
@@ -1205,6 +1288,21 @@ private actor ConcurrencyCheckingTTSProvider: TTSProvider {
         try await Task.sleep(nanoseconds: 80_000_000)
         activeSynthesisRequests -= 1
         return RecordingTTSProvider.output(for: request)
+    }
+}
+
+private final class WeakControllerBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private weak var value: AppleSpeechOutputController?
+
+    init(_ value: AppleSpeechOutputController?) {
+        self.value = value
+    }
+
+    var isNil: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return value == nil
     }
 }
 

@@ -66,6 +66,7 @@ private struct TrackedUtterance {
     let utterance: AVSpeechUtterance
     let generation: UInt64
     let requestId: String
+    var cancelled: Bool
 }
 
 final class MainQueueSpeechWorkScheduler: SpeechWorkScheduling, @unchecked Sendable {
@@ -127,14 +128,18 @@ final class AVSpeechSynthesizerSink: NSObject, SystemSpeechSynthesizing, AVSpeec
         pending[identifier] = TrackedUtterance(
             utterance: utterance,
             generation: generation,
-            requestId: requestId
+            requestId: requestId,
+            cancelled: false
         )
         lock.unlock()
 
         scheduler.enqueue { [weak self] in
             guard let self else { return }
             self.lock.lock()
-            guard let tracked = self.pending[identifier], tracked.generation == generation else {
+            guard let tracked = self.pending[identifier],
+                  tracked.generation == generation,
+                  !tracked.cancelled
+            else {
                 self.lock.unlock()
                 return
             }
@@ -146,9 +151,16 @@ final class AVSpeechSynthesizerSink: NSObject, SystemSpeechSynthesizing, AVSpeec
 
     func stop(generation: UInt64) {
         lock.lock()
-        pending = pending.filter { $0.value.generation != generation }
-        if speakingGeneration == generation {
+        let started = speakingGeneration == generation
+        if started {
+            for (identifier, tracked) in pending where tracked.generation == generation {
+                var retained = tracked
+                retained.cancelled = true
+                pending[identifier] = retained
+            }
             speakingGeneration = nil
+        } else {
+            pending = pending.filter { $0.value.generation != generation }
         }
         lock.unlock()
 
@@ -156,10 +168,15 @@ final class AVSpeechSynthesizerSink: NSObject, SystemSpeechSynthesizing, AVSpeec
             guard let self else { return }
             self.lock.lock()
             let current = self.speakingGeneration
-            let stillPending = self.pending.values.contains { $0.generation == generation }
+            let startedStillTracked = self.pending.values.contains {
+                $0.generation == generation && $0.cancelled
+            }
+            let stillLive = self.pending.values.contains {
+                $0.generation == generation && !$0.cancelled
+            }
             self.lock.unlock()
-            guard !stillPending else { return }
-            if current == nil || current == generation {
+            guard !stillLive else { return }
+            if current == nil || current == generation || startedStillTracked {
                 self.engine.stopSpeaking()
             }
         }
@@ -206,15 +223,73 @@ final class AVSpeechSynthesizerSink: NSObject, SystemSpeechSynthesizing, AVSpeec
     }
 }
 
+protocol AudioPlayerScheduling: AnyObject, Sendable {
+    func sync<T>(_ work: () -> T) -> T
+    func async(_ work: @escaping @Sendable () -> Void)
+}
+
+protocol AudioPlayerEngine: AnyObject, Sendable {
+    func setDelegate(_ delegate: AVAudioPlayerDelegate?)
+    func prepareToPlay()
+    func play() -> Bool
+    func stop()
+}
+
+final class MainQueueAudioPlayerScheduler: AudioPlayerScheduling, @unchecked Sendable {
+    func sync<T>(_ work: () -> T) -> T {
+        if Thread.isMainThread {
+            return work()
+        }
+        return DispatchQueue.main.sync(execute: work)
+    }
+
+    func async(_ work: @escaping @Sendable () -> Void) {
+        DispatchQueue.main.async(execute: work)
+    }
+}
+
+final class AVFoundationAudioPlayerEngine: AudioPlayerEngine, @unchecked Sendable {
+    let player: AVAudioPlayer
+
+    init(data: Data) throws {
+        self.player = try AVAudioPlayer(data: data)
+    }
+
+    func setDelegate(_ delegate: AVAudioPlayerDelegate?) {
+        player.delegate = delegate
+    }
+
+    func prepareToPlay() {
+        player.prepareToPlay()
+    }
+
+    func play() -> Bool {
+        player.play()
+    }
+
+    func stop() {
+        player.stop()
+    }
+}
+
 public final class AVAudioPlayerSink: NSObject, SpeechAudioPlaying, AVAudioPlayerDelegate, @unchecked Sendable {
-    private let player: AVAudioPlayer
+    private let engine: any AudioPlayerEngine
+    private let scheduler: any AudioPlayerScheduling
     private let lock = NSLock()
     private var callback: (@Sendable (SpeechAudioPlayerEvent) -> Void)?
 
-    public init(data: Data) throws {
-        self.player = try AVAudioPlayer(data: data)
+    public convenience init(data: Data) throws {
+        let engine = try AVFoundationAudioPlayerEngine(data: data)
+        self.init(engine: engine, scheduler: MainQueueAudioPlayerScheduler())
+    }
+
+    init(engine: any AudioPlayerEngine, scheduler: any AudioPlayerScheduling) {
+        self.engine = engine
+        self.scheduler = scheduler
         super.init()
-        self.player.delegate = self
+        scheduler.sync {
+            engine.setDelegate(self)
+        }
     }
 
     public static func make(_ data: Data) throws -> any SpeechAudioPlaying {
@@ -231,29 +306,48 @@ public final class AVAudioPlayerSink: NSObject, SpeechAudioPlaying, AVAudioPlaye
         lock.lock()
         callback = nil
         lock.unlock()
-        player.delegate = nil
+        scheduler.sync {
+            self.engine.setDelegate(nil)
+        }
     }
 
     public func play() -> Bool {
-        player.prepareToPlay()
-        return player.play()
+        scheduler.sync {
+            self.engine.prepareToPlay()
+            return self.engine.play()
+        }
     }
 
     public func stop() {
-        player.stop()
-        detach()
+        scheduler.sync {
+            self.engine.stop()
+            self.engine.setDelegate(nil)
+        }
+        lock.lock()
+        callback = nil
+        lock.unlock()
     }
 
     public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        if flag {
-            emit(.didFinish)
-        } else {
-            emit(.didFail("Audio playback did not complete successfully."))
+        let event: SpeechAudioPlayerEvent = flag
+            ? .didFinish
+            : .didFail("Audio playback did not complete successfully.")
+        scheduler.async { [weak self] in
+            self?.emit(event)
         }
     }
 
     public func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-        emit(.didFail(error?.localizedDescription ?? "Audio decode failed."))
+        let message = error?.localizedDescription ?? "Audio decode failed."
+        scheduler.async { [weak self] in
+            self?.emit(.didFail(message))
+        }
+    }
+
+    func handleEngineEvent(_ event: SpeechAudioPlayerEvent) {
+        scheduler.async { [weak self] in
+            self?.emit(event)
+        }
     }
 
     private func emit(_ event: SpeechAudioPlayerEvent) {

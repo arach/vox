@@ -1583,6 +1583,7 @@ Daemon-side orchestration:
 | Surface | Owns |
 |---------|------|
 | Swift runtime | Daemon lifecycle, audio prep, model lifecycle, provider routing, transcription, annotation, synthesis, perf recording |
+| VoxAppleSpeech | Optional per-audible-surface Apple playback: live system speech, generated-audio sinks, replace/stop/cancel, typed phase events |
 | TypeScript SDK | Connection lifecycle, typed request/response shapes, live-session ergonomics, transcription and synthesis metric parsing |
 | Browser SDK | Companion discovery, audio upload, job polling, live sessions over HTTP bridge |
 | CLI | Operator commands, terminal output (human and machine), warm-up controls, transcription, synthesis, dashboards |
@@ -2213,7 +2214,7 @@ Source: docs/agent/architecture.agent.md
 
 - `VoxCore`: shared types, paths, traces, and performance records
 - `VoxEngine`: provider routing, model lifecycle, audio preparation, ASR, annotation, and TTS
-- `VoxAppleSpeech`: optional per-audible-surface Apple playback controller
+- `VoxAppleSpeech`: optional per-audible-surface Apple playback controller (live system speech, generated-audio sinks, replace/stop/cancel, typed phase events)
 - `VoxService`: daemon RPC, sessions, warm-up, capture, and telemetry
 - `VoxBridge`: narrow browser-facing HTTP transport
 - `@voxd/sdk`: WebSocket companion client for Bun/Node
