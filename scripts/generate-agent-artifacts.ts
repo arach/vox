@@ -141,5 +141,24 @@ for (const [path, content] of outputs) {
   }
 }
 
+const catalogSource = new URL("data/models.json", root);
+const catalogTargets = [
+  "site/public/data/models.json",
+  "swift/Sources/HudsonSpeechEngine/Resources/models.json",
+];
+const catalogContent = await Bun.file(catalogSource).text();
+for (const path of catalogTargets) {
+  const target = new URL(path, root);
+  const current = await Bun.file(target).exists() ? await Bun.file(target).text() : "";
+  if (current === catalogContent) continue;
+  outdated = true;
+  if (checkOnly) {
+    console.error(`${path} is out of date. Run bun run docs:generate.`);
+  } else {
+    await Bun.write(target, catalogContent);
+    console.log(`generated ${path}`);
+  }
+}
+
 if (checkOnly && outdated) process.exit(1);
 if (checkOnly) console.log("agent artifacts are current");

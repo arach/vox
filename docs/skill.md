@@ -15,15 +15,19 @@ Recommended operator loop:
 
 ```bash
 vox doctor
+vox models catalog
 vox warmup start
 vox transcribe bench /path/to/audio.wav 5
 vox perf dashboard --client <integration>
 ```
 
 1. `vox doctor`
-2. `vox warmup start`
-3. `vox transcribe bench /path/to/audio.wav 5`
-4. `vox perf dashboard --client <integration>`
+2. `vox models catalog`
+3. `vox warmup start`
+4. `vox transcribe bench /path/to/audio.wav 5`
+5. `vox perf dashboard --client <integration>`
+
+To add Gemma 4 or another catalog plugin: `vox plugins install mlx-vlm`, then restart `voxd`.
 
 ## Recommended client naming
 

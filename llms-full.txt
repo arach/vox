@@ -88,6 +88,7 @@ vox doctor
 
 vox warmup start parakeet:v3
 vox transcribe file --model parakeet:v3 --metrics --timestamps /tmp/sample.wav
+vox models catalog
 
 vox voices --model gpt-4o-mini-tts
 vox speak --model gpt-4o-mini-tts --metrics "Hello from Vox"
@@ -97,7 +98,7 @@ vox speak bench --model gpt-4o-mini-tts "Hello from Vox" 5
 vox perf dashboard --client vox-cli
 ```
 
-Continue with the [Quickstart](./quickstart.md), [Swift Embed Guide](./apple-embed.md), or [Web Integration Guide](./web-integration.md) for the surface you chose.
+Continue with the [Quickstart](./quickstart.md), [Models and plugins](./models.md), [Swift Embed Guide](./apple-embed.md), or [Web Integration Guide](./web-integration.md) for the surface you chose.
 
 # Quickstart
 
@@ -130,9 +131,10 @@ If you are building a browser client, pair the local companion with `@voxd/clien
 vox warmup start parakeet:v3
 vox transcribe file --model parakeet:v3 /path/to/audio.wav --metrics --timestamps
 vox transcribe bench --model parakeet:v3 /path/to/audio.wav 5
+vox models catalog
 ```
 
-Warm-up skips cold-start cost. `transcribe file` prints transcript text, stage timings, and optional word-level timestamps. `bench` gives you warm-path variance for the same clip.
+Warm-up skips cold-start cost. `transcribe file` prints transcript text, stage timings, and optional word-level timestamps. `bench` gives you warm-path variance for the same clip. `parakeet:v3` stays the default; `parakeet:v2` is the English-only TDT option. `vox models catalog` shows the published dictation catalog. Gemma 4 and other new families install as plugins: `vox plugins install mlx-vlm`.
 
 ## Text to speech
 
@@ -175,6 +177,8 @@ vox transcribe status
 ## Next steps
 
 If you are integrating Vox into a macOS or iOS app, read the [Swift Embed Guide](./apple-embed.md).
+
+If you are choosing a dictation model or installing Gemma, read [Models and plugins](./models.md).
 
 If you are wiring external STT or TTS engines into Vox Companion, read the [Provider Protocol](./providers.md).
 
@@ -394,7 +398,7 @@ For the first Linea integration, the default plan should be:
 - use embed mode on iOS and macOS
 - add `VoxCore` and `VoxEngine`, plus `VoxAppleSpeech` if the app wants reusable Apple playback
 - wrap Vox in one app-local actor or service
-- use `parakeet:v3` for ASR
+- use `parakeet:v3` for ASR; `parakeet:v2` is the English-only TDT option
 - use `gpt-4o-mini-tts` for default TTS
 - use `avspeech:system` only when a local system voice fallback is required
 - record Vox-compatible telemetry from the app
@@ -503,9 +507,16 @@ The runtime exposes these RPC routes:
 - `synthesize.startSession`
 - `synthesize.sessionStatus`
 - `synthesize.cancel`
+- `models.list`
+- `models.install`
+- `models.preload`
+- `models.catalog`
+- `models.refreshCatalog`
 - `warmup.status`
 - `warmup.start`
 - `warmup.schedule`
+
+`models.catalog` returns the published dictation catalog, including `plugins[]`. Plugin install is `vox plugins install`, not an RPC. `voxd` loads `~/.vox/plugins/*/provider.json` at start. See [Models and plugins](./models.md).
 
 ## Performance routes
 
@@ -554,8 +565,10 @@ CLI flag `--port` takes precedence over env vars for both `voxd` and `voxbridge`
 - `swift/Sources/VoxService/LiveSessionCoordinator.swift`
 - `swift/Sources/VoxService/SynthesisSessionCoordinator.swift`
 - `swift/Sources/VoxService/WarmupCoordinator.swift`
-- `swift/Sources/VoxEngine/ProviderRegistry.swift`
-- `swift/Sources/VoxEngine/TTSProviderRegistry.swift`
+- `swift/Sources/HudsonSpeechEngine/ProviderRegistry.swift`
+- `swift/Sources/HudsonSpeechEngine/TTSProviderRegistry.swift`
+- `swift/Sources/VoxCore/SpeechModelCatalog.swift`
+- `swift/Sources/VoxCore/PluginStore.swift`
 
 Use the operator surface to inspect the runtime without guessing:
 
@@ -567,6 +580,81 @@ vox logs daemon --tail 80
 ```
 
 See [Architecture](./architecture.md) for layer ownership and [Observability](./observability.md) for performance sample interpretation.
+
+# Models and plugins
+
+Source: /docs/models
+
+The published catalog at `https://voxd.cc/data/models.json` is the source of dictation model ids. The same file lives in the repo as `data/models.json` and is bundled with the engine as a fallback.
+
+Refresh the local snapshot explicitly:
+
+```bash
+vox models catalog
+vox models catalog refresh
+```
+
+`VOX_MODEL_CATALOG_URL` overrides the catalog URL. A failed refresh keeps the bundled or cached snapshot. Catalog refresh never installs a plugin and never runs a plugin command.
+
+## Built-in families
+
+These families run without a plugin:
+
+| Family | Default or typical ids | How it runs |
+|---|---|---|
+| `parakeet-tdt` | `parakeet:v3` (default), `parakeet:v2` (English) | On-device CoreML |
+| `apple-speech` | `apple:speech-transcriber` | On-device Speech framework; macOS 26+ |
+| `moonshine` | `moonshine:medium-streaming` | Native MoonshineVoice runtime |
+| `openai-transcribe` | `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `whisper-1` | OpenAI Audio API; needs `OPENAI_API_KEY` |
+| `mlx-audio` | Qwen3-ASR, Cohere Transcribe, Nemotron 3.5 ASR Streaming, Whisper turbo, Parakeet MLX ids | mlx-audio provider; opt-in in `providers.json` |
+
+`parakeet:v3` stays the default for Minivox, Vox.app, and CLI warmup. Use `parakeet:v2` when you want the English-only TDT bundle.
+
+Apple SpeechTranscriber and Moonshine are registered by the default daemon, so selecting either model id is enough. Apple downloads locale assets through `AssetInventory`; `VOX_APPLE_SPEECH_LOCALE` selects the locale. Moonshine downloads its native model on first install or preload; `VOX_MOONSHINE_LANGUAGE` selects the language and defaults to `en`.
+
+## Current local shortlist
+
+- `parakeet:v3`: default, mature CoreML path, 25 European languages.
+- `apple:speech-transcriber`: system-managed on-device parity option with word timings on macOS 26+.
+- `moonshine:medium-streaming`: native streaming architecture and the strongest new low-latency path to carry into Vox live sessions.
+- `mlx-community/Qwen3-ASR-1.7B-8bit`: multilingual accuracy candidate on Apple Silicon.
+- `mlx-community/cohere-transcribe-03-2026-mlx-8bit`: strong offline multilingual candidate; not a realtime model.
+- `mlx-community/nemotron-3.5-asr-streaming-0.6b-8bit`: 0.6B cache-aware streaming RNNT candidate covering 35 languages.
+
+Catalog `capabilities.liveTranscription` describes what Vox exposes today, not what an upstream model architecture can theoretically do. It remains `false` for every current provider because Vox's public ASR contract still accepts a completed audio file and returns finalized text. Apple, Moonshine, and Nemotron are streaming-capable foundations for the next runtime slice, but selecting them does not yet turn `session.partial` into model-backed partial transcription.
+
+Vox does not ship Intel support. Local runtime entries are marked `architectures: ["arm64"]`. Audio conversion for native model inputs uses platform or provider libraries; do not add hand-written sample-rate conversion or denoising code to a model adapter.
+
+SDK catalog methods:
+
+```ts
+await client.listCatalog();
+await client.refreshCatalog();
+```
+
+RPC routes: `models.catalog`, `models.refreshCatalog`.
+
+## Plugins
+
+A plugin is an external JSON-RPC provider advertised in the catalog `plugins[]` array. Models point at a plugin with a `plugin` field.
+
+Install is a CLI filesystem action, not an RPC:
+
+```bash
+vox plugins list
+vox plugins install mlx-vlm
+# restart voxd
+vox transcribe file --model gemma-4-e2b-it /path/to/audio.wav
+vox plugins remove mlx-vlm
+```
+
+`vox plugins install` writes `~/.vox/plugins/<id>/provider.json`. `voxd` loads those files at start and merges them into the provider registry.
+
+Gemma 4 E2B (`gemma-4-e2b-it`) uses plugin `mlx-vlm`. The bundled runner speaks the provider protocol and calls mlx-vlm when `VOX_MLX_VLM_PYTHON` or `python3` has that package. Without mlx-vlm the plugin stays installed and reports `available=false`.
+
+Plugin launchers are allowlisted: `node`, `bun`, `npx`, `bunx`, `uv`, `uvx`, `python3`. Bundled plugins do not take their command from the site JSON.
+
+See the [Provider Protocol](./providers.md) for the stdin/stdout contract a plugin must implement.
 
 # Provider Protocol
 
@@ -583,7 +671,10 @@ Providers can serve either:
 
 Built-in providers include:
 
-- `parakeet` for ASR
+- `parakeet` for on-device CoreML ASR (`parakeet:v3` default, `parakeet:v2` English)
+- `apple-speech` for Apple SpeechTranscriber (`apple:speech-transcriber`, macOS 26+ on Apple Silicon)
+- `moonshine` for native MoonshineVoice ASR (`moonshine:medium-streaming`)
+- `openai-transcribe` for remote OpenAI file transcription (`gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `whisper-1`)
 - `avspeech` for system TTS
 - `openai-tts` for remote TTS
 - `elevenlabs` for ElevenLabs remote TTS
@@ -591,7 +682,40 @@ Built-in providers include:
 - `nvidia` for NVIDIA Magpie remote TTS
 - `groq` for Groq Orpheus remote TTS
 - `gemini` for Gemini remote TTS
-- `mlx-audio` for built-in external bridging across both ASR and TTS
+- `mlx-audio` for built-in external bridging across both ASR and TTS, including Whisper, Qwen3-ASR, Cohere Transcribe, Nemotron 3.5, and Parakeet MLX ids
+
+## Model catalog
+
+Operator-facing catalog and plugin steps live in [Models and plugins](./models.md).
+
+The published catalog at `https://voxd.cc/data/models.json` is the source of dictation model ids. The same file lives in the repo as `data/models.json` and is bundled with the engine as a fallback.
+
+Each model names a `family`. Built-in families the engine can run without a plugin:
+
+- `parakeet-tdt`: CoreML Parakeet TDT bundles
+- `apple-speech`: Apple SpeechTranscriber and system-managed locale assets
+- `moonshine`: native MoonshineVoice models
+- `mlx-audio`: Hugging Face ids loaded by the mlx-audio provider
+- `openai-transcribe`: OpenAI Audio transcriptions API
+
+New families ship as plugins in the same catalog. A plugin is an external JSON-RPC provider. The catalog advertises it; install is explicit; `voxd` loads `~/.vox/plugins/<id>/provider.json` on start.
+
+```bash
+vox plugins list
+vox plugins install mlx-vlm
+# restart voxd
+vox transcribe file --model gemma-4-e2b-it /path/to/audio.wav
+vox plugins remove mlx-vlm
+```
+
+Refresh is explicit:
+
+```bash
+vox models catalog
+vox models catalog refresh
+```
+
+`VOX_MODEL_CATALOG_URL` overrides the catalog URL. A failed refresh keeps the bundled or cached snapshot. Catalog refresh never installs or runs a plugin command. `vox plugins install` copies a bundled runner or records an allowlisted launcher (`node`, `bun`, `npx`, `bunx`, `uv`, `uvx`, `python3`, `python`).
 
 ## Provider Config
 
@@ -604,7 +728,25 @@ Providers are registered in `~/.vox/providers.json`:
       "id": "parakeet",
       "kind": "asr",
       "builtin": true,
-      "models": ["parakeet:v3"]
+      "models": ["parakeet:v3", "parakeet:v2"]
+    },
+    {
+      "id": "apple-speech",
+      "kind": "asr",
+      "builtin": true,
+      "models": ["apple:speech-transcriber"],
+      "env": {
+        "VOX_APPLE_SPEECH_LOCALE": "en-US"
+      }
+    },
+    {
+      "id": "moonshine",
+      "kind": "asr",
+      "builtin": true,
+      "models": ["moonshine:medium-streaming"],
+      "env": {
+        "VOX_MOONSHINE_LANGUAGE": "en"
+      }
     },
     {
       "id": "avspeech",
@@ -673,7 +815,7 @@ Providers are registered in `~/.vox/providers.json`:
       "builtin": true,
       "env": {
         "VOX_MLX_AUDIO_PYTHON": "/path/to/venv/bin/python",
-        "VOX_MLX_AUDIO_ASR_MODELS": "mlx-community/whisper-large-v3-turbo-asr-fp16,mlx-community/Qwen3-ASR-0.6B-8bit"
+        "VOX_MLX_AUDIO_ASR_MODELS": "mlx-community/Qwen3-ASR-1.7B-8bit,mlx-community/cohere-transcribe-03-2026-mlx-8bit,mlx-community/nemotron-3.5-asr-streaming-0.6b-8bit"
       }
     },
     {
@@ -701,6 +843,7 @@ Providers are registered in `~/.vox/providers.json`:
 
 Notes:
 
+- Vox supports Apple Silicon only. Do not treat successful remote-provider compilation on an Intel host as a supported configuration.
 - Register ASR and TTS as separate entries even when they share the same `id`.
 - `models` is optional for external providers now. Vox can call `models()` and route dynamically from the returned list.
 - OpenAI, NVIDIA Magpie, Groq, and Gemini/Google accept per-request `credentials` on `synthesize.generate` / companion synthesis. Those keys are allowlisted through `VoxRuntimeService` and `VoxBridge`; unknown keys, including ElevenLabs and MiniMax keys, are dropped. ElevenLabs and MiniMax currently read only provider `env` and the process environment.
@@ -710,6 +853,8 @@ Notes:
 - NVIDIA Magpie accepts `NV_API_KEY` and the `NVIDIA_API_KEY` compatibility alias, plus camelCase / snake_case variants. Gemini accepts `GEMINI_API_KEY`, `GOOGLE_API_KEY`, and `GOOGLE_GENAI_API_KEY`.
 - Remote providers are considered for default model selection and in-process default registration only when they are configured in `providers.json` or the daemon environment. An API key in the process environment is not broader user consent than selecting or configuring that provider. Configured aliases such as `magpie`, `groq-tts`, and `google-tts` prevent the canonical default entries from being appended over that family's routing and key config.
 - If `providers.json` contains only ASR entries, Vox falls back to default TTS providers. The inverse is also true. The default TTS model remains `gpt-4o-mini-tts` when OpenAI is configured. App-registry and daemon/config default selection share one canonical ranking independent of `providers.json` order and independent of the alphabetically sorted `TTSProviderRegistry` model list: OpenAI `gpt-4o-mini-tts`, then ElevenLabs, MiniMax, NVIDIA Magpie, Groq, Gemini, then `avspeech:system`.
+- The public ASR provider method is currently file-based. Apple SpeechTranscriber, Moonshine Medium, and Nemotron have streaming-capable internals, but live partial events require a separate runtime/protocol integration.
+- Native audio adaptation uses `AVAudioConverter`, SpeechAnalyzer's file path, or provider-owned conversion. Provider adapters must not implement ad hoc resampling or denoising.
 
 ### OpenAI TTS timeout
 
@@ -1130,6 +1275,8 @@ Source: /docs/sdk
 
 `packages/client/` connects to `voxd` when you want out-of-process access to models, voices, warm-up, transcription, synthesis, and stage metrics.
 
+`listCatalog()` and `refreshCatalog()` read the published dictation catalog. Plugin install stays on the CLI (`vox plugins install`). See [Models and plugins](./models.md).
+
 ## Example
 
 ```ts
@@ -1169,6 +1316,8 @@ interface VoxClientSurface {
   disconnect(): void;
   doctor(): Promise<unknown>;
   listModels(): Promise<unknown>;
+  listCatalog(): Promise<SpeechModelCatalog>;
+  refreshCatalog(): Promise<SpeechModelCatalog>;
   listVoices(modelId?: string): Promise<unknown>;
   installModel(modelId?: string): Promise<unknown>;
   preloadModel(modelId?: string): Promise<unknown>;
@@ -1603,6 +1752,8 @@ Shared runtime types and utilities:
 - transcription and synthesis metrics
 - performance samples
 - filesystem paths
+- model catalog types
+- plugin install records
 - trace utilities
 
 ### VoxEngine
@@ -1614,6 +1765,8 @@ Model-facing speech layer:
 - annotation provider routing and speaker-attribution contracts
 - TTS provider routing and voice discovery
 - Parakeet inference
+- OpenAI file transcription
+- catalog ingest for known ASR families
 - AVSpeech, OpenAI, ElevenLabs, MiniMax, NVIDIA Magpie, Groq, Gemini, and external synthesis backends
 - stage-level timing
 
@@ -1652,7 +1805,7 @@ Daemon-side orchestration:
 
 ### CLI
 
-`@voxd/cli`: operator tool. Doctor, daemon lifecycle, model management, voices, transcription, synthesis, benchmarks, dashboards.
+`@voxd/cli`: operator tool. Doctor, daemon lifecycle, model catalog, plugins, voices, transcription, synthesis, benchmarks, dashboards.
 
 ## Ownership
 
@@ -1700,6 +1853,10 @@ Public protocol and SDK-facing type shapes.
 - `models.list`
 - `models.install`
 - `models.preload`
+- `models.catalog`
+- `models.refreshCatalog`
+
+Catalog JSON may include `plugins[]`. Plugin install is a CLI file-system action (`vox plugins install`), not an RPC. `voxd` loads `~/.vox/plugins/*/provider.json` at start.
 
 ### Warm-Up
 
@@ -1797,6 +1954,8 @@ Current emitted performance routes:
 - `disconnect()`
 - `doctor()`
 - `listModels()`
+- `listCatalog()`
+- `refreshCatalog()`
 - `listVoices()`
 - `installModel()`
 - `preloadModel()`
@@ -2067,6 +2226,7 @@ Warm-up is always explicit. Preserve `clientId`, `route`, `modelId`, and `voiceI
 | Companion SDK methods and types | `packages/client/src/client.ts`, `packages/client/src/types.ts` |
 | Browser API and HTTP paths | `packages/web-client/src/client.ts`, `packages/web-client/src/types.ts` |
 | CLI syntax | `packages/cli/src/index.ts` and `vox help` |
+| Dictation catalog and plugins | `data/models.json` and [Models and plugins](./models.md) |
 | Public integration guidance | the matching page in `docs/` |
 
 When prose and source disagree, treat the source as current and update the prose in the same change.
@@ -2116,15 +2276,19 @@ Recommended operator loop:
 
 ```bash
 vox doctor
+vox models catalog
 vox warmup start
 vox transcribe bench /path/to/audio.wav 5
 vox perf dashboard --client <integration>
 ```
 
 1. `vox doctor`
-2. `vox warmup start`
-3. `vox transcribe bench /path/to/audio.wav 5`
-4. `vox perf dashboard --client <integration>`
+2. `vox models catalog`
+3. `vox warmup start`
+4. `vox transcribe bench /path/to/audio.wav 5`
+5. `vox perf dashboard --client <integration>`
+
+To add Gemma 4 or another catalog plugin: `vox plugins install mlx-vlm`, then restart `voxd`.
 
 ## Recommended client naming
 
@@ -2227,6 +2391,7 @@ Source: docs/agent/apple-embed.agent.md
 - TTS generation default: `TTSEngineManager()` -> `TTSProviderRegistry` with OpenAI TTS plus AVSpeech fallback
 - TTS playback is not on `TTSProvider`; optional Apple playback is `AppleSpeechOutputController`
 - default ASR model id: `parakeet:v3`
+- English-only ASR model id: `parakeet:v2`
 - default TTS model id: `TTSDefaults.modelId` = `gpt-4o-mini-tts`
 - local TTS model id: `TTSDefaults.localModelId` = `avspeech:system`
 - default TTS format: `TTSDefaults.format` = `wav`
@@ -2317,6 +2482,34 @@ Source: docs/agent/architecture.agent.md
 - Swift owns the embeddable engine and companion transport surfaces
 - keep model lifecycle and warm-up explicit across layers
 
+# Models and plugin facts
+
+Source: docs/agent/models.agent.md
+
+# Models and plugin facts
+
+- catalog URL: `https://voxd.cc/data/models.json`
+- repo source: `data/models.json`
+- bundled fallback: `swift/Sources/HudsonSpeechEngine/Resources/models.json`
+- cache: `~/.vox/cache/models-catalog.json`
+- override: `VOX_MODEL_CATALOG_URL`
+- refresh: `vox models catalog` / `vox models catalog refresh`; RPC `models.catalog` / `models.refreshCatalog`
+- SDK: `listCatalog()`, `refreshCatalog()`
+- catalog refresh never installs or runs a plugin
+- default ASR: `parakeet:v3`; English TDT: `parakeet:v2`
+- Apple Silicon only; Intel Macs are unsupported
+- native core ASR: `apple:speech-transcriber` on macOS 26+ and `moonshine:medium-streaming`
+- Apple locale env: `VOX_APPLE_SPEECH_LOCALE`; Moonshine language env: `VOX_MOONSHINE_LANGUAGE`
+- recommended MLX candidates: `mlx-community/Qwen3-ASR-1.7B-8bit`, `mlx-community/cohere-transcribe-03-2026-mlx-8bit`, `mlx-community/nemotron-3.5-asr-streaming-0.6b-8bit`
+- catalog capability flags describe the current Vox provider surface; `liveTranscription=false` until the ASR protocol and mic path emit model-backed partials
+- never add hand-written resampling or denoising inside a model adapter; use platform/provider DSP libraries
+- OpenAI file ASR: `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `whisper-1`
+- plugins CLI: `vox plugins list|install|remove`
+- plugin store: `~/.vox/plugins/<id>/provider.json`
+- `voxd` loads installed plugins at start
+- Gemma 4 E2B: model `gemma-4-e2b-it`, plugin `mlx-vlm`
+- plugin launchers: `node`, `bun`, `npx`, `bunx`, `uv`, `uvx`, `python3`
+
 # Observability Facts
 
 Source: docs/agent/observability.agent.md
@@ -2360,10 +2553,12 @@ Source: docs/agent/overview.agent.md
 - Minivox first use: the installer launches the menu-bar app; put the cursor in a text field, press `⌥Space` to start, then press `⌥Space` again to stop and copy/paste the transcript
 - Minivox command: `minivox`, `minivox settings`, `minivox quit`
 - Minivox npm install output: `--quiet` or `--verbose`
-- model focus: `parakeet:v3` for ASR, `gpt-4o-mini-tts` for default TTS
+- model focus: `parakeet:v3` for ASR, `parakeet:v2` for English-only TDT, `gpt-4o-mini-tts` for default TTS
+- dictation catalog: `https://voxd.cc/data/models.json` and site `/models`; refresh with `vox models catalog refresh`
+- plugins: catalog `plugins[]`; install with `vox plugins install <id>`; stored in `~/.vox/plugins/`
 - warmup: explicit API surface
 - telemetry dimensions: `clientId`, `route`, `modelId`, `voiceId`
-- configurable: `VOX_PORT`, `VOX_BRIDGE_PORT`, `VOX_HOST`, `VOX_HOME`
+- configurable: `VOX_PORT`, `VOX_BRIDGE_PORT`, `VOX_HOST`, `VOX_HOME`, `VOX_MODEL_CATALOG_URL`
 
 # Provider Protocol Facts
 
@@ -2390,7 +2585,23 @@ Source: docs/agent/providers.agent.md
 - default TTS ranking is independent of config and registry order: OpenAI `gpt-4o-mini-tts`, ElevenLabs, MiniMax, NVIDIA, Groq, Gemini, then AVSpeech
 - reserve stdout for protocol messages and send logs to stderr
 - provider state may cache weights, but crash/restart must remain safe
-- canonical implementations: `swift/Sources/HudsonSpeechEngine/` builtin TTS providers plus `ExternalTTSProvider.swift`
+- canonical implementations: `swift/Sources/HudsonSpeechEngine/` built-in providers plus `ExternalProvider.swift` and `ExternalTTSProvider.swift`
+- published catalog: `https://voxd.cc/data/models.json` from repo `data/models.json`
+- catalog families the engine can run: `parakeet-tdt`, `apple-speech`, `moonshine`, `mlx-audio`, `openai-transcribe`
+- catalog plugins: `plugins[]` plus model `plugin` id; install writes `~/.vox/plugins/<id>/provider.json`
+- Gemma 4 E2B: plugin `mlx-vlm`; `vox plugins install mlx-vlm`
+- refresh never executes plugin commands
+- plugin launchers allowlist: `node`, `bun`, `npx`, `bunx`, `uv`, `uvx`, `python3`, `python`
+- refresh: `models.catalog` / `models.refreshCatalog`; CLI `vox models catalog [refresh]`
+- plugins CLI: `vox plugins list|install|remove`
+- default local ASR: `parakeet:v3`; English TDT: `parakeet:v2`
+- native alternatives: `apple:speech-transcriber` and `moonshine:medium-streaming`
+- MLX shortlist: Qwen3-ASR 1.7B, Cohere Transcribe 03-2026, Nemotron 3.5 ASR Streaming 0.6B
+- supported architecture: Apple Silicon (`arm64`) only; no Intel support
+- current provider `transcribe` is file-based; do not claim model-backed partials from upstream streaming capability
+- model adapters use platform/provider audio conversion; never add hand-written resampling or denoising
+- remote OpenAI ASR: `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `whisper-1`
+- override catalog URL with `VOX_MODEL_CATALOG_URL`
 
 # Quickstart Facts
 
@@ -2407,6 +2618,8 @@ Source: docs/agent/quickstart.agent.md
 - verify with `vox doctor`
 - repo checkout CLI after build: `node packages/cli/dist/index.js`
 - ASR smoke path: `vox warmup start parakeet:v3` then `vox transcribe file <path>`
+- catalog: `vox models catalog` then `vox models catalog refresh`
+- plugins: `vox plugins list` then `vox plugins install mlx-vlm`
 - do not send Apple-native integrations through Companion by default
 
 # Runtime Facts
@@ -2417,13 +2630,15 @@ Source: docs/agent/runtime.agent.md
 
 - health methods: `health`, `doctor.run`
 - warmup methods: `warmup.status`, `warmup.start`, `warmup.schedule`
-- ASR model routes: `models.list`, `models.install`, `models.preload`
+- ASR model routes: `models.list`, `models.install`, `models.preload`, `models.catalog`, `models.refreshCatalog`
 - ASR file route: `transcribe.file`
 - annotation route: `annotate.file`
 - ASR live routes: `transcribe.startSession`, `transcribe.sessionStatus`, `transcribe.stopSession`, `transcribe.cancelSession`
 - TTS routes: `synthesize.voices`, `synthesize.generate`, `synthesize.startSession`, `synthesize.sessionStatus`, `synthesize.cancel`
 - performance log path: `~/.vox/performance.jsonl`
 - runtime metadata path: `~/.vox/runtime.json`
+- model catalog cache: `~/.vox/cache/models-catalog.json`
+- plugin store: `~/.vox/plugins/<id>/provider.json`
 - browser bridge endpoints other than `/health` are origin-gated
 - session ownership includes both `connectionID` and `clientId`; stop and cancel are not interchangeable
 
@@ -2444,6 +2659,7 @@ Source: docs/agent/sdk.agent.md
 - warmup methods exposed: `getWarmupStatus`, `startWarmup`, `scheduleWarmup`
 - synthesis methods exposed: `listVoices`, `synthesize`
 - ASR method exposed: `transcribeFile`
+- catalog methods exposed: `listCatalog`, `refreshCatalog`
 - annotation method exposed: `annotateFile`
 - live session method exposed: `createLiveSession`; it returns `VoxLiveSession` synchronously
 - synthesis can return optional `speechTiming`; read the types in `packages/client/src/types.ts` before duplicating shapes

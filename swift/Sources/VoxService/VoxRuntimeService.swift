@@ -766,6 +766,21 @@ public final class VoxRuntimeService: @unchecked Sendable {
             }
         }
 
+        bridge.handle("models.catalog") { _, reply in
+            reply(ModelCatalogStore.shared.current.dictionaryValue(), nil)
+        }
+
+        bridge.handle("models.refreshCatalog") { _, reply in
+            Task {
+                do {
+                    let catalog = try await ModelCatalogStore.shared.refresh()
+                    reply(catalog.dictionaryValue(), nil)
+                } catch {
+                    reply(nil, error.localizedDescription)
+                }
+            }
+        }
+
         bridge.handleStreaming("models.install") { [weak self] params, progress, reply in
             guard let self else { return }
             let modelId = self.resolveTranscriptionModelId(params?["modelId"] as? String)

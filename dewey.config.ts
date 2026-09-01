@@ -36,7 +36,7 @@ export default {
       { pattern: "site/*", instruction: "Maintain the clean, restrained Vox visual language. Avoid generic startup landing page patterns." },
     ],
 
-    sections: ["overview", "quickstart", "apple-embed", "runtime", "providers", "sdk", "web-integration", "observability", "architecture", "api", "agents", "skill"],
+    sections: ["overview", "quickstart", "apple-embed", "runtime", "models", "providers", "sdk", "web-integration", "observability", "architecture", "api", "agents", "skill"],
   },
 
   docs: {

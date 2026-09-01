@@ -78,6 +78,18 @@ public enum VoxDefaults {
         }
         return host
     }
+
+    public static let modelCatalogPath = "/data/models.json"
+    public static let defaultModelCatalogURL = URL(string: "https://voxd.cc/data/models.json")!
+
+    public static func resolvedModelCatalogURL() -> URL {
+        if let raw = ProcessInfo.processInfo.environment["VOX_MODEL_CATALOG_URL"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !raw.isEmpty,
+           let url = URL(string: raw) {
+            return url
+        }
+        return defaultModelCatalogURL
+    }
 }
 
 public enum RuntimePaths {
@@ -143,6 +155,16 @@ public enum RuntimePaths {
         voxHomeURL().appendingPathComponent("credentials.key")
     }
 
+    public static func modelCatalogCacheURL() -> URL {
+        voxHomeURL()
+            .appendingPathComponent("cache", isDirectory: true)
+            .appendingPathComponent("models-catalog.json")
+    }
+
+    public static func pluginsDirectoryURL() -> URL {
+        voxHomeURL().appendingPathComponent("plugins", isDirectory: true)
+    }
+
     public static func bridgeOriginsFileURL() -> URL {
         voxHomeURL().appendingPathComponent("origins.json")
     }
@@ -162,6 +184,10 @@ public enum RuntimePaths {
         )
         try FileManager.default.createDirectory(
             at: bridgeOriginsDirectoryURL(),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: pluginsDirectoryURL(),
             withIntermediateDirectories: true
         )
     }

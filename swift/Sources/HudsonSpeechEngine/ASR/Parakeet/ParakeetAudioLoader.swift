@@ -2,14 +2,14 @@
 import Foundation
 import os
 
-struct ParakeetAudioInput: Sendable {
+struct ASRAudioInput: Sendable {
     let samples: [Float]
     let inputBytes: Int
     let audioDurationMs: Int
     let audioLoadMs: Int
 }
 
-struct ParakeetAudioLoader: Sendable {
+struct ASRAudioLoader: Sendable {
     private static let targetSampleRate: Double = 16_000
     private static let chunkFrameCount: AVAudioFrameCount = 4096
 
@@ -24,7 +24,7 @@ struct ParakeetAudioLoader: Sendable {
         )!
     }
 
-    func load(from url: URL) throws -> ParakeetAudioInput {
+    func load(from url: URL) throws -> ASRAudioInput {
         let inputBytes = ((try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.intValue) ?? 0
         let startedAt = CFAbsoluteTimeGetCurrent()
         let audioFile = try AVAudioFile(forReading: url)
@@ -54,7 +54,7 @@ struct ParakeetAudioLoader: Sendable {
 
         let audioLoadMs = Int((CFAbsoluteTimeGetCurrent() - startedAt) * 1000)
 
-        return ParakeetAudioInput(
+        return ASRAudioInput(
             samples: samples,
             inputBytes: inputBytes,
             audioDurationMs: audioDurationMs,
@@ -143,3 +143,6 @@ struct ParakeetAudioLoader: Sendable {
         Int(ceil(Double(frameCount) * (Self.targetSampleRate / sampleRate)))
     }
 }
+
+typealias ParakeetAudioInput = ASRAudioInput
+typealias ParakeetAudioLoader = ASRAudioLoader

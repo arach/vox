@@ -16,6 +16,15 @@ public struct ProvidersConfig: Codable, Sendable {
         let data = try Data(contentsOf: url)
         return try JSONDecoder().decode(ProvidersConfig.self, from: data)
     }
+
+    public func merging(_ extra: [ProviderEntry]) -> ProvidersConfig {
+        var seen = Set(providers.map(\.id))
+        var merged = providers
+        for entry in extra where seen.insert(entry.id).inserted {
+            merged.append(entry)
+        }
+        return ProvidersConfig(providers: merged)
+    }
 }
 
 public struct ProviderEntry: Codable, Sendable {

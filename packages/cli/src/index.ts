@@ -26,6 +26,8 @@ import {
   DEFAULT_PORT,
 } from "@voxd/sdk";
 
+import { handlePlugins } from "./plugins.ts";
+
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const DEV_REPO_ROOT = resolve(MODULE_DIR, "../../..");
 const DEV_SWIFT_ROOT = join(DEV_REPO_ROOT, "swift");
@@ -79,6 +81,9 @@ async function main(argv: string[]): Promise<void> {
       return;
     case "tui":
       launchTui();
+      return;
+    case "plugins":
+      await handlePlugins(subcommand, rest);
       return;
     case "install":
       await handleInstall(subcommand, rest);
@@ -135,6 +140,13 @@ async function handleModels(subcommand: string | undefined, rest: string[]): Pro
           console.error(`${event.modelId} ${(event.progress * 100).toFixed(0)}% ${event.status}`);
         });
         console.log(`Preloaded ${model.id}`);
+        return;
+      }
+      case "catalog": {
+        const catalog = rest[0] === "refresh"
+          ? await client.refreshCatalog()
+          : await client.listCatalog();
+        printCatalog(catalog);
         return;
       }
       default:
@@ -576,6 +588,36 @@ function printModels(models: ModelInfo[]): void {
     console.log(
       `${model.id} installed=${model.installed} preloaded=${model.preloaded} available=${model.available}`,
     );
+  }
+}
+
+function printCatalog(catalog: {
+  version: number;
+  updatedAt: string;
+  models: Array<{
+    id: string;
+    family: string;
+    name: string;
+    status: string;
+    default: boolean;
+    vendor?: string;
+    runtime?: string;
+    notes?: string;
+  }>;
+}): void {
+  console.log(`catalog v${catalog.version} updated ${catalog.updatedAt || "unknown"}`);
+  for (const model of catalog.models) {
+    const flags = [
+      model.default ? "default" : null,
+      model.status,
+      model.family,
+      model.runtime,
+      model.vendor,
+    ].filter(Boolean);
+    console.log(`${model.id} ${flags.join(" ")}`);
+    if (model.notes) {
+      console.log(`  ${model.notes}`);
+    }
   }
 }
 
@@ -1499,6 +1541,8 @@ Usage:
   vox daemon start|stop|status
   vox doctor
   vox models list|install|preload [modelId]
+  vox models catalog [refresh]
+  vox plugins list|install|remove [id]
   vox warmup status|start [modelId]
   vox warmup schedule [delayMs] [modelId]
   vox perf dashboard [--client <clientId>] [--route <route>] [--last <n>]
