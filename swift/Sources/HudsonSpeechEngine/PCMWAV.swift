@@ -10,20 +10,36 @@ enum PCMWAV {
     static func isStructurallyValid(_ data: Data) -> Bool {
         guard isWave(data), data.count >= 44 else { return false }
 
+        let declaredSize = Int(littleEndianUInt32(data, at: 4))
+        let payloadEnd = 8 + declaredSize
+        guard declaredSize >= 4, payloadEnd <= data.count else { return false }
+
         var offset = 12
-        while offset + 8 <= data.count {
+        var sawFmt = false
+        var sawData = false
+
+        while offset + 8 <= payloadEnd {
             let chunkID = data[offset..<(offset + 4)]
             let chunkSize = Int(littleEndianUInt32(data, at: offset + 4))
-            guard chunkSize >= 0, offset + 8 + chunkSize <= data.count else { return false }
+            let payloadStart = offset + 8
+            guard chunkSize >= 0, payloadStart + chunkSize <= payloadEnd else { return false }
+
             if chunkID == Data("fmt ".utf8) {
-                return chunkSize >= 16
+                guard chunkSize >= 16 else { return false }
+                sawFmt = true
+            } else if chunkID == Data("data".utf8) {
+                guard chunkSize > 0 else { return false }
+                sawData = true
             }
-            offset += 8 + chunkSize
+
+            offset = payloadStart + chunkSize
             if chunkSize % 2 == 1 {
+                guard offset < payloadEnd else { return false }
                 offset += 1
             }
         }
-        return false
+
+        return sawFmt && sawData && offset == payloadEnd
     }
 
     private static func littleEndianUInt32(_ data: Data, at offset: Int) -> UInt32 {
