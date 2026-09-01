@@ -179,7 +179,11 @@ public actor GeminiTTSProvider: TTSProvider {
 
         log.info("Gemini synthesis request started requestId=\(request.requestId) modelId=\(request.modelId) voiceId=\(resolvedVoice) textLength=\(text.count)")
         let (data, response) = try await RemoteTTSSupport.data(for: urlRequest, session: session)
-        _ = try validateHTTPResponse(data: data, response: response)
+        _ = try validateHTTPResponse(
+            data: data,
+            response: response,
+            sensitiveValues: [text, prompt, request.instructions].compactMap { $0 }
+        )
 
         let audio = try Self.parseAudio(from: data)
         let synthesisMs = trace.end("\(audio.count) bytes")
@@ -359,14 +363,22 @@ public actor GeminiTTSProvider: TTSProvider {
     }
 
     @discardableResult
-    private func validateHTTPResponse(data: Data, response: URLResponse) throws -> HTTPURLResponse {
+    private func validateHTTPResponse(
+        data: Data,
+        response: URLResponse,
+        sensitiveValues: [String] = []
+    ) throws -> HTTPURLResponse {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw GeminiTTSProviderError.nonHTTPResponse
         }
         guard (200..<300).contains(httpResponse.statusCode) else {
             throw GeminiTTSProviderError.requestFailed(
                 status: httpResponse.statusCode,
-                message: RemoteTTSSupport.sanitizeVendorMessage(from: data, vendor: "Gemini TTS")
+                message: RemoteTTSSupport.sanitizeVendorMessage(
+                    from: data,
+                    vendor: "Gemini TTS",
+                    sensitiveValues: sensitiveValues
+                )
             )
         }
         return httpResponse

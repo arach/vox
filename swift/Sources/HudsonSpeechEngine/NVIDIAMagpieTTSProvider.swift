@@ -146,7 +146,12 @@ public actor NVIDIAMagpieTTSProvider: TTSProvider {
 
         log.info("NVIDIA Magpie synthesis request started requestId=\(request.requestId) modelId=\(request.modelId) voiceId=\(resolvedVoice) language=\(language) textLength=\(text.count)")
         let (data, response) = try await RemoteTTSSupport.data(for: urlRequest, session: session)
-        let httpResponse = try validateHTTPResponse(data: data, response: response, operation: "synthesis")
+        let httpResponse = try validateHTTPResponse(
+            data: data,
+            response: response,
+            operation: "synthesis",
+            sensitiveValues: [text]
+        )
         let audioData = try Self.decodeAudio(
             data,
             contentType: httpResponse.value(forHTTPHeaderField: "Content-Type"),
@@ -358,7 +363,8 @@ public actor NVIDIAMagpieTTSProvider: TTSProvider {
     private func validateHTTPResponse(
         data: Data,
         response: URLResponse,
-        operation: String
+        operation: String,
+        sensitiveValues: [String] = []
     ) throws -> HTTPURLResponse {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw NVIDIAMagpieTTSProviderError.nonHTTPResponse(operation)
@@ -367,7 +373,11 @@ public actor NVIDIAMagpieTTSProvider: TTSProvider {
             throw NVIDIAMagpieTTSProviderError.requestFailed(
                 operation: operation,
                 status: httpResponse.statusCode,
-                message: RemoteTTSSupport.sanitizeVendorMessage(from: data, vendor: "NVIDIA Magpie")
+                message: RemoteTTSSupport.sanitizeVendorMessage(
+                    from: data,
+                    vendor: "NVIDIA Magpie",
+                    sensitiveValues: sensitiveValues
+                )
             )
         }
         return httpResponse

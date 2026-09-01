@@ -705,15 +705,121 @@ struct RemoteTTSProviderTests {
 
     @Test("Vendor error bodies are bounded and do not echo credentials or request text")
     func vendorErrorBodiesAreSanitized() {
+        let prompt = "Hello secret prompt"
         let huge = String(repeating: "x", count: 4_000)
         let body = Data("""
-        {"error":{"message":"quota for Bearer nvapi-secret-key and input Hello secret prompt \(huge)"}}
+        {"error":{"message":"quota for Bearer nvapi-secret-key and input \(prompt) \(huge)"}}
         """.utf8)
-        let message = RemoteTTSSupport.sanitizeVendorMessage(from: body, vendor: "NVIDIA Magpie")
+        let message = RemoteTTSSupport.sanitizeVendorMessage(
+            from: body,
+            vendor: "NVIDIA Magpie",
+            sensitiveValues: [prompt]
+        )
         #expect(message.contains("quota"))
         #expect(!message.contains("nvapi-secret-key"))
+        #expect(!message.contains(prompt))
+        #expect(!message.contains("Hello secret prompt"))
         #expect(message.contains("[redacted]"))
         #expect(message.count <= RemoteTTSSupport.maximumVendorMessageLength + 1)
+    }
+
+    @Test("short echoed prompts never persist in vendor error detail")
+    func shortEchoedPromptsNeverAppear() {
+        let promptHi = RemoteTTSSupport.sanitizeVendorMessage(
+            from: Data("{\"error\":{\"message\":\"prompt hi\"}}".utf8),
+            vendor: "Groq TTS",
+            sensitiveValues: ["hi"]
+        )
+        #expect(promptHi == "Groq TTS: request failed")
+        #expect(!promptHi.localizedCaseInsensitiveContains("hi"))
+
+        let textA = RemoteTTSSupport.redactExactSensitiveValues(
+            "text a",
+            sensitiveValues: ["a"]
+        )
+        #expect(textA == "request failed")
+        #expect(!textA.contains("text a"))
+
+        let oneCharacterInQuota = RemoteTTSSupport.redactExactSensitiveValues(
+            "quota exceeded",
+            sensitiveValues: ["a"]
+        )
+        #expect(oneCharacterInQuota == "request failed")
+        #expect(!oneCharacterInQuota.contains("quota"))
+
+        let oneCharacterMessage = RemoteTTSSupport.sanitizeVendorMessage(
+            from: Data("{\"error\":{\"message\":\"quota exceeded\"}}".utf8),
+            vendor: "NVIDIA Magpie",
+            sensitiveValues: ["a"]
+        )
+        #expect(oneCharacterMessage == "NVIDIA Magpie: request failed")
+        #expect(!oneCharacterMessage.contains("quota exceeded"))
+    }
+
+    @Test("NVIDIA synthesis HTTP errors drop an echoed request prompt")
+    func nvidiaHTTPErrorStripsEchoedPrompt() async {
+        let prompt = "Hello secret prompt"
+        await expectEchoedPromptIsAbsent(
+            synthesize: {
+                try await NVIDIAMagpieTTSProvider(
+                    env: ["NV_API_KEY": "synthetic-test-key"],
+                    session: MockHTTPURLProtocol.session(
+                        body: Data("{\"detail\":\"quota exceeded for input: \(prompt)\"}".utf8),
+                        statusCode: 429,
+                        contentType: "application/json"
+                    )
+                ).synthesize(SynthesisRequest(
+                    text: prompt,
+                    modelId: NVIDIAMagpieTTSProvider.modelID
+                ))
+            },
+            prompt: prompt,
+            retains: "quota"
+        )
+    }
+
+    @Test("Groq synthesis HTTP errors drop an echoed request prompt")
+    func groqHTTPErrorStripsEchoedPrompt() async {
+        let prompt = "Hello secret prompt"
+        await expectEchoedPromptIsAbsent(
+            synthesize: {
+                try await GroqTTSProvider(
+                    env: ["GROQ_API_KEY": "synthetic-test-key"],
+                    session: MockHTTPURLProtocol.session(
+                        body: Data("{\"error\":{\"message\":\"quota exceeded for input: \(prompt)\"}}".utf8),
+                        statusCode: 429,
+                        contentType: "application/json"
+                    )
+                ).synthesize(SynthesisRequest(
+                    text: prompt,
+                    modelId: GroqTTSProvider.defaultModelID
+                ))
+            },
+            prompt: prompt,
+            retains: "quota"
+        )
+    }
+
+    @Test("Gemini synthesis HTTP errors drop an echoed request prompt")
+    func geminiHTTPErrorStripsEchoedPrompt() async {
+        let prompt = "Hello secret prompt"
+        await expectEchoedPromptIsAbsent(
+            synthesize: {
+                try await GeminiTTSProvider(
+                    env: ["GEMINI_API_KEY": "synthetic-test-key"],
+                    session: MockHTTPURLProtocol.session(
+                        body: Data("{\"error\":{\"message\":\"quota exceeded for prompt \(prompt)\"}}".utf8),
+                        statusCode: 429,
+                        contentType: "application/json"
+                    )
+                ).synthesize(SynthesisRequest(
+                    text: prompt,
+                    modelId: GeminiTTSProvider.defaultModelID
+                ))
+            },
+            prompt: prompt,
+            retains: "quota"
+        )
     }
 
     @Test("Gemini 3.1 flash TTS preview uses the generateContent contract")
@@ -752,6 +858,22 @@ struct RemoteTTSProviderTests {
         #expect(GeminiTTSProvider.supportedModelIDs.contains("gemini-3.1-flash-tts-preview"))
         #expect(output.format == "wav")
         #expect(PCMWAV.isStructurallyValid(output.audioData))
+    }
+
+    private func expectEchoedPromptIsAbsent(
+        synthesize: () async throws -> some Any,
+        prompt: String,
+        retains: String
+    ) async {
+        do {
+            _ = try await synthesize()
+            Issue.record("Expected request failed")
+        } catch {
+            let description = error.localizedDescription
+            #expect(description.contains(retains))
+            #expect(!description.contains(prompt))
+            #expect(!description.contains("Hello secret prompt"))
+        }
     }
 
     private func expectCancellation(_ work: () async throws -> some Any) async {

@@ -62,9 +62,48 @@ enum RemoteTTSSupport {
         }
     }
 
-    static func sanitizeVendorMessage(from data: Data, vendor: String) -> String {
+    static let minimumExactRedactionLength = 8
+
+    static func sanitizeVendorMessage(
+        from data: Data,
+        vendor: String,
+        sensitiveValues: [String] = []
+    ) -> String {
         let extracted = extractVendorMessage(from: data) ?? "HTTP error"
-        return sanitize("\(vendor): \(extracted)")
+        let withoutPrompt = redactExactSensitiveValues(extracted, sensitiveValues: sensitiveValues)
+        return sanitize("\(vendor): \(withoutPrompt)")
+    }
+
+    static func redactExactSensitiveValues(
+        _ message: String,
+        sensitiveValues: [String]
+    ) -> String {
+        let values = Array(Set(
+            sensitiveValues
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+        )).sorted { $0.count > $1.count }
+
+        var result = message
+        for value in values {
+            if isSafeToReplaceExactly(value) {
+                result = result.replacingOccurrences(
+                    of: value,
+                    with: "[redacted]",
+                    options: .caseInsensitive
+                )
+                continue
+            }
+            if result.localizedCaseInsensitiveContains(value) {
+                return "request failed"
+            }
+        }
+        return result
+    }
+
+    static func isSafeToReplaceExactly(_ value: String) -> Bool {
+        value.count >= minimumExactRedactionLength
+            || (value.count >= 2 && value.contains(where: \.isWhitespace))
     }
 
     static func extractVendorMessage(from data: Data) -> String? {

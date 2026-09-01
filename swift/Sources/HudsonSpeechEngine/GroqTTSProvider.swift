@@ -156,7 +156,7 @@ public actor GroqTTSProvider: TTSProvider {
 
         log.info("Groq synthesis request started requestId=\(request.requestId) modelId=\(request.modelId) voiceId=\(resolvedVoice) textLength=\(text.count)")
         let (data, response) = try await RemoteTTSSupport.data(for: urlRequest, session: session)
-        let httpResponse = try validateHTTPResponse(data: data, response: response)
+        let httpResponse = try validateHTTPResponse(data: data, response: response, sensitiveValues: [text])
         guard PCMWAV.isStructurallyValid(data) else {
             throw data.isEmpty ? GroqTTSProviderError.emptyAudio : GroqTTSProviderError.invalidAudio
         }
@@ -267,14 +267,22 @@ public actor GroqTTSProvider: TTSProvider {
     }
 
     @discardableResult
-    private func validateHTTPResponse(data: Data, response: URLResponse) throws -> HTTPURLResponse {
+    private func validateHTTPResponse(
+        data: Data,
+        response: URLResponse,
+        sensitiveValues: [String] = []
+    ) throws -> HTTPURLResponse {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw GroqTTSProviderError.nonHTTPResponse
         }
         guard (200..<300).contains(httpResponse.statusCode) else {
             throw GroqTTSProviderError.requestFailed(
                 status: httpResponse.statusCode,
-                message: RemoteTTSSupport.sanitizeVendorMessage(from: data, vendor: "Groq TTS")
+                message: RemoteTTSSupport.sanitizeVendorMessage(
+                    from: data,
+                    vendor: "Groq TTS",
+                    sensitiveValues: sensitiveValues
+                )
             )
         }
         return httpResponse
