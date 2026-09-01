@@ -16,6 +16,36 @@ struct PluginStoreTests {
         }
     }
 
+    @Test("Plugin identifier validator rejects traversal and path separators")
+    func identifierValidatorRejectsTraversal() throws {
+        for id in ["../escape", "nested/plugin", "nested\\plugin", "a..b", ".hidden", "Uppercase"] {
+            #expect(throws: PluginIdentifierError.self) {
+                try PluginIdentifierValidator.validate(id)
+            }
+        }
+
+        for id in ["mlx-vlm", "mlx_vlm.v2", "plugin-2"] {
+            try PluginIdentifierValidator.validate(id)
+        }
+    }
+
+    @Test("Plugin store rejects traversal ids before filesystem access")
+    func storeRejectsTraversalIDs() throws {
+        let plugin = ProviderEntry(
+            id: "../escape",
+            kind: .asr,
+            command: ["node", "/tmp/provider.mjs"],
+            models: []
+        )
+        #expect(throws: PluginIdentifierError.self) {
+            try PluginStore.install(plugin)
+        }
+        #expect(throws: PluginIdentifierError.self) {
+            try PluginStore.remove(id: "../escape")
+        }
+        #expect(!PluginStore.isInstalled(id: "../escape"))
+    }
+
     @Test("Plugin store writes provider.json and merges without replacing existing ids")
     func installRoundTripAndMerge() throws {
         let directory = FileManager.default.temporaryDirectory

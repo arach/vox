@@ -6,6 +6,7 @@ import { getVoxHome } from "@voxd/sdk";
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CATALOG_URL = "https://voxd.cc/data/models.json";
 const ALLOWED_LAUNCHERS = new Set(["node", "bun", "npx", "bunx", "uv", "uvx", "python3", "python"]);
+const PLUGIN_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
 
 export type CatalogPlugin = {
   id: string;
@@ -35,11 +36,19 @@ export function pluginsDirectory(home = getVoxHome()): string {
   return join(home, "plugins");
 }
 
+export function validatePluginId(id: string): void {
+  if (!PLUGIN_ID_PATTERN.test(id) || id.includes("..")) {
+    throw new Error(`Plugin id '${id}' is not allowed.`);
+  }
+}
+
 export function pluginDirectory(id: string, home = getVoxHome()): string {
+  validatePluginId(id);
   return join(pluginsDirectory(home), id);
 }
 
 export function bundledPluginPath(id: string): string | null {
+  validatePluginId(id);
   const candidates = [
     join(MODULE_DIR, "../plugins", `${id}.mjs`),
     join(MODULE_DIR, "plugins", `${id}.mjs`),

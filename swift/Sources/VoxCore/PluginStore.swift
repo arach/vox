@@ -1,5 +1,30 @@
 import Foundation
 
+public enum PluginIdentifierError: Error, LocalizedError {
+    case invalid(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalid(let id):
+            return "Plugin id '\(id)' is not allowed."
+        }
+    }
+}
+
+public enum PluginIdentifierValidator {
+    private static let allowedCharacters = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789._-")
+    private static let allowedFirstCharacters = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789")
+
+    public static func validate(_ id: String) throws {
+        guard !id.isEmpty,
+              !id.contains(".."),
+              id.unicodeScalars.allSatisfy(allowedCharacters.contains),
+              id.unicodeScalars.first.map(allowedFirstCharacters.contains) == true else {
+            throw PluginIdentifierError.invalid(id)
+        }
+    }
+}
+
 public enum PluginCommandError: Error, LocalizedError {
     case empty
     case disallowedLauncher(String)
@@ -78,7 +103,7 @@ public enum PluginStore {
             try PluginCommandValidator.validate(command)
         }
 
-        let directory = pluginDirectory(for: entry.id)
+        let directory = try pluginDirectory(for: entry.id)
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -89,17 +114,19 @@ public enum PluginStore {
     }
 
     public static func remove(id: String, fileManager: FileManager = .default) throws {
-        let directory = pluginDirectory(for: id)
+        let directory = try pluginDirectory(for: id)
         if fileManager.fileExists(atPath: directory.path) {
             try fileManager.removeItem(at: directory)
         }
     }
 
     public static func isInstalled(id: String, fileManager: FileManager = .default) -> Bool {
-        fileManager.fileExists(atPath: pluginDirectory(for: id).appendingPathComponent("provider.json").path)
+        guard let directory = try? pluginDirectory(for: id) else { return false }
+        return fileManager.fileExists(atPath: directory.appendingPathComponent("provider.json").path)
     }
 
-    public static func pluginDirectory(for id: String) -> URL {
-        RuntimePaths.pluginsDirectoryURL().appendingPathComponent(id, isDirectory: true)
+    public static func pluginDirectory(for id: String) throws -> URL {
+        try PluginIdentifierValidator.validate(id)
+        return RuntimePaths.pluginsDirectoryURL().appendingPathComponent(id, isDirectory: true)
     }
 }

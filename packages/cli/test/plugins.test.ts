@@ -7,6 +7,7 @@ import {
   parseCatalog,
   removeInstalledPlugin,
   validatePluginCommand,
+  validatePluginId,
 } from "../src/plugins.ts";
 
 describe("plugin catalog", () => {
@@ -33,6 +34,36 @@ describe("plugin catalog", () => {
   it("rejects disallowed plugin launchers", () => {
     expect(() => validatePluginCommand(["bash", "-c", "echo hi"])).toThrow("not allowed");
     expect(() => validatePluginCommand(["node", "ok.mjs"])).not.toThrow();
+  });
+
+  it("rejects plugin ids that can escape the plugins directory", () => {
+    for (const id of ["../escape", "nested/plugin", "nested\\plugin", "a..b", ".hidden", "Uppercase"]) {
+      expect(() => validatePluginId(id)).toThrow("not allowed");
+    }
+    for (const id of ["mlx-vlm", "mlx_vlm.v2", "plugin-2"]) {
+      expect(() => validatePluginId(id)).not.toThrow();
+    }
+  });
+
+  it("rejects traversal ids before install or removal touches the filesystem", () => {
+    const home = mkdtempSync(join(tmpdir(), "vox-plugin-traversal-"));
+    try {
+      expect(() =>
+        installCatalogPlugin(
+          {
+            id: "../escape",
+            kind: "asr",
+            name: "Escape",
+            command: ["node", "provider.mjs"],
+          },
+          [],
+          home,
+        ),
+      ).toThrow("not allowed");
+      expect(() => removeInstalledPlugin("../escape", home)).toThrow("not allowed");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 
   it("installs the bundled mlx-vlm plugin into VOX_HOME", () => {
