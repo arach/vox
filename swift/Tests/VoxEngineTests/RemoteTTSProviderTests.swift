@@ -84,7 +84,7 @@ struct RemoteTTSProviderTests {
 
     @Test("NVIDIA uses per-request credentials instead of configured env keys")
     func nvidiaPerRequestCredentials() async throws {
-        let session = MockHTTPURLProtocol.session(body: Data("RIFFWAVEfmt ".utf8) + Data(repeating: 0, count: 24))
+        let session = MockHTTPURLProtocol.session(body: try validWAV())
         let provider = NVIDIAMagpieTTSProvider(
             env: ["NV_API_KEY": "configured-key"],
             session: session
@@ -229,7 +229,8 @@ struct RemoteTTSProviderTests {
 
     @Test("Groq sends the OpenAI-compatible Orpheus WAV contract")
     func groqRequestContract() async throws {
-        let session = MockHTTPURLProtocol.session(body: Data([0x52, 0x49, 0x46, 0x46]))
+        let wav = try validWAV()
+        let session = MockHTTPURLProtocol.session(body: wav)
         let provider = GroqTTSProvider(
             env: [
                 "GROQ_API_KEY": "synthetic-test-key",
@@ -258,7 +259,8 @@ struct RemoteTTSProviderTests {
         #expect(output.format == "wav")
         #expect(output.voiceId == "autumn")
         #expect(output.modelId == GroqTTSProvider.defaultModelID)
-        #expect(output.audioData == Data([0x52, 0x49, 0x46, 0x46]))
+        #expect(output.audioData == wav)
+        #expect(PCMWAV.isStructurallyValid(output.audioData))
     }
 
     @Test("Groq rejects over-limit text instead of silently truncating it")
@@ -435,14 +437,223 @@ struct RemoteTTSProviderTests {
         }
     }
 
-    @Test("Gemini lists prebuilt voices with Puck as default")
+    @Test("Gemini lists the official 30 prebuilt voices with Puck as default")
     func geminiVoiceCatalog() async throws {
         let provider = GeminiTTSProvider(env: ["GEMINI_API_KEY": "synthetic-test-key"])
         let voices = try await provider.voices(modelId: GeminiTTSProvider.defaultModelID)
         let puck = try #require(voices.first(where: { $0.id == "Puck" }))
+        let officialCatalog = [
+            "Zephyr", "Puck", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Aoede",
+            "Callirrhoe", "Autonoe", "Enceladus", "Iapetus", "Umbriel", "Algieba",
+            "Despina", "Erinome", "Algenib", "Rasalgethi", "Laomedeia", "Achernar",
+            "Alnilam", "Schedar", "Gacrux", "Pulcherrima", "Achird", "Zubenelgenubi",
+            "Vindemiatrix", "Sadachbia", "Sadaltager", "Sulafat"
+        ]
         #expect(puck.isDefault)
+        #expect(voices.map(\.id) == officialCatalog)
+        #expect(GeminiTTSProvider.supportedVoices == officialCatalog)
+        #expect(voices.count == 30)
+        #expect(voices.contains(where: { $0.id == "Rasalgethi" }))
+        #expect(!voices.contains(where: { $0.id == "Rasalas" }))
         #expect(voices.contains(where: { $0.id == "Kore" }))
         #expect(voices.first?.backend == "gemini")
+    }
+
+    @Test("NVIDIA rejects over-limit text instead of silently truncating it")
+    func nvidiaRejectsOverLimitInput() async throws {
+        let session = MockHTTPURLProtocol.session(body: try validWAV())
+        let provider = NVIDIAMagpieTTSProvider(
+            env: ["NV_API_KEY": "synthetic-test-key"],
+            session: session
+        )
+        let atLimit = String(repeating: "a", count: NVIDIAMagpieTTSProvider.maximumInputCharacters)
+        let overLimit = String(repeating: "a", count: NVIDIAMagpieTTSProvider.maximumInputCharacters + 1)
+
+        let output = try await provider.synthesize(SynthesisRequest(
+            text: atLimit,
+            modelId: NVIDIAMagpieTTSProvider.modelID
+        ))
+        #expect(output.metrics.characterCount == NVIDIAMagpieTTSProvider.maximumInputCharacters)
+        #expect(MockHTTPURLProtocol.lastRequest != nil)
+
+        do {
+            _ = try await provider.synthesize(SynthesisRequest(
+                text: overLimit,
+                modelId: NVIDIAMagpieTTSProvider.modelID
+            ))
+            Issue.record("Expected input too long")
+        } catch let error as NVIDIAMagpieTTSProviderError {
+            #expect(error.localizedDescription.contains("at most 2000 normalized characters"))
+        } catch {
+            Issue.record("Expected NVIDIAMagpieTTSProviderError, got \(error)")
+        }
+    }
+
+    @Test("NVIDIA wraps aligned LINEAR_PCM and accepts valid WAVE, rejecting other payloads")
+    func nvidiaAudioValidation() throws {
+        let pcm = Data([0x00, 0x01, 0x02, 0x03])
+        let wrapped = try NVIDIAMagpieTTSProvider.decodeAudio(
+            pcm,
+            contentType: "audio/l16",
+            sampleRate: 44_100
+        )
+        #expect(PCMWAV.isStructurallyValid(wrapped))
+        #expect(wrapped.suffix(pcm.count) == pcm)
+
+        let wav = try validWAV()
+        let accepted = try NVIDIAMagpieTTSProvider.decodeAudio(
+            wav,
+            contentType: "audio/wav",
+            sampleRate: 44_100
+        )
+        #expect(accepted == wav)
+
+        do {
+            _ = try NVIDIAMagpieTTSProvider.decodeAudio(
+                Data([0x00, 0x01, 0x02]),
+                contentType: "audio/l16",
+                sampleRate: 44_100
+            )
+            Issue.record("Expected invalid unaligned PCM")
+        } catch let error as NVIDIAMagpieTTSProviderError {
+            #expect(error.localizedDescription.contains("not a valid WAVE"))
+        } catch {
+            Issue.record("Expected NVIDIAMagpieTTSProviderError, got \(error)")
+        }
+
+        do {
+            _ = try NVIDIAMagpieTTSProvider.decodeAudio(
+                Data("{\"detail\":\"not audio\"}".utf8),
+                contentType: "application/json",
+                sampleRate: 44_100
+            )
+            Issue.record("Expected invalid JSON payload")
+        } catch let error as NVIDIAMagpieTTSProviderError {
+            #expect(error.localizedDescription.contains("not a valid WAVE"))
+        } catch {
+            Issue.record("Expected NVIDIAMagpieTTSProviderError, got \(error)")
+        }
+    }
+
+    @Test("Groq requires a structurally valid WAV instead of any nonempty bytes")
+    func groqRejectsNonWAVAudio() async {
+        let session = MockHTTPURLProtocol.session(body: Data([0x52, 0x49, 0x46, 0x46]))
+        let provider = GroqTTSProvider(
+            env: ["GROQ_API_KEY": "synthetic-test-key"],
+            session: session
+        )
+        do {
+            _ = try await provider.synthesize(SynthesisRequest(
+                text: "Hello",
+                modelId: GroqTTSProvider.defaultModelID
+            ))
+            Issue.record("Expected invalid audio")
+        } catch let error as GroqTTSProviderError {
+            #expect(error.localizedDescription.contains("structurally valid WAV"))
+        } catch {
+            Issue.record("Expected GroqTTSProviderError, got \(error)")
+        }
+    }
+
+    @Test("NVIDIA, Groq, and Gemini map URLSession cancellation to CancellationError")
+    func remoteProvidersNormalizeCancellation() async {
+        await expectCancellation {
+            try await NVIDIAMagpieTTSProvider(
+                env: ["NV_API_KEY": "synthetic-test-key"],
+                session: MockHTTPURLProtocol.session(error: URLError(.cancelled))
+            ).synthesize(SynthesisRequest(
+                text: "Hello",
+                modelId: NVIDIAMagpieTTSProvider.modelID
+            ))
+        }
+        await expectCancellation {
+            try await NVIDIAMagpieTTSProvider(
+                env: ["NV_API_KEY": "synthetic-test-key"],
+                session: MockHTTPURLProtocol.session(
+                    error: NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled)
+                )
+            ).voices(modelId: NVIDIAMagpieTTSProvider.modelID)
+        }
+        await expectCancellation {
+            try await GroqTTSProvider(
+                env: ["GROQ_API_KEY": "synthetic-test-key"],
+                session: MockHTTPURLProtocol.session(error: URLError(.cancelled))
+            ).synthesize(SynthesisRequest(
+                text: "Hello",
+                modelId: GroqTTSProvider.defaultModelID
+            ))
+        }
+        await expectCancellation {
+            try await GeminiTTSProvider(
+                env: ["GEMINI_API_KEY": "synthetic-test-key"],
+                session: MockHTTPURLProtocol.session(error: URLError(.cancelled))
+            ).synthesize(SynthesisRequest(
+                text: "Hello",
+                modelId: GeminiTTSProvider.defaultModelID
+            ))
+        }
+    }
+
+    @Test("Vendor error bodies are bounded and do not echo credentials or request text")
+    func vendorErrorBodiesAreSanitized() {
+        let huge = String(repeating: "x", count: 4_000)
+        let body = Data("""
+        {"error":{"message":"quota for Bearer nvapi-secret-key and input Hello secret prompt \(huge)"}}
+        """.utf8)
+        let message = RemoteTTSSupport.sanitizeVendorMessage(from: body, vendor: "NVIDIA Magpie")
+        #expect(message.contains("quota"))
+        #expect(!message.contains("nvapi-secret-key"))
+        #expect(message.contains("[redacted]"))
+        #expect(message.count <= RemoteTTSSupport.maximumVendorMessageLength + 1)
+    }
+
+    @Test("Gemini 3.1 flash TTS preview uses the generateContent contract")
+    func gemini31UsesGenerateContent() async throws {
+        let pcm = Data([0x00, 0x01, 0x02, 0x03])
+        let responseObject: [String: Any] = [
+            "candidates": [[
+                "content": [
+                    "parts": [[
+                        "inlineData": [
+                            "mimeType": "audio/L16;codec=pcm;rate=24000;channels=1",
+                            "data": pcm.base64EncodedString()
+                        ]
+                    ]]
+                ]
+            ]]
+        ]
+        let session = MockHTTPURLProtocol.session(
+            body: try JSONSerialization.data(withJSONObject: responseObject),
+            contentType: "application/json"
+        )
+        let provider = GeminiTTSProvider(
+            env: [
+                "GEMINI_API_KEY": "synthetic-test-key",
+                "GEMINI_BASE_URL": "https://example.test/v1beta"
+            ],
+            session: session
+        )
+
+        let output = try await provider.synthesize(SynthesisRequest(
+            text: "Hello Vox",
+            modelId: "gemini-3.1-flash-tts-preview"
+        ))
+        let url = try #require(MockHTTPURLProtocol.lastRequest?.url)
+        #expect(url.absoluteString.contains("/models/gemini-3.1-flash-tts-preview:generateContent"))
+        #expect(GeminiTTSProvider.supportedModelIDs.contains("gemini-3.1-flash-tts-preview"))
+        #expect(output.format == "wav")
+        #expect(PCMWAV.isStructurallyValid(output.audioData))
+    }
+
+    private func expectCancellation(_ work: () async throws -> some Any) async {
+        do {
+            _ = try await work()
+            Issue.record("Expected CancellationError")
+        } catch is CancellationError {
+            // Expected
+        } catch {
+            Issue.record("Expected CancellationError, got \(error)")
+        }
     }
 
     private func expectUnsupportedPCM(_ audio: Data, mimeType: String) {
@@ -465,5 +676,9 @@ struct RemoteTTSProviderTests {
 
     private func littleEndianUInt16(in data: Data, at offset: Int) -> UInt16 {
         UInt16(data[offset]) | (UInt16(data[offset + 1]) << 8)
+    }
+
+    private func validWAV(pcm: Data = Data([0x00, 0x01, 0x02, 0x03])) throws -> Data {
+        try PCMWAV.wrap(pcm: pcm, sampleRate: 44_100)
     }
 }

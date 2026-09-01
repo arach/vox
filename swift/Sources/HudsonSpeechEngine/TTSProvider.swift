@@ -54,6 +54,29 @@ public enum TTSDefaultProviderConfig {
             )
         ])
     }
+
+    public static func mergingMissingDefaults(into config: ProvidersConfig) -> ProvidersConfig {
+        let existingTTS = config.providers.filter { $0.resolvedKind == .tts }
+        let existingIds = Set(existingTTS.map { $0.id.lowercased() })
+        let existingFamilies = Set(existingTTS.compactMap { TTSProviderFamily(providerId: $0.id) })
+
+        let additionalProviders = inProcess().providers.filter { entry in
+            guard entry.resolvedKind == .tts else { return false }
+            if existingIds.contains(entry.id.lowercased()) {
+                return false
+            }
+            if let family = TTSProviderFamily(providerId: entry.id), existingFamilies.contains(family) {
+                return false
+            }
+            return true
+        }
+
+        guard !additionalProviders.isEmpty else {
+            return config
+        }
+
+        return ProvidersConfig(providers: config.providers + additionalProviders)
+    }
 }
 
 public struct SynthesisRequest: Sendable, Equatable {

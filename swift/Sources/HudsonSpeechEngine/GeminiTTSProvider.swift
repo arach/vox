@@ -7,7 +7,8 @@ public actor GeminiTTSProvider: TTSProvider {
     public static let defaultModelID = "gemini-2.5-flash-preview-tts"
     public static let supportedModelIDs = [
         "gemini-2.5-flash-preview-tts",
-        "gemini-2.5-pro-preview-tts"
+        "gemini-2.5-pro-preview-tts",
+        "gemini-3.1-flash-tts-preview"
     ]
     public static let defaultVoiceID = "Puck"
     static let defaultRequestTimeout: TimeInterval = 12
@@ -32,7 +33,7 @@ public actor GeminiTTSProvider: TTSProvider {
         "Despina",
         "Erinome",
         "Algenib",
-        "Rasalas",
+        "Rasalgethi",
         "Laomedeia",
         "Achernar",
         "Alnilam",
@@ -58,7 +59,7 @@ public actor GeminiTTSProvider: TTSProvider {
         let processEnv = ProcessInfo.processInfo.environment
         self.session = session
         self.apiKey = Self.resolveConfiguredAPIKey(env: env, processEnv: processEnv)
-        let rawBaseURL = Self.firstNonEmpty(
+        let rawBaseURL = RemoteTTSSupport.firstNonEmpty(
             env?["GEMINI_BASE_URL"],
             env?["GOOGLE_GENAI_BASE_URL"],
             processEnv["GEMINI_BASE_URL"],
@@ -177,7 +178,7 @@ public actor GeminiTTSProvider: TTSProvider {
         ], options: [])
 
         log.info("Gemini synthesis request started requestId=\(request.requestId) modelId=\(request.modelId) voiceId=\(resolvedVoice) textLength=\(text.count)")
-        let (data, response) = try await session.data(for: urlRequest)
+        let (data, response) = try await RemoteTTSSupport.data(for: urlRequest, session: session)
         _ = try validateHTTPResponse(data: data, response: response)
 
         let audio = try Self.parseAudio(from: data)
@@ -227,6 +228,9 @@ public actor GeminiTTSProvider: TTSProvider {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         if normalizedMIME.hasPrefix("audio/wav") || normalizedMIME.hasPrefix("audio/x-wav") {
+            guard PCMWAV.isStructurallyValid(audio) else {
+                throw GeminiTTSProviderError.unsupportedAudioFormat
+            }
             return audio
         }
         return try pcmWAV(audio: audio, mimeType: mimeType)
@@ -279,14 +283,16 @@ public actor GeminiTTSProvider: TTSProvider {
         env: [String: String]?,
         processEnv: [String: String]
     ) -> String? {
-        firstNonEmpty(
+        RemoteTTSSupport.firstNonEmpty(
             providerCredentials["GEMINI_API_KEY"],
             providerCredentials["GOOGLE_API_KEY"],
             providerCredentials["GOOGLE_GENAI_API_KEY"],
             providerCredentials["geminiApiKey"],
             providerCredentials["googleApiKey"],
+            providerCredentials["googleGenaiApiKey"],
             providerCredentials["gemini_api_key"],
             providerCredentials["google_api_key"],
+            providerCredentials["google_genai_api_key"],
             env?["GEMINI_API_KEY"],
             env?["GOOGLE_API_KEY"],
             env?["GOOGLE_GENAI_API_KEY"],
@@ -315,14 +321,6 @@ public actor GeminiTTSProvider: TTSProvider {
             return defaultRequestTimeout
         }
         return min(parsed, maximumRequestTimeout)
-    }
-
-    static func firstNonEmpty(_ values: String?...) -> String? {
-        for value in values {
-            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if !trimmed.isEmpty { return trimmed }
-        }
-        return nil
     }
 
     private func apiKeyAvailability() -> Bool {
@@ -369,19 +367,10 @@ public actor GeminiTTSProvider: TTSProvider {
         guard (200..<300).contains(httpResponse.statusCode) else {
             throw GeminiTTSProviderError.requestFailed(
                 status: httpResponse.statusCode,
-                message: Self.errorMessage(from: data) ?? (String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)")
+                message: RemoteTTSSupport.sanitizeVendorMessage(from: data, vendor: "Gemini TTS")
             )
         }
         return httpResponse
-    }
-
-    private static func errorMessage(from data: Data) -> String? {
-        guard
-            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let error = json["error"] as? [String: Any],
-            let message = error["message"] as? String
-        else { return nil }
-        return "Gemini TTS: \(message)"
     }
 
     private func inspectWaveData(_ data: Data) throws -> Int {

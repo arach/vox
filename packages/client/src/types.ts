@@ -164,6 +164,24 @@ export interface SynthesisOptions {
     OPENAI_API_KEY?: string;
     openaiApiKey?: string;
     openai_api_key?: string;
+    NV_API_KEY?: string;
+    NVIDIA_API_KEY?: string;
+    nvApiKey?: string;
+    nvidiaApiKey?: string;
+    nv_api_key?: string;
+    nvidia_api_key?: string;
+    GROQ_API_KEY?: string;
+    groqApiKey?: string;
+    groq_api_key?: string;
+    GEMINI_API_KEY?: string;
+    GOOGLE_API_KEY?: string;
+    GOOGLE_GENAI_API_KEY?: string;
+    geminiApiKey?: string;
+    googleApiKey?: string;
+    googleGenaiApiKey?: string;
+    gemini_api_key?: string;
+    google_api_key?: string;
+    google_genai_api_key?: string;
   };
 }
 

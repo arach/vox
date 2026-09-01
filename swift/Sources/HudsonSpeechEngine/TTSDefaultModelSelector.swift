@@ -38,6 +38,26 @@ public enum TTSDefaultModelSelector {
         return configuredModels.first ?? TTSDefaults.modelId
     }
 
+    public static func defaultModelId(from models: [TTSModelInfo]) -> String {
+        let available = models.filter { $0.available && $0.installed }
+        let candidates = available.isEmpty ? models : available
+        let ids = candidates.map(\.id)
+
+        if ids.contains(TTSDefaults.modelId) {
+            return TTSDefaults.modelId
+        }
+        if let preferredOpenAIModel = ids.first(where: isOpenAIModel) {
+            return preferredOpenAIModel
+        }
+        if let preferredRemoteModel = ids.first(where: isRemoteAPIModel) {
+            return preferredRemoteModel
+        }
+        if ids.contains(TTSDefaults.localModelId) {
+            return TTSDefaults.localModelId
+        }
+        return ids.first ?? TTSDefaults.modelId
+    }
+
     private static func isOpenAIModel(_ modelId: String) -> Bool {
         OpenAITTSProvider.supportedModelIDs.contains(modelId)
     }
@@ -55,32 +75,32 @@ public enum TTSDefaultModelSelector {
         _ entry: ProviderEntry,
         environment: [String: String]
     ) -> Bool {
-        switch entry.id.lowercased() {
-        case "openai", "openai-tts":
+        switch TTSProviderFamily(providerId: entry.id) {
+        case .openai:
             return hasValue(entry.env?["OPENAI_API_KEY"])
                 || hasValue(environment["OPENAI_API_KEY"])
-        case "elevenlabs", "elevenlabs-tts", "eleven-labs", "eleven-labs-tts":
+        case .elevenlabs:
             return hasValue(entry.env?["ELEVENLABS_API_KEY"])
                 || hasValue(environment["ELEVENLABS_API_KEY"])
-        case "minimax", "minimax-tts":
+        case .minimax:
             return hasValue(entry.env?["MINIMAX_API_KEY"])
                 || hasValue(environment["MINIMAX_API_KEY"])
-        case "nvidia", "nvidia-tts", "magpie", "magpie-tts", "nvidia-magpie":
+        case .nvidia:
             return hasValue(entry.env?["NV_API_KEY"])
                 || hasValue(entry.env?["NVIDIA_API_KEY"])
                 || hasValue(environment["NV_API_KEY"])
                 || hasValue(environment["NVIDIA_API_KEY"])
-        case "groq", "groq-tts":
+        case .groq:
             return hasValue(entry.env?["GROQ_API_KEY"])
                 || hasValue(environment["GROQ_API_KEY"])
-        case "gemini", "gemini-tts", "google-tts", "google-gemini-tts":
+        case .gemini:
             return hasValue(entry.env?["GEMINI_API_KEY"])
                 || hasValue(entry.env?["GOOGLE_API_KEY"])
                 || hasValue(entry.env?["GOOGLE_GENAI_API_KEY"])
                 || hasValue(environment["GEMINI_API_KEY"])
                 || hasValue(environment["GOOGLE_API_KEY"])
                 || hasValue(environment["GOOGLE_GENAI_API_KEY"])
-        default:
+        case .avspeech, .mlxAudio, nil:
             return true
         }
     }

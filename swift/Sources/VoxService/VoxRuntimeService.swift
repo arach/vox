@@ -422,20 +422,7 @@ public final class VoxRuntimeService: @unchecked Sendable {
     }
 
     private func providerCredentials(from params: [String: Any]?) -> [String: String] {
-        guard let rawCredentials = params?["credentials"] as? [String: Any] else {
-            return [:]
-        }
-
-        var credentials: [String: String] = [:]
-        for key in ["OPENAI_API_KEY", "openaiApiKey", "openai_api_key"] {
-            if let value = rawCredentials[key] as? String {
-                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmed.isEmpty {
-                    credentials[key] = trimmed
-                }
-            }
-        }
-        return credentials
+        TTSLentCredentials.parse(from: params)
     }
 
     private func parseSpeechTimingRequest(params: [String: Any]?, text: String) -> SpeechTimingRequest? {

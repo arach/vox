@@ -64,7 +64,7 @@ public actor NVIDIAMagpieTTSProvider: TTSProvider {
         request.timeoutInterval = requestTimeout
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await RemoteTTSSupport.data(for: request, session: session)
         try validateHTTPResponse(data: data, response: response, operation: "voice discovery")
         let parsed = Self.parseVoices(from: data, modelId: resolvedModelId, available: true)
         guard !parsed.isEmpty else {
@@ -97,13 +97,12 @@ public actor NVIDIAMagpieTTSProvider: TTSProvider {
         try validate(modelId: request.modelId)
         try validate(format: request.format)
 
-        let text = String(
-            request.text
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .prefix(Self.maximumInputCharacters)
-        )
+        let text = request.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
             throw NVIDIAMagpieTTSProviderError.missingText
+        }
+        guard text.count <= Self.maximumInputCharacters else {
+            throw NVIDIAMagpieTTSProviderError.inputTooLong(Self.maximumInputCharacters)
         }
 
         let trace = TranscriptionTrace()
@@ -146,14 +145,11 @@ public actor NVIDIAMagpieTTSProvider: TTSProvider {
         )
 
         log.info("NVIDIA Magpie synthesis request started requestId=\(request.requestId) modelId=\(request.modelId) voiceId=\(resolvedVoice) language=\(language) textLength=\(text.count)")
-        let (data, response) = try await session.data(for: urlRequest)
-        try validateHTTPResponse(data: data, response: response, operation: "synthesis")
-        guard !data.isEmpty else {
-            throw NVIDIAMagpieTTSProviderError.emptyAudio
-        }
-
-        let audioData = try PCMWAV.wavIfNeeded(
+        let (data, response) = try await RemoteTTSSupport.data(for: urlRequest, session: session)
+        let httpResponse = try validateHTTPResponse(data: data, response: response, operation: "synthesis")
+        let audioData = try Self.decodeAudio(
             data,
+            contentType: httpResponse.value(forHTTPHeaderField: "Content-Type"),
             sampleRate: UInt32(Self.sampleRateHz)
         )
         let synthesisMs = trace.end("\(audioData.count) bytes")
@@ -258,7 +254,7 @@ public actor NVIDIAMagpieTTSProvider: TTSProvider {
         env: [String: String]?,
         processEnv: [String: String]
     ) -> String? {
-        firstNonEmpty(
+        RemoteTTSSupport.firstNonEmpty(
             providerCredentials["NV_API_KEY"],
             providerCredentials["NVIDIA_API_KEY"],
             providerCredentials["nvApiKey"],
@@ -297,7 +293,7 @@ public actor NVIDIAMagpieTTSProvider: TTSProvider {
         env: [String: String]?,
         processEnv: [String: String]
     ) -> URL {
-        if let override = firstNonEmpty(
+        if let override = RemoteTTSSupport.firstNonEmpty(
             env?["NVIDIA_TTS_URL"],
             env?["NVIDIA_SYNTHESIZE_URL"],
             processEnv["NVIDIA_TTS_URL"],
@@ -305,7 +301,7 @@ public actor NVIDIAMagpieTTSProvider: TTSProvider {
         ), let url = URL(string: override) {
             return url
         }
-        if let base = firstNonEmpty(env?["NVIDIA_BASE_URL"], processEnv["NVIDIA_BASE_URL"]),
+        if let base = RemoteTTSSupport.firstNonEmpty(env?["NVIDIA_BASE_URL"], processEnv["NVIDIA_BASE_URL"]),
            let url = URL(string: base)?.appendingPathComponent("v1/audio/synthesize") {
             return url
         }
@@ -316,13 +312,13 @@ public actor NVIDIAMagpieTTSProvider: TTSProvider {
         env: [String: String]?,
         processEnv: [String: String]
     ) -> URL {
-        if let override = firstNonEmpty(
+        if let override = RemoteTTSSupport.firstNonEmpty(
             env?["NVIDIA_VOICES_URL"],
             processEnv["NVIDIA_VOICES_URL"]
         ), let url = URL(string: override) {
             return url
         }
-        if let base = firstNonEmpty(env?["NVIDIA_BASE_URL"], processEnv["NVIDIA_BASE_URL"]),
+        if let base = RemoteTTSSupport.firstNonEmpty(env?["NVIDIA_BASE_URL"], processEnv["NVIDIA_BASE_URL"]),
            let url = URL(string: base)?.appendingPathComponent("v1/audio/list_voices") {
             return url
         }
@@ -370,11 +366,36 @@ public actor NVIDIAMagpieTTSProvider: TTSProvider {
             throw NVIDIAMagpieTTSProviderError.requestFailed(
                 operation: operation,
                 status: httpResponse.statusCode,
-                message: Self.errorMessage(from: data)
-                    ?? (String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)")
+                message: RemoteTTSSupport.sanitizeVendorMessage(from: data, vendor: "NVIDIA Magpie")
             )
         }
         return httpResponse
+    }
+
+    static func decodeAudio(
+        _ data: Data,
+        contentType: String?,
+        sampleRate: UInt32
+    ) throws -> Data {
+        if PCMWAV.isStructurallyValid(data) {
+            return data
+        }
+        guard !data.isEmpty else {
+            throw NVIDIAMagpieTTSProviderError.emptyAudio
+        }
+
+        let mime = (contentType ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        if mime.contains("wav") || mime.contains("json") || mime.contains("html") || mime.hasPrefix("text/") {
+            throw NVIDIAMagpieTTSProviderError.invalidAudio
+        }
+
+        do {
+            return try PCMWAV.wrap(pcm: data, sampleRate: sampleRate)
+        } catch {
+            throw NVIDIAMagpieTTSProviderError.invalidAudio
+        }
     }
 
     private static func resolveVoice(voiceId: String?) -> String {
@@ -404,32 +425,6 @@ public actor NVIDIAMagpieTTSProvider: TTSProvider {
         }
     }
 
-    private static func errorMessage(from data: Data) -> String? {
-        guard let object = try? JSONSerialization.jsonObject(with: data) else {
-            return String(data: data, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .nilIfEmpty
-        }
-        if let json = object as? [String: Any] {
-            if let detail = json["detail"] as? String { return "NVIDIA Magpie: \(detail)" }
-            if let message = json["message"] as? String { return "NVIDIA Magpie: \(message)" }
-            if let error = json["error"] as? String { return "NVIDIA Magpie: \(error)" }
-            if let error = json["error"] as? [String: Any],
-               let message = error["message"] as? String {
-                return "NVIDIA Magpie: \(message)"
-            }
-        }
-        return nil
-    }
-
-    private static func firstNonEmpty(_ values: String?...) -> String? {
-        for value in values {
-            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if !trimmed.isEmpty { return trimmed }
-        }
-        return nil
-    }
-
     private func inspectWaveData(_ data: Data) throws -> Int {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("vox-nvidia-\(UUID().uuidString)")
@@ -444,10 +439,12 @@ public actor NVIDIAMagpieTTSProvider: TTSProvider {
 public enum NVIDIAMagpieTTSProviderError: Error, LocalizedError {
     case missingText
     case missingAPIKey
+    case inputTooLong(Int)
     case unsupportedModel(String)
     case unsupportedFormat(String)
     case emptyVoiceCatalog
     case emptyAudio
+    case invalidAudio
     case nonHTTPResponse(String)
     case requestFailed(operation: String, status: Int, message: String)
 
@@ -457,6 +454,8 @@ public enum NVIDIAMagpieTTSProviderError: Error, LocalizedError {
             return "Missing text"
         case .missingAPIKey:
             return "Missing NV_API_KEY (or NVIDIA_API_KEY) for NVIDIA Magpie TTS provider."
+        case .inputTooLong(let limit):
+            return "NVIDIA Magpie accepts at most \(limit) normalized characters. Split longer text before synthesis."
         case .unsupportedModel(let modelId):
             return "Unsupported NVIDIA Magpie TTS model: \(modelId)"
         case .unsupportedFormat(let format):
@@ -465,16 +464,12 @@ public enum NVIDIAMagpieTTSProviderError: Error, LocalizedError {
             return "NVIDIA Magpie voice discovery returned no voices."
         case .emptyAudio:
             return "NVIDIA Magpie returned no audio."
+        case .invalidAudio:
+            return "NVIDIA Magpie returned audio that is not a valid WAVE file or aligned LINEAR_PCM payload."
         case .nonHTTPResponse(let operation):
             return "NVIDIA Magpie \(operation) returned a non-HTTP response."
         case .requestFailed(let operation, let status, let message):
             return "NVIDIA Magpie \(operation) failed (HTTP \(status)): \(message)"
         }
-    }
-}
-
-private extension String {
-    var nilIfEmpty: String? {
-        isEmpty ? nil : self
     }
 }

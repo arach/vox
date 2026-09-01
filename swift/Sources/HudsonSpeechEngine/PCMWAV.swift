@@ -7,6 +7,32 @@ enum PCMWAV {
             && data[8..<12] == Data("WAVE".utf8)
     }
 
+    static func isStructurallyValid(_ data: Data) -> Bool {
+        guard isWave(data), data.count >= 44 else { return false }
+
+        var offset = 12
+        while offset + 8 <= data.count {
+            let chunkID = data[offset..<(offset + 4)]
+            let chunkSize = Int(littleEndianUInt32(data, at: offset + 4))
+            guard chunkSize >= 0, offset + 8 + chunkSize <= data.count else { return false }
+            if chunkID == Data("fmt ".utf8) {
+                return chunkSize >= 16
+            }
+            offset += 8 + chunkSize
+            if chunkSize % 2 == 1 {
+                offset += 1
+            }
+        }
+        return false
+    }
+
+    private static func littleEndianUInt32(_ data: Data, at offset: Int) -> UInt32 {
+        UInt32(data[offset])
+            | (UInt32(data[offset + 1]) << 8)
+            | (UInt32(data[offset + 2]) << 16)
+            | (UInt32(data[offset + 3]) << 24)
+    }
+
     static func wrap(
         pcm: Data,
         sampleRate: UInt32,

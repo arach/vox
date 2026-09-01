@@ -11,22 +11,22 @@ public actor TTSProviderRegistry: TTSProvider {
             let provider: any TTSProvider
 
             if entry.isBuiltin {
-                switch entry.id.lowercased() {
-                case "avspeech", "avspeechsynthesizer", "apple-tts", "system-tts":
+                switch TTSProviderFamily(providerId: entry.id) {
+                case .avspeech:
                     provider = AVSpeechSynthesizerProvider()
-                case "openai", "openai-tts":
+                case .openai:
                     provider = OpenAITTSProvider(env: entry.env)
-                case "elevenlabs", "elevenlabs-tts", "eleven-labs", "eleven-labs-tts":
+                case .elevenlabs:
                     provider = ElevenLabsTTSProvider(env: entry.env)
-                case "minimax", "minimax-tts":
+                case .minimax:
                     provider = MiniMaxTTSProvider(env: entry.env)
-                case "nvidia", "nvidia-tts", "magpie", "magpie-tts", "nvidia-magpie":
+                case .nvidia:
                     provider = NVIDIAMagpieTTSProvider(env: entry.env)
-                case "groq", "groq-tts":
+                case .groq:
                     provider = GroqTTSProvider(env: entry.env)
-                case "gemini", "gemini-tts", "google-tts", "google-gemini-tts":
+                case .gemini:
                     provider = GeminiTTSProvider(env: entry.env)
-                case "mlx-audio", "mlx_audio", "mlx-audio-tts", "mlx_audio_tts":
+                case .mlxAudio:
                     #if os(macOS)
                     do {
                         let env = BuiltinExternalProvider.mlxAudioEnvironment(entry.env)

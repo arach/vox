@@ -9,10 +9,11 @@
 - ASR results require `metrics.inferenceMs` and `metrics.totalMs`
 - TTS results require `metrics.totalMs`; prefer `synthesisMs`
 - builtin TTS ids: `avspeech`, `openai-tts`, `elevenlabs`, `minimax`, `nvidia`, `groq`, `gemini`
-- NVIDIA Magpie: model `magpie-tts-multilingual`, `NV_API_KEY`/`NVIDIA_API_KEY`, LINEAR_PCM 44.1 kHz, dynamic `list_voices`
-- Groq Orpheus: WAV `response_format`, 200-character limit, `GROQ_API_KEY`
-- Gemini TTS: Generate Content AUDIO, wrap `audio/L16` as WAV, `GEMINI_API_KEY`/`GOOGLE_API_KEY`
-- remote TTS credentials: per-request `credentials`, then provider `env`, then process environment
+- NVIDIA Magpie: model `magpie-tts-multilingual`, `NV_API_KEY`/`NVIDIA_API_KEY`, LINEAR_PCM 44.1 kHz, dynamic `list_voices`, reject >2000 chars
+- Groq Orpheus: WAV `response_format`, 200-character limit, `GROQ_API_KEY`, require structurally valid WAV
+- Gemini TTS: Generate Content AUDIO for 2.5 and `gemini-3.1-flash-tts-preview`, wrap `audio/L16` as WAV, `GEMINI_API_KEY`/`GOOGLE_API_KEY`, voice `Rasalgethi`
+- per-request `credentials` allowlist: OpenAI, NVIDIA, Groq, Gemini/Google only; never ElevenLabs/MiniMax; never log keys
+- remote providers participate in defaults only when configured; aliases such as `magpie`/`groq-tts`/`google-tts` block canonical default overwrite
 - default TTS model remains `gpt-4o-mini-tts` when OpenAI is configured
 - reserve stdout for protocol messages and send logs to stderr
 - provider state may cache weights, but crash/restart must remain safe

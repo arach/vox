@@ -108,20 +108,7 @@ struct VoxTTSRunner {
     }
 
     private static func providerCredentials(from params: [String: Any]) -> [String: String] {
-        guard let raw = params["credentials"] as? [String: Any] else {
-            return [:]
-        }
-
-        var credentials: [String: String] = [:]
-        for (key, value) in raw {
-            if let stringValue = value as? String {
-                let trimmed = stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmed.isEmpty {
-                    credentials[key] = trimmed
-                }
-            }
-        }
-        return credentials
+        TTSLentCredentials.parse(from: params)
     }
 
     private static func writeResponse(id: Int, result: [String: Any]) {

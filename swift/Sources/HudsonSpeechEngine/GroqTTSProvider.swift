@@ -42,7 +42,7 @@ public actor GroqTTSProvider: TTSProvider {
         let processEnv = ProcessInfo.processInfo.environment
         self.session = session
         self.apiKey = Self.resolveConfiguredAPIKey(env: env, processEnv: processEnv)
-        let rawBaseURL = Self.firstNonEmpty(
+        let rawBaseURL = RemoteTTSSupport.firstNonEmpty(
             env?["GROQ_BASE_URL"],
             processEnv["GROQ_BASE_URL"]
         ) ?? Self.defaultBaseURL
@@ -155,10 +155,10 @@ public actor GroqTTSProvider: TTSProvider {
         urlRequest.httpBody = try JSONSerialization.data(withJSONObject: payload, options: [])
 
         log.info("Groq synthesis request started requestId=\(request.requestId) modelId=\(request.modelId) voiceId=\(resolvedVoice) textLength=\(text.count)")
-        let (data, response) = try await session.data(for: urlRequest)
+        let (data, response) = try await RemoteTTSSupport.data(for: urlRequest, session: session)
         let httpResponse = try validateHTTPResponse(data: data, response: response)
-        guard !data.isEmpty else {
-            throw GroqTTSProviderError.emptyAudio
+        guard PCMWAV.isStructurallyValid(data) else {
+            throw data.isEmpty ? GroqTTSProviderError.emptyAudio : GroqTTSProviderError.invalidAudio
         }
         let synthesisMs = trace.end("\(data.count) bytes")
         let audioDurationMs = (try? inspectWaveData(data)) ?? 0
@@ -192,7 +192,7 @@ public actor GroqTTSProvider: TTSProvider {
         env: [String: String]?,
         processEnv: [String: String]
     ) -> String? {
-        firstNonEmpty(
+        RemoteTTSSupport.firstNonEmpty(
             providerCredentials["GROQ_API_KEY"],
             providerCredentials["groqApiKey"],
             providerCredentials["groq_api_key"],
@@ -224,14 +224,6 @@ public actor GroqTTSProvider: TTSProvider {
 
     static func clamp(_ value: Double, min: Double, max: Double) -> Double {
         Swift.min(Swift.max(value, min), max)
-    }
-
-    static func firstNonEmpty(_ values: String?...) -> String? {
-        for value in values {
-            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if !trimmed.isEmpty { return trimmed }
-        }
-        return nil
     }
 
     private func apiKeyAvailability() -> Bool {
@@ -279,19 +271,10 @@ public actor GroqTTSProvider: TTSProvider {
         guard (200..<300).contains(httpResponse.statusCode) else {
             throw GroqTTSProviderError.requestFailed(
                 status: httpResponse.statusCode,
-                message: Self.errorMessage(from: data) ?? (String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)")
+                message: RemoteTTSSupport.sanitizeVendorMessage(from: data, vendor: "Groq TTS")
             )
         }
         return httpResponse
-    }
-
-    private static func errorMessage(from data: Data) -> String? {
-        guard
-            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let error = json["error"] as? [String: Any],
-            let message = error["message"] as? String
-        else { return nil }
-        return "Groq TTS: \(message)"
     }
 
     private func inspectWaveData(_ data: Data) throws -> Int {
@@ -313,6 +296,7 @@ public enum GroqTTSProviderError: Error, LocalizedError {
     case unsupportedVoice(String)
     case unsupportedFormat(String)
     case emptyAudio
+    case invalidAudio
     case nonHTTPResponse
     case requestFailed(status: Int, message: String)
 
@@ -332,6 +316,8 @@ public enum GroqTTSProviderError: Error, LocalizedError {
             return "Unsupported synthesis format: \(format). Groq TTS is currently configured for wav output."
         case .emptyAudio:
             return "Groq returned empty audio."
+        case .invalidAudio:
+            return "Groq returned audio that is not a structurally valid WAV file."
         case .nonHTTPResponse:
             return "Groq TTS request returned a non-HTTP response."
         case .requestFailed(let status, let message):

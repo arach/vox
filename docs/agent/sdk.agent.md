@@ -14,3 +14,4 @@
 - annotation method exposed: `annotateFile`
 - live session method exposed: `createLiveSession`; it returns `VoxLiveSession` synchronously
 - synthesis can return optional `speechTiming`; read the types in `packages/client/src/types.ts` before duplicating shapes
+- per-request `credentials` are allowlisted for OpenAI, NVIDIA Magpie, Groq, and Gemini/Google only

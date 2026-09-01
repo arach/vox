@@ -20,12 +20,14 @@ final class MockHTTPURLProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var lastBody: Data?
     nonisolated(unsafe) static var requests: [URLRequest] = []
     nonisolated(unsafe) static var bodies: [Data] = []
+    nonisolated(unsafe) static var failure: Error?
 
     static func session(
         body: Data = Data(),
         statusCode: Int = 200,
         contentType: String = "audio/wav",
-        stubs: [String: Stub] = [:]
+        stubs: [String: Stub] = [:],
+        error: Error? = nil
     ) -> URLSession {
         lock.lock()
         self.stubs = stubs
@@ -38,6 +40,7 @@ final class MockHTTPURLProtocol: URLProtocol, @unchecked Sendable {
         lastBody = nil
         requests = []
         bodies = []
+        failure = error
         lock.unlock()
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockHTTPURLProtocol.self]
@@ -54,8 +57,13 @@ final class MockHTTPURLProtocol: URLProtocol, @unchecked Sendable {
         Self.lastBody = body
         Self.requests.append(request)
         Self.bodies.append(body)
+        let failure = Self.failure
         let stub = request.url.flatMap { Self.stubs[$0.path] } ?? Self.defaultStub
         Self.lock.unlock()
+        if let failure {
+            client?.urlProtocol(self, didFailWithError: failure)
+            return
+        }
         let response = HTTPURLResponse(
             url: request.url ?? URL(string: "https://example.test")!,
             statusCode: stub.statusCode,

@@ -160,4 +160,36 @@ struct TTSDefaultModelSelectorTests {
 
         #expect(modelId == NVIDIAMagpieTTSProvider.modelID)
     }
+
+    @Test("default selector from live model list matches the configured ranking")
+    func defaultModelIdFromModelListPrefersRemoteWhenAvailable() {
+        let models = [
+            TTSModelInfo(
+                id: TTSDefaults.localModelId,
+                name: "AVSpeech",
+                backend: "avspeech",
+                installed: true,
+                preloaded: true,
+                available: true
+            ),
+            TTSModelInfo(
+                id: NVIDIAMagpieTTSProvider.modelID,
+                name: "NVIDIA Magpie",
+                backend: "nvidia",
+                installed: true,
+                preloaded: false,
+                available: true
+            ),
+            TTSModelInfo(
+                id: TTSDefaults.modelId,
+                name: "OpenAI",
+                backend: "openai",
+                installed: false,
+                preloaded: false,
+                available: false
+            )
+        ]
+
+        #expect(TTSDefaultModelSelector.defaultModelId(from: models) == NVIDIAMagpieTTSProvider.modelID)
+    }
 }

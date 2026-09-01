@@ -135,9 +135,17 @@ func loadEngines() -> (EngineManager, TTSEngineManager, String) {
         let asrConfig = config.providers.contains(where: { $0.resolvedKind == .asr })
             ? config
             : defaultASRConfig()
-        let ttsConfig = config.providers.contains(where: { $0.resolvedKind == .tts })
-            ? config.mergingMissingTTSDefaults()
-            : defaultTTSConfig()
+        let ttsConfig: ProvidersConfig
+        if config.providers.contains(where: { $0.resolvedKind == .tts }) {
+            let merged = TTSDefaultProviderConfig.mergingMissingDefaults(into: config)
+            let added = merged.providers.count - config.providers.count
+            if added > 0 {
+                log.info("Adding \(added) default TTS provider(s) alongside providers.json")
+            }
+            ttsConfig = merged
+        } else {
+            ttsConfig = defaultTTSConfig()
+        }
 
         return (
             EngineManager(provider: ProviderRegistry(config: asrConfig)),
@@ -189,23 +197,3 @@ for signalNumber in signals {
 }
 
 RunLoop.main.run()
-
-private extension ProvidersConfig {
-    func mergingMissingTTSDefaults() -> ProvidersConfig {
-        let existingProviderIds = Set(
-            providers
-                .filter { $0.resolvedKind == .tts }
-                .map { $0.id.lowercased() }
-        )
-        let additionalProviders = TTSDefaultProviderConfig.inProcess().providers.filter { entry in
-            entry.resolvedKind == .tts && !existingProviderIds.contains(entry.id.lowercased())
-        }
-
-        guard !additionalProviders.isEmpty else {
-            return self
-        }
-
-        log.info("Adding \(additionalProviders.count) default TTS provider(s) alongside providers.json")
-        return ProvidersConfig(providers: providers + additionalProviders)
-    }
-}
