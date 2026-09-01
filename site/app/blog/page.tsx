@@ -46,6 +46,9 @@ export default function BlogIndex() {
             <Link href="/docs/overview" className="rounded-md px-3 py-2 transition-colors hover:bg-wave hover:text-ink">
               Docs
             </Link>
+            <Link href="/models" className="rounded-md px-3 py-2 transition-colors hover:bg-wave hover:text-ink">
+              Models
+            </Link>
             <Link href="/blog" className="rounded-md px-3 py-2 text-ink transition-colors hover:bg-wave">
               Blog
             </Link>

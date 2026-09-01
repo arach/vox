@@ -12,6 +12,7 @@ const featureRows = [
   { idx: "02", title: "Text-to-speech", body: "Turn text into spoken audio with Apple system voices, local models, or a configured speech provider." },
   { idx: "03", title: "Local by design", body: "Run Vox inside an Apple app, or connect browser and Node clients through Vox Companion on the same Mac." },
   { idx: "04", title: "Warm and measurable", body: "Prepare models before the first request and see how long loading, inference, and synthesis take." },
+  { idx: "05", title: "Catalog and plugins", body: "Read dictation models from published JSON. Built-in families load in Vox. New families install as plugins." },
 ];
 
 const surfaceCards = [
@@ -19,7 +20,7 @@ const surfaceCards = [
   { eyebrow: "COMPANION SERVICE", title: "voxd", body: "Keep speech models ready on your Mac and share them with browser apps, Node tools, and the CLI.", href: "/docs/runtime", cta: "Read runtime docs" },
   { eyebrow: "BUN AND NODE SDK", title: "@voxd/sdk", body: "Transcribe audio and generate speech from typed Bun and Node clients.", href: "/docs/sdk", cta: "See the SDK" },
   { eyebrow: "BROWSER SDK", title: "@voxd/client", body: "Add local transcription to web apps through Vox Companion.", href: "/web", cta: "Explore the web SDK" },
-  { eyebrow: "COMMAND-LINE TOOLS", title: "@voxd/cli", body: "Transcribe files, generate speech, warm up models, and measure performance from the terminal.", href: "/docs/quickstart", cta: "Quickstart" },
+  { eyebrow: "COMMAND-LINE TOOLS", title: "@voxd/cli", body: "Transcribe files, generate speech, refresh the model catalog, install plugins, and measure performance from the terminal.", href: "/docs/quickstart", cta: "Quickstart" },
 ];
 
 const relatedProjects = [
@@ -59,6 +60,7 @@ export default function Home() {
           </Link>
           <nav aria-label="Primary" className="hidden items-center gap-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted sm:flex">
             <Link href="/docs/overview" className="px-2.5 py-1.5 transition-colors hover:text-accent">Docs</Link>
+            <Link href="/models" className="px-2.5 py-1.5 transition-colors hover:text-accent">Models</Link>
             <Link href="/download" className="px-2.5 py-1.5 transition-colors hover:text-accent">Download</Link>
             <Link href="/blog" className="px-2.5 py-1.5 transition-colors hover:text-accent">Blog</Link>
             <Link href="#capabilities" className="px-2.5 py-1.5 transition-colors hover:text-accent">Capabilities</Link>
@@ -69,6 +71,7 @@ export default function Home() {
           </nav>
           <nav aria-label="Primary mobile" className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted sm:hidden">
             <Link href="/docs/overview" className="px-2 py-1.5 transition-colors hover:text-accent">Docs</Link>
+            <Link href="/models" className="px-2 py-1.5 transition-colors hover:text-accent">Models</Link>
             <Link href="/minivox" className="px-2 py-1.5 transition-colors hover:text-accent">Minivox</Link>
             <Link href="https://github.com/arach/vox" target="_blank" rel="noreferrer noopener" className="px-2 py-1.5 transition-colors hover:text-accent">GitHub</Link>
           </nav>
@@ -123,10 +126,10 @@ export default function Home() {
             <div className="p-4 font-mono text-[12.5px] leading-7">
               <div className="text-muted">$ vox transcribe file --metrics /tmp/sample.wav</div>
               <div className="text-ink">done · 127ms · &quot;hello from Vox&quot;</div>
-              <div className="mt-2.5 text-muted">$ vox speak --model avspeech:system &quot;Ready when you are.&quot;</div>
-              <div className="text-ink">played · default voice · 182ms</div>
-              <div className="mt-2.5 text-muted">$ vox perf dashboard --client vox-cli</div>
-              <div className="text-ink">transcription + synthesis metrics</div>
+              <div className="mt-2.5 text-muted">$ vox models catalog</div>
+              <div className="text-ink">parakeet:v3 · gpt-transcribe · gemma-4-e2b-it</div>
+              <div className="mt-2.5 text-muted">$ vox plugins install mlx-vlm</div>
+              <div className="text-ink">plugin ready · restart voxd</div>
             </div>
           </div>
         </div>
@@ -137,7 +140,7 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-6 py-20">
           <div className="flex items-baseline justify-between">
             <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{"// capabilities"}</p>
-            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">4 capabilities</span>
+            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">5 capabilities</span>
           </div>
           <h2 className="mt-4 max-w-[30ch] text-[clamp(1.5rem,2.6vw,2rem)] font-semibold leading-tight tracking-[-0.02em] text-ink">
             Audio to text. Text back to audio.

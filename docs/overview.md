@@ -83,6 +83,7 @@ vox doctor
 
 vox warmup start parakeet:v3
 vox transcribe file --model parakeet:v3 --metrics --timestamps /tmp/sample.wav
+vox models catalog
 
 vox voices --model gpt-4o-mini-tts
 vox speak --model gpt-4o-mini-tts --metrics "Hello from Vox"
@@ -92,4 +93,4 @@ vox speak bench --model gpt-4o-mini-tts "Hello from Vox" 5
 vox perf dashboard --client vox-cli
 ```
 
-Continue with the [Quickstart](./quickstart.md), [Swift Embed Guide](./apple-embed.md), or [Web Integration Guide](./web-integration.md) for the surface you chose.
+Continue with the [Quickstart](./quickstart.md), [Models and plugins](./models.md), [Swift Embed Guide](./apple-embed.md), or [Web Integration Guide](./web-integration.md) for the surface you chose.

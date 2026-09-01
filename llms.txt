@@ -15,6 +15,7 @@
 - [Quickstart](/docs/quickstart): Install Vox Companion, verify runtime health, and exercise transcription, synthesis, and performance tools.
 - [Swift Embed Guide](/docs/apple-embed): Agent-oriented instructions for integrating Vox directly into macOS and iOS apps such as Linea.
 - [Runtime](/docs/runtime): Companion request flow, warm-up, sessions, routes, ports, and runtime ownership boundaries.
+- [Models and plugins](/docs/models): Published dictation catalog, built-in families, and how Vox plugins install new ASR runtimes.
 - [Provider Protocol](/docs/providers): How external STT and TTS engines plug into Vox via JSON-RPC over stdin/stdout.
 - [SDK (Companion Client)](/docs/sdk): Typed Bun and Node access to Vox Companion over local WebSocket JSON-RPC.
 - [Web Integration (Companion Client)](/docs/web-integration): Probe and use Vox Companion from web apps through the origin-gated local HTTP bridge.

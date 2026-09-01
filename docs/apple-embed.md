@@ -213,7 +213,7 @@ For the first Linea integration, the default plan should be:
 - use embed mode on iOS and macOS
 - add `VoxCore` and `VoxEngine`, plus `VoxAppleSpeech` if the app wants reusable Apple playback
 - wrap Vox in one app-local actor or service
-- use `parakeet:v3` for ASR
+- use `parakeet:v3` for ASR; `parakeet:v2` is the English-only TDT option
 - use `gpt-4o-mini-tts` for default TTS
 - use `avspeech:system` only when a local system voice fallback is required
 - record Vox-compatible telemetry from the app

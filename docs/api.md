@@ -17,6 +17,10 @@ Public protocol and SDK-facing type shapes.
 - `models.list`
 - `models.install`
 - `models.preload`
+- `models.catalog`
+- `models.refreshCatalog`
+
+Catalog JSON may include `plugins[]`. Plugin install is a CLI file-system action (`vox plugins install`), not an RPC. `voxd` loads `~/.vox/plugins/*/provider.json` at start.
 
 ### Warm-Up
 
@@ -114,6 +118,8 @@ Current emitted performance routes:
 - `disconnect()`
 - `doctor()`
 - `listModels()`
+- `listCatalog()`
+- `refreshCatalog()`
 - `listVoices()`
 - `installModel()`
 - `preloadModel()`

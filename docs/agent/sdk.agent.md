@@ -11,6 +11,7 @@
 - warmup methods exposed: `getWarmupStatus`, `startWarmup`, `scheduleWarmup`
 - synthesis methods exposed: `listVoices`, `synthesize`
 - ASR method exposed: `transcribeFile`
+- catalog methods exposed: `listCatalog`, `refreshCatalog`
 - annotation method exposed: `annotateFile`
 - live session method exposed: `createLiveSession`; it returns `VoxLiveSession` synchronously
 - synthesis can return optional `speechTiming`; read the types in `packages/client/src/types.ts` before duplicating shapes

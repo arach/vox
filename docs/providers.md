@@ -15,7 +15,10 @@ Providers can serve either:
 
 Built-in providers include:
 
-- `parakeet` for ASR
+- `parakeet` for on-device CoreML ASR (`parakeet:v3` default, `parakeet:v2` English)
+- `apple-speech` for Apple SpeechTranscriber (`apple:speech-transcriber`, macOS 26+ on Apple Silicon)
+- `moonshine` for native MoonshineVoice ASR (`moonshine:medium-streaming`)
+- `openai-transcribe` for remote OpenAI file transcription (`gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `whisper-1`)
 - `avspeech` for system TTS
 - `openai-tts` for remote TTS
 - `elevenlabs` for ElevenLabs remote TTS
@@ -23,7 +26,40 @@ Built-in providers include:
 - `nvidia` for NVIDIA Magpie remote TTS
 - `groq` for Groq Orpheus remote TTS
 - `gemini` for Gemini remote TTS
-- `mlx-audio` for built-in external bridging across both ASR and TTS
+- `mlx-audio` for built-in external bridging across both ASR and TTS, including Whisper, Qwen3-ASR, Cohere Transcribe, Nemotron 3.5, and Parakeet MLX ids
+
+## Model catalog
+
+Operator-facing catalog and plugin steps live in [Models and plugins](./models.md).
+
+The published catalog at `https://voxd.cc/data/models.json` is the source of dictation model ids. The same file lives in the repo as `data/models.json` and is bundled with the engine as a fallback.
+
+Each model names a `family`. Built-in families the engine can run without a plugin:
+
+- `parakeet-tdt`: CoreML Parakeet TDT bundles
+- `apple-speech`: Apple SpeechTranscriber and system-managed locale assets
+- `moonshine`: native MoonshineVoice models
+- `mlx-audio`: Hugging Face ids loaded by the mlx-audio provider
+- `openai-transcribe`: OpenAI Audio transcriptions API
+
+New families ship as plugins in the same catalog. A plugin is an external JSON-RPC provider. The catalog advertises it; install is explicit; `voxd` loads `~/.vox/plugins/<id>/provider.json` on start.
+
+```bash
+vox plugins list
+vox plugins install mlx-vlm
+# restart voxd
+vox transcribe file --model gemma-4-e2b-it /path/to/audio.wav
+vox plugins remove mlx-vlm
+```
+
+Refresh is explicit:
+
+```bash
+vox models catalog
+vox models catalog refresh
+```
+
+`VOX_MODEL_CATALOG_URL` overrides the catalog URL. A failed refresh keeps the bundled or cached snapshot. Catalog refresh never installs or runs a plugin command. `vox plugins install` copies a bundled runner or records an allowlisted launcher (`node`, `bun`, `npx`, `bunx`, `uv`, `uvx`, `python3`, `python`).
 
 ## Provider Config
 
@@ -36,7 +72,25 @@ Providers are registered in `~/.vox/providers.json`:
       "id": "parakeet",
       "kind": "asr",
       "builtin": true,
-      "models": ["parakeet:v3"]
+      "models": ["parakeet:v3", "parakeet:v2"]
+    },
+    {
+      "id": "apple-speech",
+      "kind": "asr",
+      "builtin": true,
+      "models": ["apple:speech-transcriber"],
+      "env": {
+        "VOX_APPLE_SPEECH_LOCALE": "en-US"
+      }
+    },
+    {
+      "id": "moonshine",
+      "kind": "asr",
+      "builtin": true,
+      "models": ["moonshine:medium-streaming"],
+      "env": {
+        "VOX_MOONSHINE_LANGUAGE": "en"
+      }
     },
     {
       "id": "avspeech",
@@ -105,7 +159,7 @@ Providers are registered in `~/.vox/providers.json`:
       "builtin": true,
       "env": {
         "VOX_MLX_AUDIO_PYTHON": "/path/to/venv/bin/python",
-        "VOX_MLX_AUDIO_ASR_MODELS": "mlx-community/whisper-large-v3-turbo-asr-fp16,mlx-community/Qwen3-ASR-0.6B-8bit"
+        "VOX_MLX_AUDIO_ASR_MODELS": "mlx-community/Qwen3-ASR-1.7B-8bit,mlx-community/cohere-transcribe-03-2026-mlx-8bit,mlx-community/nemotron-3.5-asr-streaming-0.6b-8bit"
       }
     },
     {
@@ -133,6 +187,7 @@ Providers are registered in `~/.vox/providers.json`:
 
 Notes:
 
+- Vox supports Apple Silicon only. Do not treat successful remote-provider compilation on an Intel host as a supported configuration.
 - Register ASR and TTS as separate entries even when they share the same `id`.
 - `models` is optional for external providers now. Vox can call `models()` and route dynamically from the returned list.
 - OpenAI, NVIDIA Magpie, Groq, and Gemini/Google accept per-request `credentials` on `synthesize.generate` / companion synthesis. Those keys are allowlisted through `VoxRuntimeService` and `VoxBridge`; unknown keys, including ElevenLabs and MiniMax keys, are dropped. ElevenLabs and MiniMax currently read only provider `env` and the process environment.
@@ -142,6 +197,8 @@ Notes:
 - NVIDIA Magpie accepts `NV_API_KEY` and the `NVIDIA_API_KEY` compatibility alias, plus camelCase / snake_case variants. Gemini accepts `GEMINI_API_KEY`, `GOOGLE_API_KEY`, and `GOOGLE_GENAI_API_KEY`.
 - Remote providers are considered for default model selection and in-process default registration only when they are configured in `providers.json` or the daemon environment. An API key in the process environment is not broader user consent than selecting or configuring that provider. Configured aliases such as `magpie`, `groq-tts`, and `google-tts` prevent the canonical default entries from being appended over that family's routing and key config.
 - If `providers.json` contains only ASR entries, Vox falls back to default TTS providers. The inverse is also true. The default TTS model remains `gpt-4o-mini-tts` when OpenAI is configured. App-registry and daemon/config default selection share one canonical ranking independent of `providers.json` order and independent of the alphabetically sorted `TTSProviderRegistry` model list: OpenAI `gpt-4o-mini-tts`, then ElevenLabs, MiniMax, NVIDIA Magpie, Groq, Gemini, then `avspeech:system`.
+- The public ASR provider method is currently file-based. Apple SpeechTranscriber, Moonshine Medium, and Nemotron have streaming-capable internals, but live partial events require a separate runtime/protocol integration.
+- Native audio adaptation uses `AVAudioConverter`, SpeechAnalyzer's file path, or provider-owned conversion. Provider adapters must not implement ad hoc resampling or denoising.
 
 ### OpenAI TTS timeout
 

@@ -7,6 +7,8 @@ description: Typed Bun and Node access to Vox Companion over local WebSocket JSO
 
 `packages/client/` connects to `voxd` when you want out-of-process access to models, voices, warm-up, transcription, synthesis, and stage metrics.
 
+`listCatalog()` and `refreshCatalog()` read the published dictation catalog. Plugin install stays on the CLI (`vox plugins install`). See [Models and plugins](./models.md).
+
 ## Example
 
 ```ts
@@ -46,6 +48,8 @@ interface VoxClientSurface {
   disconnect(): void;
   doctor(): Promise<unknown>;
   listModels(): Promise<unknown>;
+  listCatalog(): Promise<SpeechModelCatalog>;
+  refreshCatalog(): Promise<SpeechModelCatalog>;
   listVoices(modelId?: string): Promise<unknown>;
   installModel(modelId?: string): Promise<unknown>;
   preloadModel(modelId?: string): Promise<unknown>;

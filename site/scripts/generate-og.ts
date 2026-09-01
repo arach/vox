@@ -13,6 +13,7 @@ const docPages = [
   { id: "sdk", title: "SDK", group: "For Agents" },
   { id: "skill", title: "Operator Playbook", group: "For Agents" },
   { id: "runtime", title: "Runtime", group: "Runtime" },
+  { id: "models", title: "Models", group: "Runtime" },
 ];
 
 const siteRoot = process.cwd();

@@ -20,12 +20,37 @@ func parsePort() -> UInt16 {
 }
 
 func defaultASRConfig() -> ProvidersConfig {
+    let catalog = ModelCatalogStore.shared
+    let parakeetModels = catalog.parakeetModelIDs()
+    let appleSpeechModels = catalog.appleSpeechModelIDs()
+    let moonshineModels = catalog.moonshineModelIDs()
+    let openaiModels = catalog.openaiTranscribeModelIDs()
     return ProvidersConfig(providers: [
         ProviderEntry(
             id: "parakeet",
             kind: .asr,
             builtin: true,
-            models: ["parakeet:v3"]
+            models: parakeetModels.isEmpty ? ["parakeet:v3", "parakeet:v2"] : parakeetModels
+        ),
+        ProviderEntry(
+            id: "apple-speech",
+            kind: .asr,
+            builtin: true,
+            models: appleSpeechModels.isEmpty
+                ? AppleSpeechTranscriberProvider.fallbackModelIDs
+                : appleSpeechModels
+        ),
+        ProviderEntry(
+            id: "moonshine",
+            kind: .asr,
+            builtin: true,
+            models: moonshineModels.isEmpty ? MoonshineASRProvider.fallbackModelIDs : moonshineModels
+        ),
+        ProviderEntry(
+            id: "openai-transcribe",
+            kind: .asr,
+            builtin: true,
+            models: openaiModels.isEmpty ? OpenAIASRProvider.fallbackModelIDs : openaiModels
         )
     ])
 }
@@ -118,13 +143,20 @@ func bundledTTSCommand() -> [String]? {
 }
 
 func loadEngines() -> (EngineManager, TTSEngineManager, String) {
+    let plugins = PluginStore.loadInstalled()
+    let asrPlugins = plugins.filter { $0.resolvedKind == .asr }
+    let ttsPlugins = plugins.filter { $0.resolvedKind == .tts }
+    if !plugins.isEmpty {
+        log.info("Loaded \(plugins.count) installed plugin provider(s)")
+    }
+
     let configURL = RuntimePaths.providersConfigURL()
     guard FileManager.default.fileExists(atPath: configURL.path) else {
         log.info("No providers.json found, using default Vox ASR and TTS providers")
         let ttsConfig = defaultTTSConfig()
         return (
-            EngineManager(provider: ProviderRegistry(config: defaultASRConfig())),
-            TTSEngineManager(provider: TTSProviderRegistry(config: ttsConfig)),
+            EngineManager(provider: ProviderRegistry(config: defaultASRConfig().merging(asrPlugins))),
+            TTSEngineManager(provider: TTSProviderRegistry(config: ttsConfig.merging(ttsPlugins))),
             TTSDefaultModelSelector.defaultModelId(for: ttsConfig)
         )
     }
@@ -132,20 +164,21 @@ func loadEngines() -> (EngineManager, TTSEngineManager, String) {
     do {
         let config = try ProvidersConfig.load(from: configURL)
         log.info("Loaded \(config.providers.count) provider(s) from providers.json")
-        let asrConfig = config.providers.contains(where: { $0.resolvedKind == .asr })
+        let asrConfig = (config.providers.contains(where: { $0.resolvedKind == .asr })
             ? config
-            : defaultASRConfig()
-        let ttsConfig: ProvidersConfig
+            : defaultASRConfig()).merging(asrPlugins)
+        let baseTTSConfig: ProvidersConfig
         if config.providers.contains(where: { $0.resolvedKind == .tts }) {
             let merged = TTSDefaultProviderConfig.mergingMissingDefaults(into: config)
             let added = merged.providers.count - config.providers.count
             if added > 0 {
                 log.info("Adding \(added) default TTS provider(s) alongside providers.json")
             }
-            ttsConfig = merged
+            baseTTSConfig = merged
         } else {
-            ttsConfig = defaultTTSConfig()
+            baseTTSConfig = defaultTTSConfig()
         }
+        let ttsConfig = baseTTSConfig.merging(ttsPlugins)
 
         return (
             EngineManager(provider: ProviderRegistry(config: asrConfig)),
@@ -156,8 +189,8 @@ func loadEngines() -> (EngineManager, TTSEngineManager, String) {
         log.error("Failed to parse providers.json: \(error.localizedDescription) — falling back to default")
         let ttsConfig = defaultTTSConfig()
         return (
-            EngineManager(provider: ProviderRegistry(config: defaultASRConfig())),
-            TTSEngineManager(provider: TTSProviderRegistry(config: ttsConfig)),
+            EngineManager(provider: ProviderRegistry(config: defaultASRConfig().merging(asrPlugins))),
+            TTSEngineManager(provider: TTSProviderRegistry(config: ttsConfig.merging(ttsPlugins))),
             TTSDefaultModelSelector.defaultModelId(for: ttsConfig)
         )
     }

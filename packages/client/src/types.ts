@@ -57,6 +57,54 @@ export interface ModelInfo {
   available: boolean;
 }
 
+export interface SpeechModelCatalogEntry {
+  id: string;
+  kind: string;
+  family: string;
+  name: string;
+  vendor?: string;
+  runtime?: string;
+  status: string;
+  default: boolean;
+  languages?: string;
+  notes?: string;
+  requires?: string[];
+  platforms?: string[];
+  architectures?: string[];
+  capabilities?: {
+    fileTranscription: boolean;
+    liveTranscription: boolean;
+    onDevice: boolean;
+    wordTimestamps: boolean;
+  };
+  plugin?: string;
+  source?: {
+    type: string;
+    repo?: string;
+  };
+}
+
+export interface SpeechPluginCatalogEntry {
+  id: string;
+  kind: string;
+  name: string;
+  status: string;
+  command?: string[];
+  notes?: string;
+  install?: {
+    kind: string;
+    id?: string;
+    package?: string;
+  };
+}
+
+export interface SpeechModelCatalog {
+  version: number;
+  updatedAt: string;
+  models: SpeechModelCatalogEntry[];
+  plugins: SpeechPluginCatalogEntry[];
+}
+
 export interface VoiceInfo {
   id: string;
   name: string;
