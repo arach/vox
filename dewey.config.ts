@@ -20,6 +20,7 @@ export default {
       "daemon": "swift/Sources/voxd/main.swift",
       "service": "swift/Sources/VoxService/",
       "engine": "swift/Sources/VoxEngine/",
+      "appleSpeech": "swift/Sources/VoxAppleSpeech/",
       "core": "swift/Sources/VoxCore/",
       "sdk": "packages/client/src/",
       "cli": "packages/cli/src/index.ts",

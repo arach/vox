@@ -22,12 +22,14 @@
 
 - preferred local dev dependency: `.package(path: "../vox/swift")`
 - required products for app embed: `VoxCore`, `VoxEngine`
+- optional product for Apple playback: `VoxAppleSpeech` / `AppleSpeechOutputController`
 - avoid `VoxService` and `VoxBridge` unless intentionally embedding companion/runtime behavior
 
 ## Default embed engines
 
 - ASR default: `EngineManager()` -> `ParakeetProvider()`
-- TTS default: `TTSEngineManager()` -> `TTSProviderRegistry` with OpenAI TTS plus AVSpeech fallback
+- TTS generation default: `TTSEngineManager()` -> `TTSProviderRegistry` with OpenAI TTS plus AVSpeech fallback
+- TTS playback is not on `TTSProvider`; optional Apple playback is `AppleSpeechOutputController`
 - default ASR model id: `parakeet:v3`
 - default TTS model id: `TTSDefaults.modelId` = `gpt-4o-mini-tts`
 - local TTS model id: `TTSDefaults.localModelId` = `avspeech:system`
@@ -60,7 +62,8 @@
 - microphone permission
 - audio capture
 - temp-file creation for ASR input
-- playback of `SynthesisOutput.audioData`
+- product-level spoken-output policy (dedupe, markdown flattening, fallback copy, preferences, queue priority)
+- playback of `SynthesisOutput.audioData`, or an opt-in `AppleSpeechOutputController` per audible surface
 - interruption handling
 - product state and UI
 
@@ -71,12 +74,25 @@
 - pass `OPENAI_API_KEY` via `ProviderEntry.env` or app config
 - do not rely on process environment inside iOS app code
 
+## Optional Apple playback
+
+- `VoxAppleSpeech` is optional and per audible surface, not a singleton
+- `avspeech:system` uses live `AVSpeechSynthesizer.speak()`, never `write()`-then-play
+- generated-audio models play `SynthesisOutput.audioData` through an injectable player sink
+- audio-session configuration is injectable and off by default
+- new requests replace pending generation/playback
+- stop/cancel are idempotent and must cancel Task, player, and synthesizer during the enqueue window
+- events report resolving/generating, starting, playing, finished, cancelled, failed
+- synthesis identity is separate from the physical audio-output route
+- do not put reply dedupe, markdown flattening, fallback copy, preference storage, queue priority, or telemetry double-recording in this controller
+
 ## Known gaps
 
-- no public one-object Apple SDK facade yet
+- no public one-object Apple SDK facade yet; `VoxAppleSpeech` is playback, not that facade
 - no public embed live-session coordinator yet
 - no raw-buffer ASR API yet
 - no automatic telemetry recording in embed mode
+- `VoxAppleSpeech` does not own browser playback or app product policy
 
 ## Linea default recipe
 

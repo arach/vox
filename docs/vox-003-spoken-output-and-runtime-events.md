@@ -54,7 +54,7 @@ The root cause is a missing product/runtime boundary. OpenScout should own produ
 
 - Replacing VOX-001 live ASR semantics.
 - Adding realtime speech-to-speech.
-- Making Vox own browser playback or OpenScout visual navigation.
+- Making Vox own browser playback, OpenScout visual navigation, or Apple app product policy. Optional `VoxAppleSpeech` is reusable Apple playback machinery, not that product policy.
 - Requiring OpenAI or any TTS provider to return speech marks in Phase 1.
 - Removing `synthesize.startSession`.
 - Turning event delivery into speech performance telemetry.
@@ -259,9 +259,16 @@ Vox may ignore unknown metadata until the field is explicitly adopted in SDK typ
 
 ### Playback
 
-OpenScout owns browser playback when it receives audio from `/api/voice/speak` or `@voxd/client`.
+Playback is a caller-owned audible-surface concern, not a `TTSProvider` concern. Generation concurrency is not playback concurrency. Clients may generate or prefetch multiple utterances in parallel, but each audible surface should have a playback arbiter.
 
-Generation concurrency is not playback concurrency. OpenScout may generate or prefetch multiple utterances in parallel, but each audible surface should have a playback arbiter.
+Vox does not make browser playback and Apple playback the same product.
+
+- Browser and OpenScout apps own their playback policy when they receive audio from `/api/voice/speak` or `@voxd/client`. Reply replacement, ducking, cue timing, and queue priority stay in that product.
+- Apple embed apps may play `SynthesisOutput.audioData` themselves, or opt into the reusable `VoxAppleSpeech` controller for one audible surface. That controller is playback machinery: live `AVSpeechSynthesizer.speak()` for `avspeech:system`, generated-audio sinks for byte-producing models, replace/stop/cancel, and typed phase events. It is not OpenScout policy, Ranger cue policy, or app-level reply dedupe.
+
+`TTSProvider` and `TTSEngineManager` remain generation-only. Do not add `speak()` to the provider surface to approximate Apple playback.
+
+OpenScout owns browser playback when it receives audio from `/api/voice/speak` or `@voxd/client`.
 
 OpenScout should:
 

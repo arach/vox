@@ -27,6 +27,15 @@ Model-facing speech layer:
 - AVSpeech, OpenAI, and external synthesis backends
 - stage-level timing
 
+### VoxAppleSpeech
+
+Optional Apple embed playback layer:
+
+- per-audible-surface speech output controller
+- live system delivery for `avspeech:system`
+- generated-audio playback through an injectable sink
+- typed playback phases without app product policy
+
 ### VoxService
 
 Daemon-side orchestration:
