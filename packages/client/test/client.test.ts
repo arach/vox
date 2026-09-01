@@ -263,6 +263,67 @@ describe("VoxClient", () => {
     ]);
   });
 
+  it("forwards per-request NVIDIA, Groq, and Gemini credentials on synthesize", async () => {
+    const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
+    const client = new VoxClient({ clientId: "test-client" }) as unknown as {
+      transport: {
+        call: (
+          method: string,
+          params: Record<string, unknown>,
+          timeoutMs?: number,
+        ) => Promise<Record<string, unknown>>;
+      };
+      synthesize: (text: string, options?: Record<string, unknown>) => Promise<{ audioBytes: number }>;
+    };
+
+    client.transport = {
+      call: async (method, params) => {
+        calls.push({ method, params });
+        return {
+          modelId: "magpie-tts-multilingual",
+          voiceId: "Magpie-Multilingual.EN-US.Aria",
+          format: "wav",
+          contentType: "audio/wav",
+          audioBase64: Buffer.from([0x52, 0x49, 0x46, 0x46]).toString("base64"),
+          audioBytes: 4,
+          elapsedMs: 12,
+        };
+      },
+    };
+
+    await client.synthesize("hello from lent keys", {
+      modelId: "magpie-tts-multilingual",
+      credentials: {
+        NV_API_KEY: "nv-lent",
+        NVIDIA_API_KEY: "nvidia-alias",
+        GROQ_API_KEY: "groq-lent",
+        GEMINI_API_KEY: "gemini-lent",
+        GOOGLE_API_KEY: "google-lent",
+      },
+    });
+
+    expect(calls).toEqual([
+      {
+        method: "synthesize.generate",
+        params: {
+          clientId: "test-client",
+          text: "hello from lent keys",
+          format: "wav",
+          speed: undefined,
+          instructions: undefined,
+          modelId: "magpie-tts-multilingual",
+          credentials: {
+            NV_API_KEY: "nv-lent",
+            NVIDIA_API_KEY: "nvidia-alias",
+            GROQ_API_KEY: "groq-lent",
+            GEMINI_API_KEY: "gemini-lent",
+            GOOGLE_API_KEY: "google-lent",
+          },
+        },
+      },
+    ]);
+  });
+
   it("lists synthesis voices through the daemon route", async () => {
     const client = new VoxClient({ clientId: "test-client" }) as unknown as {
       call: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;

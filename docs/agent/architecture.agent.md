@@ -1,7 +1,7 @@
 # Architecture Facts
 
 - `VoxCore`: shared types, paths, traces, and performance records
-- `VoxEngine`: provider routing, model lifecycle, audio preparation, ASR, annotation, and TTS
+- `VoxEngine`: provider routing, model lifecycle, audio preparation, ASR, annotation, and TTS (AVSpeech, OpenAI, ElevenLabs, MiniMax, NVIDIA Magpie, Groq, Gemini, external)
 - `VoxAppleSpeech`: optional per-audible-surface Apple playback controller (live system speech, generated-audio sinks, replace/stop/cancel, typed phase events)
 - `VoxService`: daemon RPC, sessions, warm-up, capture, and telemetry
 - `VoxBridge`: narrow browser-facing HTTP transport

@@ -7,5 +7,5 @@
 - live transcription has start, status, stop, and cancel routes
 - synthesis has voices, generate, session start, status, and cancel routes
 - `createLiveSession()` is synchronous and returns `VoxLiveSession`
-- synthesis options include optional speech timing and credentials
+- synthesis options include optional speech timing and allowlisted OpenAI/NVIDIA/Groq/Gemini credentials; ElevenLabs and MiniMax keys are not lent per-request
 - performance samples preserve `clientId`, `route`, `modelId`, and optional `voiceId`

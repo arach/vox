@@ -14,55 +14,69 @@ public enum TTSDefaultModelSelector {
             return entry.models ?? []
         }
 
-        if availableConfiguredModels.contains(TTSDefaults.modelId) {
-            return TTSDefaults.modelId
-        }
-
-        if let preferredOpenAIModel = availableConfiguredModels.first(where: isOpenAIModel) {
-            return preferredOpenAIModel
-        }
-
-        if let preferredRemoteModel = availableConfiguredModels.first(where: isRemoteAPIModel) {
-            return preferredRemoteModel
-        }
-
-        if availableConfiguredModels.contains(TTSDefaults.localModelId) {
-            return TTSDefaults.localModelId
-        }
-
-        if let firstAvailable = availableConfiguredModels.first {
-            return firstAvailable
+        if let preferred = preferredModelId(from: availableConfiguredModels) {
+            return preferred
         }
 
         let configuredModels = entries.flatMap { $0.models ?? [] }
-        return configuredModels.first ?? TTSDefaults.modelId
+        return preferredModelId(from: configuredModels) ?? TTSDefaults.modelId
     }
 
-    private static func isOpenAIModel(_ modelId: String) -> Bool {
-        OpenAITTSProvider.supportedModelIDs.contains(modelId)
+    public static func defaultModelId(from models: [TTSModelInfo]) -> String {
+        let available = models.filter { $0.available && $0.installed }
+        let candidates = available.isEmpty ? models : available
+        return preferredModelId(from: candidates.map(\.id)) ?? TTSDefaults.modelId
     }
 
-    private static func isRemoteAPIModel(_ modelId: String) -> Bool {
-        OpenAITTSProvider.supportedModelIDs.contains(modelId)
-            || ElevenLabsTTSProvider.supportedModelIDs.contains(modelId)
-            || MiniMaxTTSProvider.supportedModelIDs.contains(modelId)
+    public static func preferredModelId(from modelIds: [String]) -> String? {
+        let unique = Set(modelIds)
+        guard !unique.isEmpty else {
+            return nil
+        }
+        if unique.contains(TTSDefaults.modelId) {
+            return TTSDefaults.modelId
+        }
+        for family in TTSProviderFamily.defaultSelectionOrder {
+            if let modelId = family.rankedModelIDs.first(where: { unique.contains($0) }) {
+                return modelId
+            }
+        }
+        if unique.contains(TTSDefaults.localModelId) {
+            return TTSDefaults.localModelId
+        }
+        return modelIds.first
     }
 
     private static func isAvailableForDefaultSelection(
         _ entry: ProviderEntry,
         environment: [String: String]
     ) -> Bool {
-        switch entry.id.lowercased() {
-        case "openai", "openai-tts":
+        switch TTSProviderFamily(providerId: entry.id) {
+        case .openai:
             return hasValue(entry.env?["OPENAI_API_KEY"])
                 || hasValue(environment["OPENAI_API_KEY"])
-        case "elevenlabs", "elevenlabs-tts", "eleven-labs", "eleven-labs-tts":
+        case .elevenlabs:
             return hasValue(entry.env?["ELEVENLABS_API_KEY"])
                 || hasValue(environment["ELEVENLABS_API_KEY"])
-        case "minimax", "minimax-tts":
+        case .minimax:
             return hasValue(entry.env?["MINIMAX_API_KEY"])
                 || hasValue(environment["MINIMAX_API_KEY"])
-        default:
+        case .nvidia:
+            return NVIDIAMagpieTTSProvider.resolveConfiguredAPIKey(
+                env: entry.env,
+                processEnv: environment
+            ) != nil
+        case .groq:
+            return GroqTTSProvider.resolveConfiguredAPIKey(
+                env: entry.env,
+                processEnv: environment
+            ) != nil
+        case .gemini:
+            return GeminiTTSProvider.resolveConfiguredAPIKey(
+                env: entry.env,
+                processEnv: environment
+            ) != nil
+        case .avspeech, .mlxAudio, nil:
             return true
         }
     }

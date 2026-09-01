@@ -29,12 +29,53 @@ public enum TTSDefaultProviderConfig {
                 models: MiniMaxTTSProvider.supportedModelIDs
             ),
             ProviderEntry(
+                id: "nvidia",
+                kind: .tts,
+                builtin: true,
+                models: NVIDIAMagpieTTSProvider.supportedModelIDs
+            ),
+            ProviderEntry(
+                id: "groq",
+                kind: .tts,
+                builtin: true,
+                models: GroqTTSProvider.supportedModelIDs
+            ),
+            ProviderEntry(
+                id: "gemini",
+                kind: .tts,
+                builtin: true,
+                models: GeminiTTSProvider.supportedModelIDs
+            ),
+            ProviderEntry(
                 id: "avspeech",
                 kind: .tts,
                 builtin: true,
                 models: [AVSpeechSynthesizerProvider.modelID]
             )
         ])
+    }
+
+    public static func mergingMissingDefaults(into config: ProvidersConfig) -> ProvidersConfig {
+        let existingTTS = config.providers.filter { $0.resolvedKind == .tts }
+        let existingIds = Set(existingTTS.map { $0.id.lowercased() })
+        let existingFamilies = Set(existingTTS.compactMap { TTSProviderFamily(providerId: $0.id) })
+
+        let additionalProviders = inProcess().providers.filter { entry in
+            guard entry.resolvedKind == .tts else { return false }
+            if existingIds.contains(entry.id.lowercased()) {
+                return false
+            }
+            if let family = TTSProviderFamily(providerId: entry.id), existingFamilies.contains(family) {
+                return false
+            }
+            return true
+        }
+
+        guard !additionalProviders.isEmpty else {
+            return config
+        }
+
+        return ProvidersConfig(providers: config.providers + additionalProviders)
     }
 }
 

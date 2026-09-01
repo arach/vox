@@ -58,6 +58,15 @@ func bundledTTSModels() -> [String] {
     if miniMaxTTSAvailable() {
         models.append(contentsOf: MiniMaxTTSProvider.supportedModelIDs)
     }
+    if nvidiaTTSAvailable() {
+        models.append(contentsOf: NVIDIAMagpieTTSProvider.supportedModelIDs)
+    }
+    if groqTTSAvailable() {
+        models.append(contentsOf: GroqTTSProvider.supportedModelIDs)
+    }
+    if geminiTTSAvailable() {
+        models.append(contentsOf: GeminiTTSProvider.supportedModelIDs)
+    }
     models.append(AVSpeechSynthesizerProvider.modelID)
     return models
 }
@@ -72,6 +81,20 @@ func elevenLabsTTSAvailable() -> Bool {
 
 func miniMaxTTSAvailable() -> Bool {
     hasEnvironmentValue("MINIMAX_API_KEY")
+}
+
+func nvidiaTTSAvailable() -> Bool {
+    hasEnvironmentValue("NV_API_KEY") || hasEnvironmentValue("NVIDIA_API_KEY")
+}
+
+func groqTTSAvailable() -> Bool {
+    hasEnvironmentValue("GROQ_API_KEY")
+}
+
+func geminiTTSAvailable() -> Bool {
+    hasEnvironmentValue("GEMINI_API_KEY")
+        || hasEnvironmentValue("GOOGLE_API_KEY")
+        || hasEnvironmentValue("GOOGLE_GENAI_API_KEY")
 }
 
 func hasEnvironmentValue(_ key: String) -> Bool {
@@ -112,9 +135,17 @@ func loadEngines() -> (EngineManager, TTSEngineManager, String) {
         let asrConfig = config.providers.contains(where: { $0.resolvedKind == .asr })
             ? config
             : defaultASRConfig()
-        let ttsConfig = config.providers.contains(where: { $0.resolvedKind == .tts })
-            ? config.mergingMissingTTSDefaults()
-            : defaultTTSConfig()
+        let ttsConfig: ProvidersConfig
+        if config.providers.contains(where: { $0.resolvedKind == .tts }) {
+            let merged = TTSDefaultProviderConfig.mergingMissingDefaults(into: config)
+            let added = merged.providers.count - config.providers.count
+            if added > 0 {
+                log.info("Adding \(added) default TTS provider(s) alongside providers.json")
+            }
+            ttsConfig = merged
+        } else {
+            ttsConfig = defaultTTSConfig()
+        }
 
         return (
             EngineManager(provider: ProviderRegistry(config: asrConfig)),
@@ -166,23 +197,3 @@ for signalNumber in signals {
 }
 
 RunLoop.main.run()
-
-private extension ProvidersConfig {
-    func mergingMissingTTSDefaults() -> ProvidersConfig {
-        let existingProviderIds = Set(
-            providers
-                .filter { $0.resolvedKind == .tts }
-                .map { $0.id.lowercased() }
-        )
-        let additionalProviders = TTSDefaultProviderConfig.inProcess().providers.filter { entry in
-            entry.resolvedKind == .tts && !existingProviderIds.contains(entry.id.lowercased())
-        }
-
-        guard !additionalProviders.isEmpty else {
-            return self
-        }
-
-        log.info("Adding \(additionalProviders.count) default TTS provider(s) alongside providers.json")
-        return ProvidersConfig(providers: providers + additionalProviders)
-    }
-}

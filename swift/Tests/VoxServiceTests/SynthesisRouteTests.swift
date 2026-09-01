@@ -4,6 +4,35 @@ import VoxCore
 import HudsonSpeechEngine
 @testable import VoxService
 
+private actor CancellingTTSProvider: TTSProvider {
+    func models() async -> [TTSModelInfo] {
+        [
+            TTSModelInfo(
+                id: "mock-tts:v1",
+                name: "Mock TTS",
+                backend: "mock",
+                installed: true,
+                preloaded: true,
+                available: true
+            )
+        ]
+    }
+
+    func voices(modelId: String?) async throws -> [TTSVoiceInfo] { [] }
+
+    func preload(
+        modelId: String,
+        voiceId: String?,
+        progress: @escaping @Sendable (ModelProgress) -> Void
+    ) async throws -> TTSModelInfo {
+        throw CancellationError()
+    }
+
+    func synthesize(_ request: SynthesisRequest) async throws -> SynthesisOutput {
+        throw CancellationError()
+    }
+}
+
 private actor MockTTSProvider: TTSProvider {
     private let modelId: String
     private let voiceId: String
@@ -266,6 +295,53 @@ struct SynthesisRouteTests {
 
         let request = await provider.lastRequest()
         #expect(request?.providerCredentials == ["OPENAI_API_KEY": "sk-test-lent"])
+    }
+
+    @Test("synthesize.generate forwards NVIDIA, Groq, and Gemini credentials and drops unsupported keys")
+    func synthesizeGenerateForwardsRemoteProviderCredentials() async throws {
+        let provider = MockTTSProvider()
+        let service = VoxRuntimeService(ttsEngine: TTSEngineManager(provider: provider))
+
+        _ = try await service.performSynthesizeGenerate(params: [
+            "text": "hello world",
+            "modelId": "mock-tts:v1",
+            "credentials": [
+                "NV_API_KEY": " nv-lent ",
+                "NVIDIA_API_KEY": "nvidia-alias",
+                "GROQ_API_KEY": "groq-lent",
+                "GEMINI_API_KEY": "gemini-lent",
+                "GOOGLE_API_KEY": "google-lent",
+                "ELEVENLABS_API_KEY": "unsupported",
+                "ignored": "not-forwarded"
+            ]
+        ])
+
+        let request = await provider.lastRequest()
+        #expect(request?.providerCredentials["NV_API_KEY"] == "nv-lent")
+        #expect(request?.providerCredentials["NVIDIA_API_KEY"] == "nvidia-alias")
+        #expect(request?.providerCredentials["GROQ_API_KEY"] == "groq-lent")
+        #expect(request?.providerCredentials["GEMINI_API_KEY"] == "gemini-lent")
+        #expect(request?.providerCredentials["GOOGLE_API_KEY"] == "google-lent")
+        #expect(request?.providerCredentials["ELEVENLABS_API_KEY"] == nil)
+        #expect(request?.providerCredentials["ignored"] == nil)
+    }
+
+    @Test("synthesize.generate preserves CancellationError instead of mapping it to failure")
+    func synthesizeGeneratePreservesCancellation() async {
+        let service = VoxRuntimeService(
+            ttsEngine: TTSEngineManager(provider: CancellingTTSProvider())
+        )
+        do {
+            _ = try await service.performSynthesizeGenerate(params: [
+                "text": "hello world",
+                "modelId": "mock-tts:v1"
+            ])
+            Issue.record("Expected CancellationError")
+        } catch is CancellationError {
+            // Expected: callers record/reply cancelled rather than a failure string.
+        } catch {
+            Issue.record("Expected CancellationError, got \(error)")
+        }
     }
 
     @Test("synthesize.generate adds optional speech timing from ASR over synthesized audio")
