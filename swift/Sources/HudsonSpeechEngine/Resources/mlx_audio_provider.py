@@ -15,8 +15,12 @@ from typing import Any, Dict, Iterable, List, Optional
 BACKEND = "mlx-audio"
 DEFAULT_ASR_MODELS = [
     "mlx-community/parakeet-tdt-0.6b-v3",
+    "mlx-community/parakeet-tdt-0.6b-v2",
     "mlx-community/whisper-large-v3-turbo-asr-fp16",
+    "mlx-community/Qwen3-ASR-1.7B-8bit",
     "mlx-community/Qwen3-ASR-0.6B-8bit",
+    "mlx-community/cohere-transcribe-03-2026-mlx-8bit",
+    "mlx-community/nemotron-3.5-asr-streaming-0.6b-8bit",
 ]
 DEFAULT_TTS_MODELS = [
     "mlx-community/Kokoro-82M-bf16",

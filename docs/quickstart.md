@@ -30,9 +30,10 @@ If you are building a browser client, pair the local companion with `@voxd/clien
 vox warmup start parakeet:v3
 vox transcribe file --model parakeet:v3 /path/to/audio.wav --metrics --timestamps
 vox transcribe bench --model parakeet:v3 /path/to/audio.wav 5
+vox models catalog
 ```
 
-Warm-up skips cold-start cost. `transcribe file` prints transcript text, stage timings, and optional word-level timestamps. `bench` gives you warm-path variance for the same clip.
+Warm-up skips cold-start cost. `transcribe file` prints transcript text, stage timings, and optional word-level timestamps. `bench` gives you warm-path variance for the same clip. `parakeet:v3` stays the default; `parakeet:v2` is the English-only TDT option. `vox models catalog` shows the published dictation catalog. Gemma 4 and other new families install as plugins: `vox plugins install mlx-vlm`.
 
 ## Text to speech
 
@@ -75,6 +76,8 @@ vox transcribe status
 ## Next steps
 
 If you are integrating Vox into a macOS or iOS app, read the [Swift Embed Guide](./apple-embed.md).
+
+If you are choosing a dictation model or installing Gemma, read [Models and plugins](./models.md).
 
 If you are wiring external STT or TTS engines into Vox Companion, read the [Provider Protocol](./providers.md).
 

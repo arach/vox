@@ -13,6 +13,8 @@ Shared runtime types and utilities:
 - transcription and synthesis metrics
 - performance samples
 - filesystem paths
+- model catalog types
+- plugin install records
 - trace utilities
 
 ### VoxEngine
@@ -24,6 +26,8 @@ Model-facing speech layer:
 - annotation provider routing and speaker-attribution contracts
 - TTS provider routing and voice discovery
 - Parakeet inference
+- OpenAI file transcription
+- catalog ingest for known ASR families
 - AVSpeech, OpenAI, ElevenLabs, MiniMax, NVIDIA Magpie, Groq, Gemini, and external synthesis backends
 - stage-level timing
 
@@ -62,7 +66,7 @@ Daemon-side orchestration:
 
 ### CLI
 
-`@voxd/cli`: operator tool. Doctor, daemon lifecycle, model management, voices, transcription, synthesis, benchmarks, dashboards.
+`@voxd/cli`: operator tool. Doctor, daemon lifecycle, model catalog, plugins, voices, transcription, synthesis, benchmarks, dashboards.
 
 ## Ownership
 

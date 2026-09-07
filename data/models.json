@@ -1,0 +1,394 @@
+{
+  "version": 2,
+  "updatedAt": "2026-09-01",
+  "plugins": [
+    {
+      "id": "mlx-vlm",
+      "kind": "asr",
+      "name": "MLX-VLM",
+      "status": "ready",
+      "install": {
+        "kind": "bundle",
+        "id": "mlx-vlm"
+      },
+      "notes": "External JSON-RPC provider for Gemma 4 and other mlx-vlm audio models. Install with `vox plugins install mlx-vlm`, then restart voxd."
+    }
+  ],
+  "models": [
+    {
+      "id": "parakeet:v3",
+      "kind": "asr",
+      "family": "parakeet-tdt",
+      "name": "Parakeet TDT v3",
+      "vendor": "nvidia",
+      "runtime": "coreml",
+      "status": "ready",
+      "default": true,
+      "languages": "25 European languages",
+      "notes": "Default on-device dictation model. Multilingual FastConformer-TDT.",
+      "platforms": ["macOS 14+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": true,
+        "wordTimestamps": true
+      },
+      "source": {
+        "type": "huggingface",
+        "repo": "FluidInference/parakeet-tdt-0.6b-v3-coreml"
+      },
+      "parakeet": {
+        "cacheDirectoryName": "parakeet-tdt-0.6b-v3",
+        "jointFile": "JointDecisionv3.mlmodelc",
+        "vocabularyFile": "parakeet_vocab.json",
+        "blankId": 8192,
+        "requiredFiles": [
+          "Preprocessor.mlmodelc",
+          "Encoder.mlmodelc",
+          "Decoder.mlmodelc",
+          "JointDecisionv3.mlmodelc"
+        ]
+      }
+    },
+    {
+      "id": "parakeet:v2",
+      "kind": "asr",
+      "family": "parakeet-tdt",
+      "name": "Parakeet TDT v2",
+      "vendor": "nvidia",
+      "runtime": "coreml",
+      "status": "ready",
+      "languages": "English",
+      "notes": "English-only TDT with a tighter vocabulary and better English recall.",
+      "platforms": ["macOS 14+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": true,
+        "wordTimestamps": true
+      },
+      "source": {
+        "type": "huggingface",
+        "repo": "FluidInference/parakeet-tdt-0.6b-v2-coreml"
+      },
+      "parakeet": {
+        "cacheDirectoryName": "parakeet-tdt-0.6b-v2",
+        "jointFile": "JointDecision.mlmodelc",
+        "vocabularyFile": "parakeet_vocab.json",
+        "blankId": 1024,
+        "requiredFiles": [
+          "Preprocessor.mlmodelc",
+          "Encoder.mlmodelc",
+          "Decoder.mlmodelc",
+          "JointDecision.mlmodelc"
+        ]
+      }
+    },
+    {
+      "id": "apple:speech-transcriber",
+      "kind": "asr",
+      "family": "apple-speech",
+      "name": "Apple SpeechTranscriber",
+      "vendor": "apple",
+      "runtime": "speech-analyzer",
+      "status": "ready",
+      "languages": "System-supported SpeechTranscriber locales",
+      "notes": "Core on-device parity option. Apple manages the model assets and audio format negotiation; Vox currently returns finalized file transcription and word timings.",
+      "platforms": ["macOS 26+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": true,
+        "wordTimestamps": true
+      },
+      "source": {
+        "type": "system"
+      }
+    },
+    {
+      "id": "moonshine:medium-streaming",
+      "kind": "asr",
+      "family": "moonshine",
+      "name": "Moonshine Medium Streaming",
+      "vendor": "moonshine-ai",
+      "runtime": "moonshine-swift",
+      "status": "ready",
+      "languages": "Configurable; English by default",
+      "notes": "Native next-generation streaming architecture through MoonshineVoice. Vox currently exposes it through the finalized file-transcription contract; VOX_MOONSHINE_LANGUAGE selects the downloaded language model.",
+      "platforms": ["macOS 14+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": true,
+        "wordTimestamps": false
+      },
+      "source": {
+        "type": "package",
+        "repo": "moonshine-ai/moonshine-swift"
+      }
+    },
+    {
+      "id": "mlx-community/parakeet-tdt-0.6b-v3",
+      "kind": "asr",
+      "family": "mlx-audio",
+      "name": "Parakeet TDT v3 (MLX)",
+      "vendor": "nvidia",
+      "runtime": "mlx-audio",
+      "status": "ready",
+      "languages": "25 European languages",
+      "platforms": ["macOS 14+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": true,
+        "wordTimestamps": false
+      },
+      "source": {
+        "type": "huggingface",
+        "repo": "mlx-community/parakeet-tdt-0.6b-v3"
+      }
+    },
+    {
+      "id": "mlx-community/parakeet-tdt-0.6b-v2",
+      "kind": "asr",
+      "family": "mlx-audio",
+      "name": "Parakeet TDT v2 (MLX)",
+      "vendor": "nvidia",
+      "runtime": "mlx-audio",
+      "status": "ready",
+      "languages": "English",
+      "platforms": ["macOS 14+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": true,
+        "wordTimestamps": false
+      },
+      "source": {
+        "type": "huggingface",
+        "repo": "mlx-community/parakeet-tdt-0.6b-v2"
+      }
+    },
+    {
+      "id": "mlx-community/whisper-large-v3-turbo-asr-fp16",
+      "kind": "asr",
+      "family": "mlx-audio",
+      "name": "Whisper Large v3 Turbo",
+      "vendor": "openai",
+      "runtime": "mlx-audio",
+      "status": "ready",
+      "languages": "99+ languages",
+      "platforms": ["macOS 14+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": true,
+        "wordTimestamps": false
+      },
+      "source": {
+        "type": "huggingface",
+        "repo": "mlx-community/whisper-large-v3-turbo-asr-fp16"
+      }
+    },
+    {
+      "id": "mlx-community/Qwen3-ASR-1.7B-8bit",
+      "kind": "asr",
+      "family": "mlx-audio",
+      "name": "Qwen3-ASR 1.7B",
+      "vendor": "qwen",
+      "runtime": "mlx-audio",
+      "status": "ready",
+      "languages": "30 languages and 22 Chinese dialects",
+      "notes": "Recommended Qwen3 ASR size on Apple Silicon. The current Vox mlx-audio bridge is file-based.",
+      "platforms": ["macOS 14+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": true,
+        "wordTimestamps": false
+      },
+      "source": {
+        "type": "huggingface",
+        "repo": "mlx-community/Qwen3-ASR-1.7B-8bit"
+      }
+    },
+    {
+      "id": "mlx-community/Qwen3-ASR-0.6B-8bit",
+      "kind": "asr",
+      "family": "mlx-audio",
+      "name": "Qwen3-ASR 0.6B",
+      "vendor": "qwen",
+      "runtime": "mlx-audio",
+      "status": "ready",
+      "languages": "30 languages and 22 Chinese dialects",
+      "platforms": ["macOS 14+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": true,
+        "wordTimestamps": false
+      },
+      "source": {
+        "type": "huggingface",
+        "repo": "mlx-community/Qwen3-ASR-0.6B-8bit"
+      }
+    },
+    {
+      "id": "mlx-community/cohere-transcribe-03-2026-mlx-8bit",
+      "kind": "asr",
+      "family": "mlx-audio",
+      "name": "Cohere Transcribe 03-2026",
+      "vendor": "cohere",
+      "runtime": "mlx-audio",
+      "status": "ready",
+      "languages": "14 languages",
+      "notes": "Local MLX conversion of Cohere Transcribe. Offline rather than realtime; requires the mlx-audio ASR provider.",
+      "platforms": ["macOS 14+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": true,
+        "wordTimestamps": false
+      },
+      "source": {
+        "type": "huggingface",
+        "repo": "mlx-community/cohere-transcribe-03-2026-mlx-8bit"
+      }
+    },
+    {
+      "id": "mlx-community/nemotron-3.5-asr-streaming-0.6b-8bit",
+      "kind": "asr",
+      "family": "mlx-audio",
+      "name": "Nemotron 3.5 ASR Streaming 0.6B",
+      "vendor": "nvidia",
+      "runtime": "mlx-audio",
+      "status": "ready",
+      "languages": "35 languages",
+      "notes": "Cache-aware streaming FastConformer-RNNT with configurable latency. The model is streaming-capable; the current Vox mlx-audio bridge is file-based.",
+      "platforms": ["macOS 14+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": true,
+        "wordTimestamps": false
+      },
+      "source": {
+        "type": "huggingface",
+        "repo": "mlx-community/nemotron-3.5-asr-streaming-0.6b-8bit"
+      }
+    },
+    {
+      "id": "gpt-transcribe",
+      "kind": "asr",
+      "family": "openai-transcribe",
+      "name": "GPT Transcribe",
+      "vendor": "openai",
+      "runtime": "remote",
+      "status": "ready",
+      "languages": "multilingual",
+      "notes": "Current OpenAI file-transcription model.",
+      "requires": ["OPENAI_API_KEY"],
+      "platforms": ["macOS 14+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": false,
+        "wordTimestamps": false
+      }
+    },
+    {
+      "id": "gpt-4o-transcribe",
+      "kind": "asr",
+      "family": "openai-transcribe",
+      "name": "GPT-4o Transcribe",
+      "vendor": "openai",
+      "runtime": "remote",
+      "status": "ready",
+      "languages": "multilingual",
+      "requires": ["OPENAI_API_KEY"],
+      "platforms": ["macOS 14+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": false,
+        "wordTimestamps": false
+      }
+    },
+    {
+      "id": "gpt-4o-mini-transcribe",
+      "kind": "asr",
+      "family": "openai-transcribe",
+      "name": "GPT-4o Mini Transcribe",
+      "vendor": "openai",
+      "runtime": "remote",
+      "status": "ready",
+      "languages": "multilingual",
+      "requires": ["OPENAI_API_KEY"],
+      "platforms": ["macOS 14+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": false,
+        "wordTimestamps": false
+      }
+    },
+    {
+      "id": "whisper-1",
+      "kind": "asr",
+      "family": "openai-transcribe",
+      "name": "Whisper-1",
+      "vendor": "openai",
+      "runtime": "remote",
+      "status": "ready",
+      "languages": "multilingual",
+      "notes": "Legacy OpenAI Whisper API. The current Vox bridge uses finalized file transcription and does not yet request its timestamp or caption response formats.",
+      "requires": ["OPENAI_API_KEY"],
+      "platforms": ["macOS 14+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": false,
+        "wordTimestamps": false
+      }
+    },
+    {
+      "id": "gemma-4-e2b-it",
+      "kind": "asr",
+      "family": "mlx-vlm",
+      "name": "Gemma 4 E2B",
+      "vendor": "google",
+      "runtime": "mlx-vlm",
+      "status": "plugin",
+      "plugin": "mlx-vlm",
+      "languages": "multilingual",
+      "notes": "Install with `vox plugins install mlx-vlm`. The plugin speaks the Vox provider protocol and runs Gemma through mlx-vlm.",
+      "platforms": ["macOS 14+"],
+      "architectures": ["arm64"],
+      "capabilities": {
+        "fileTranscription": true,
+        "liveTranscription": false,
+        "onDevice": true,
+        "wordTimestamps": false
+      },
+      "source": {
+        "type": "huggingface",
+        "repo": "mlx-community/gemma-4-E2B-it-4bit"
+      }
+    }
+  ]
+}

@@ -47,6 +47,64 @@ describe("VoxClient", () => {
     ]);
   });
 
+  it("parses the published speech model catalog", async () => {
+    const client = new VoxClient({ clientId: "test-client" }) as unknown as {
+      call: (method: string) => Promise<Record<string, unknown>>;
+      listCatalog: () => Promise<{
+        version: number;
+        models: Array<{
+          id: string;
+          family: string;
+          default: boolean;
+          architectures?: string[];
+          capabilities?: { onDevice: boolean; liveTranscription: boolean };
+        }>;
+      }>;
+      refreshCatalog: () => Promise<{ version: number; models: Array<{ id: string }> }>;
+    };
+
+    client.call = async (method) => {
+      expect(["models.catalog", "models.refreshCatalog"]).toContain(method);
+      return {
+        version: 1,
+        updatedAt: "2026-08-29",
+        models: [
+          {
+            id: "parakeet:v3",
+            kind: "asr",
+            family: "parakeet-tdt",
+            name: "Parakeet TDT v3",
+            status: "ready",
+            default: true,
+            architectures: ["arm64"],
+            capabilities: {
+              fileTranscription: true,
+              liveTranscription: false,
+              onDevice: true,
+              wordTimestamps: true,
+            },
+          },
+        ],
+      };
+    };
+
+    const listed = await client.listCatalog();
+    expect(listed.version).toBe(1);
+    expect(listed.models[0]?.id).toBe("parakeet:v3");
+    expect(listed.models[0]?.family).toBe("parakeet-tdt");
+    expect(listed.models[0]?.default).toBe(true);
+    expect(listed.models[0]?.architectures).toEqual(["arm64"]);
+    expect(listed.models[0]?.capabilities).toEqual({
+      fileTranscription: true,
+      liveTranscription: false,
+      onDevice: true,
+      wordTimestamps: true,
+    });
+
+    const refreshed = await client.refreshCatalog();
+    expect(refreshed.models[0]?.id).toBe("parakeet:v3");
+  });
+
   it("parses live session status responses", async () => {
     const client = new VoxClient({ clientId: "test-client" }) as unknown as {
       call: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;

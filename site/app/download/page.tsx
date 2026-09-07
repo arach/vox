@@ -39,6 +39,7 @@ export default function DownloadPage() {
           </Link>
           <nav className="flex flex-wrap items-center gap-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
             <Link href="/docs/overview" className="px-2.5 py-1.5 transition-colors hover:text-accent">Docs</Link>
+            <Link href="/models" className="px-2.5 py-1.5 transition-colors hover:text-accent">Models</Link>
             <Link href="/web" className="px-2.5 py-1.5 transition-colors hover:text-accent">Web SDK</Link>
             <Link href="/minivox" className="px-2.5 py-1.5 transition-colors hover:text-accent">Minivox</Link>
             <Link href="/blog" className="px-2.5 py-1.5 transition-colors hover:text-accent">Blog</Link>

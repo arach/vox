@@ -67,6 +67,9 @@ export default function WebSdkPage() {
             <Link href="/docs/web-integration" className="rounded-md px-3 py-2 transition-colors hover:bg-wave hover:text-ink">
               Docs
             </Link>
+            <Link href="/models" className="rounded-md px-3 py-2 transition-colors hover:bg-wave hover:text-ink">
+              Models
+            </Link>
             <Link href="/download" className="rounded-md px-3 py-2 transition-colors hover:bg-wave hover:text-ink">
               Download
             </Link>

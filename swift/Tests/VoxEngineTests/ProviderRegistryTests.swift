@@ -5,6 +5,27 @@ import VoxCore
 
 @Suite(.serialized)
 struct ProviderRegistryTests {
+    #if os(macOS) && arch(arm64)
+    @Test("Apple SpeechTranscriber locale prefers provider configuration")
+    func appleSpeechLocaleResolution() {
+        let locale = AppleSpeechTranscriberProvider.resolveLocaleIdentifier(
+            env: ["VOX_APPLE_SPEECH_LOCALE": "fr-CA"],
+            processEnv: ["VOX_APPLE_SPEECH_LOCALE": "en-US"],
+            currentLocale: Locale(identifier: "de-DE")
+        )
+        #expect(locale == "fr-CA")
+    }
+    #endif
+
+    @Test("Moonshine language prefers provider configuration")
+    func moonshineLanguageResolution() {
+        let language = MoonshineASRProvider.resolveLanguage(
+            env: ["VOX_MOONSHINE_LANGUAGE": "ja"],
+            processEnv: ["VOX_MOONSHINE_LANGUAGE": "en"]
+        )
+        #expect(language == "ja")
+    }
+
     @Test("builtin mlx-audio provider resolves bundled script command")
     func builtinMlxAudioCommandUsesBundledScript() throws {
         let command = try BuiltinExternalProvider.mlxAudioCommand(kind: .asr, env: nil)
@@ -15,6 +36,8 @@ struct ProviderRegistryTests {
         #expect(command[2] == "-u")
         #expect(command.last == "asr")
         #expect(command[3].hasSuffix("mlx_audio_provider.py"))
+        let script = try String(contentsOfFile: command[3], encoding: .utf8)
+        #expect(script.contains("mlx-community/nemotron-3.5-asr-streaming-0.6b-8bit"))
     }
 
     @Test("builtin mlx-audio provider infers VIRTUAL_ENV from python override")

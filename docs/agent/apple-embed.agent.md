@@ -31,6 +31,7 @@
 - TTS generation default: `TTSEngineManager()` -> `TTSProviderRegistry` with OpenAI TTS plus AVSpeech fallback
 - TTS playback is not on `TTSProvider`; optional Apple playback is `AppleSpeechOutputController`
 - default ASR model id: `parakeet:v3`
+- English-only ASR model id: `parakeet:v2`
 - default TTS model id: `TTSDefaults.modelId` = `gpt-4o-mini-tts`
 - local TTS model id: `TTSDefaults.localModelId` = `avspeech:system`
 - default TTS format: `TTSDefaults.format` = `wav`

@@ -29,6 +29,7 @@ Warm-up is always explicit. Preserve `clientId`, `route`, `modelId`, and `voiceI
 | Companion SDK methods and types | `packages/client/src/client.ts`, `packages/client/src/types.ts` |
 | Browser API and HTTP paths | `packages/web-client/src/client.ts`, `packages/web-client/src/types.ts` |
 | CLI syntax | `packages/cli/src/index.ts` and `vox help` |
+| Dictation catalog and plugins | `data/models.json` and [Models and plugins](./models.md) |
 | Public integration guidance | the matching page in `docs/` |
 
 When prose and source disagree, treat the source as current and update the prose in the same change.

@@ -3,15 +3,22 @@ import VoxCore
 
 public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
     private let log = VoxLog.engine
-    private let manifest: ParakeetModelManifest
-    private let store: ParakeetModelStore
-    private let runtime: any ParakeetRuntime
+    private let manifests: [ParakeetModelManifest]
     private let audioLoader: ParakeetAudioLoader
+    private let catalogStore: ModelCatalogStore?
+    private var engines: [String: Engine] = [:]
+    private let engineLock = NSLock()
 
-    public init() {
-        self.manifest = .v3
-        self.store = ParakeetModelStore(manifest: .v3)
-        self.runtime = ParakeetCoreMLRuntime()
+    private struct Engine {
+        let manifest: ParakeetModelManifest
+        let store: ParakeetModelStore
+        let runtime: any ParakeetRuntime
+    }
+
+    public init(catalogStore: ModelCatalogStore = .shared) {
+        self.catalogStore = catalogStore
+        let catalogManifests = catalogStore.parakeetManifests()
+        self.manifests = catalogManifests.isEmpty ? ParakeetModelManifest.builtin : catalogManifests
         self.audioLoader = ParakeetAudioLoader()
     }
 
@@ -21,49 +28,57 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
         runtime: (any ParakeetRuntime)? = nil,
         audioLoader: ParakeetAudioLoader = ParakeetAudioLoader()
     ) {
-        self.manifest = manifest
-        self.store = store ?? ParakeetModelStore(manifest: manifest)
-        self.runtime = runtime ?? ParakeetCoreMLRuntime()
+        self.catalogStore = nil
+        self.manifests = [manifest]
         self.audioLoader = audioLoader
+        self.engines = [
+            manifest.modelId: Engine(
+                manifest: manifest,
+                store: store ?? ParakeetModelStore(manifest: manifest),
+                runtime: runtime ?? ParakeetCoreMLRuntime(manifest: manifest)
+            )
+        ]
     }
 
     public func models() async -> [ASRModelInfo] {
-        [await modelInfo()]
+        var infos: [ASRModelInfo] = []
+        for manifest in resolvedManifests() {
+            infos.append(await modelInfo(for: engine(for: manifest)))
+        }
+        return infos
     }
 
     public func install(
         modelId: String,
         progress: @escaping @Sendable (ModelProgress) -> Void
     ) async throws -> ASRModelInfo {
-        try validate(modelId: modelId)
-        return try await ensureLoaded(progress: progress)
+        try await ensureLoaded(modelId: modelId, progress: progress)
     }
 
     public func preload(
         modelId: String,
         progress: @escaping @Sendable (ModelProgress) -> Void
     ) async throws -> ASRModelInfo {
-        try validate(modelId: modelId)
-        return try await ensureLoaded(progress: progress)
+        try await ensureLoaded(modelId: modelId, progress: progress)
     }
 
     public func transcribe(url: URL, modelId: String) async throws -> TranscriptionOutput {
         let trace = TranscriptionTrace()
+        let engine = try resolveEngine(modelId: modelId)
 
         trace.begin("file_check")
-        try validate(modelId: modelId)
         try validateAudioFile(url: url)
         let inputBytes = ((try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.intValue) ?? 0
         trace.end("\(inputBytes) bytes")
 
         trace.begin("model_check")
-        let wasPreloaded = await runtime.isPreloaded()
+        let wasPreloaded = await engine.runtime.isPreloaded()
         trace.end(wasPreloaded ? "already loaded" : "needs load")
 
         if !wasPreloaded {
             trace.begin("model_load")
         }
-        _ = try await ensureLoaded { _ in }
+        _ = try await ensureLoaded(modelId: modelId) { _ in }
         if !wasPreloaded {
             trace.end("initialized")
         }
@@ -77,7 +92,7 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
         trace.end(prepared.wasPadded ? "padded" : "unchanged")
 
         trace.begin("inference")
-        let result = try await runtime.transcribe(samples: prepared.samples)
+        let result = try await engine.runtime.transcribe(samples: prepared.samples)
         let inferenceMs = trace.end("\(result.text.count) chars")
 
         let metrics = TranscriptionMetrics(
@@ -96,20 +111,12 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
 
         log.info("Trace complete \(trace.summary)")
         return TranscriptionOutput(
-            modelId: manifest.modelId,
+            modelId: engine.manifest.modelId,
             text: result.text,
             elapsedMs: metrics.totalMs,
             metrics: metrics,
             words: result.words
         )
-    }
-
-    private func validate(modelId: String) throws {
-        guard modelId == manifest.modelId else {
-            throw NSError(domain: "VoxEngine", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Unsupported model: \(modelId)"
-            ])
-        }
     }
 
     func validateAudioFile(url: URL) throws {
@@ -134,28 +141,60 @@ public final class ParakeetProvider: @unchecked Sendable, ASRProvider {
         }
     }
 
+    private func resolvedManifests() -> [ParakeetModelManifest] {
+        if let catalogStore {
+            let catalogManifests = catalogStore.parakeetManifests()
+            if !catalogManifests.isEmpty {
+                return catalogManifests
+            }
+        }
+        return manifests
+    }
+
+    private func resolveEngine(modelId: String) throws -> Engine {
+        guard let manifest = resolvedManifests().first(where: { $0.modelId == modelId }) else {
+            throw NSError(domain: "VoxEngine", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Unsupported model: \(modelId)"
+            ])
+        }
+        return engine(for: manifest)
+    }
+
+    private func engine(for manifest: ParakeetModelManifest) -> Engine {
+        engineLock.lock()
+        defer { engineLock.unlock() }
+        if let existing = engines[manifest.modelId] {
+            return existing
+        }
+        let created = Engine(
+            manifest: manifest,
+            store: ParakeetModelStore(manifest: manifest),
+            runtime: ParakeetCoreMLRuntime(manifest: manifest)
+        )
+        engines[manifest.modelId] = created
+        return created
+    }
+
     private func ensureLoaded(
+        modelId: String,
         progress: @escaping @Sendable (ModelProgress) -> Void
     ) async throws -> ASRModelInfo {
-        let installedDirectory = try await store.ensureInstalled(progress: progress)
-        try await runtime.load(from: installedDirectory, progress: progress)
-        log.info("\(manifest.name) loaded")
-        return await modelInfo()
+        let engine = try resolveEngine(modelId: modelId)
+        let installedDirectory = try await engine.store.ensureInstalled(progress: progress)
+        try await engine.runtime.load(from: installedDirectory, progress: progress)
+        log.info("\(engine.manifest.name) loaded")
+        return await modelInfo(for: engine)
     }
 
-    private func modelInfo() async -> ASRModelInfo {
+    private func modelInfo(for engine: Engine) async -> ASRModelInfo {
         ASRModelInfo(
-            id: manifest.modelId,
-            name: manifest.name,
-            backend: manifest.backend,
-            installed: store.isInstalled(),
-            preloaded: await runtime.isPreloaded(),
-            available: isBackendAvailable()
+            id: engine.manifest.modelId,
+            name: engine.manifest.name,
+            backend: engine.manifest.backend,
+            installed: engine.store.isInstalled(),
+            preloaded: await engine.runtime.isPreloaded(),
+            available: engine.runtime.isAvailable
         )
-    }
-
-    private func isBackendAvailable() -> Bool {
-        runtime.isAvailable
     }
 }
 

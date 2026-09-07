@@ -23,6 +23,7 @@
       "title": "Runtime",
       "items": [
         { "id": "runtime", "title": "Runtime" },
+        { "id": "models", "title": "Models and plugins" },
         { "id": "architecture", "title": "Architecture" },
         { "id": "providers", "title": "Provider Protocol" },
         { "id": "observability", "title": "Observability" },

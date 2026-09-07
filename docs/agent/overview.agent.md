@@ -17,7 +17,9 @@
 - Minivox first use: the installer launches the menu-bar app; put the cursor in a text field, press `⌥Space` to start, then press `⌥Space` again to stop and copy/paste the transcript
 - Minivox command: `minivox`, `minivox settings`, `minivox quit`
 - Minivox npm install output: `--quiet` or `--verbose`
-- model focus: `parakeet:v3` for ASR, `gpt-4o-mini-tts` for default TTS
+- model focus: `parakeet:v3` for ASR, `parakeet:v2` for English-only TDT, `gpt-4o-mini-tts` for default TTS
+- dictation catalog: `https://voxd.cc/data/models.json` and site `/models`; refresh with `vox models catalog refresh`
+- plugins: catalog `plugins[]`; install with `vox plugins install <id>`; stored in `~/.vox/plugins/`
 - warmup: explicit API surface
 - telemetry dimensions: `clientId`, `route`, `modelId`, `voiceId`
-- configurable: `VOX_PORT`, `VOX_BRIDGE_PORT`, `VOX_HOST`, `VOX_HOME`
+- configurable: `VOX_PORT`, `VOX_BRIDGE_PORT`, `VOX_HOST`, `VOX_HOME`, `VOX_MODEL_CATALOG_URL`

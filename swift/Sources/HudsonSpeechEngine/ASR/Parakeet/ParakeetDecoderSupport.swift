@@ -2,7 +2,7 @@ import Accelerate
 @preconcurrency import CoreML
 import Foundation
 
-struct ParakeetTdtConfig: Sendable {
+struct ParakeetTdtConfig: Sendable, Equatable {
     let includeTokenDuration: Bool
     let maxSymbolsPerStep: Int
     let durationBins: [Int]

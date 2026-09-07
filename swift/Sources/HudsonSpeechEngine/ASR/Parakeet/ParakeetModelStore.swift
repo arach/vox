@@ -1,7 +1,7 @@
 import Foundation
 import VoxCore
 
-struct ParakeetModelManifest: Sendable {
+struct ParakeetModelManifest: Sendable, Equatable {
     let modelId: String
     let name: String
     let backend: String
@@ -9,11 +9,58 @@ struct ParakeetModelManifest: Sendable {
     let cacheDirectoryName: String
     let requiredModelFiles: Set<String>
     let vocabularyFile: String
+    let jointFileName: String
+    let tdtConfig: ParakeetTdtConfig
+
+    var inferenceConfig: ParakeetInferenceConfig {
+        ParakeetInferenceConfig(tdtConfig: tdtConfig)
+    }
+
+    init(
+        modelId: String,
+        name: String,
+        backend: String = "parakeet",
+        repositoryFolderName: String,
+        cacheDirectoryName: String,
+        requiredModelFiles: Set<String>,
+        vocabularyFile: String,
+        jointFileName: String,
+        tdtConfig: ParakeetTdtConfig
+    ) {
+        self.modelId = modelId
+        self.name = name
+        self.backend = backend
+        self.repositoryFolderName = repositoryFolderName
+        self.cacheDirectoryName = cacheDirectoryName
+        self.requiredModelFiles = requiredModelFiles
+        self.vocabularyFile = vocabularyFile
+        self.jointFileName = jointFileName
+        self.tdtConfig = tdtConfig
+    }
+
+    init?(entry: SpeechModelCatalogEntry) {
+        guard entry.family == SpeechModelFamily.parakeetTDT,
+              entry.isASR,
+              let spec = entry.parakeet,
+              let repo = entry.source?.repo else {
+            return nil
+        }
+
+        self.init(
+            modelId: entry.id,
+            name: entry.name,
+            repositoryFolderName: repo,
+            cacheDirectoryName: spec.cacheDirectoryName,
+            requiredModelFiles: Set(spec.requiredFiles),
+            vocabularyFile: spec.vocabularyFile,
+            jointFileName: spec.jointFile,
+            tdtConfig: ParakeetTdtConfig(blankId: spec.blankId)
+        )
+    }
 
     static let v3 = ParakeetModelManifest(
         modelId: "parakeet:v3",
         name: "Parakeet TDT v3",
-        backend: "parakeet",
         repositoryFolderName: "FluidInference/parakeet-tdt-0.6b-v3-coreml",
         cacheDirectoryName: "parakeet-tdt-0.6b-v3",
         requiredModelFiles: [
@@ -22,8 +69,28 @@ struct ParakeetModelManifest: Sendable {
             "Decoder.mlmodelc",
             "JointDecisionv3.mlmodelc",
         ],
-        vocabularyFile: "parakeet_vocab.json"
+        vocabularyFile: "parakeet_vocab.json",
+        jointFileName: "JointDecisionv3.mlmodelc",
+        tdtConfig: ParakeetTdtConfig(blankId: 8192)
     )
+
+    static let v2 = ParakeetModelManifest(
+        modelId: "parakeet:v2",
+        name: "Parakeet TDT v2",
+        repositoryFolderName: "FluidInference/parakeet-tdt-0.6b-v2-coreml",
+        cacheDirectoryName: "parakeet-tdt-0.6b-v2",
+        requiredModelFiles: [
+            "Preprocessor.mlmodelc",
+            "Encoder.mlmodelc",
+            "Decoder.mlmodelc",
+            "JointDecision.mlmodelc",
+        ],
+        vocabularyFile: "parakeet_vocab.json",
+        jointFileName: "JointDecision.mlmodelc",
+        tdtConfig: ParakeetTdtConfig(blankId: 1024)
+    )
+
+    static let builtin: [ParakeetModelManifest] = [.v3, .v2]
 }
 
 struct ParakeetModelStore: Sendable {

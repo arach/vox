@@ -30,7 +30,7 @@ struct ParakeetModelLoader: Sendable {
             preprocessor: directory.appendingPathComponent("Preprocessor.mlmodelc", isDirectory: true),
             encoder: directory.appendingPathComponent("Encoder.mlmodelc", isDirectory: true),
             decoder: directory.appendingPathComponent("Decoder.mlmodelc", isDirectory: true),
-            joint: directory.appendingPathComponent("JointDecisionv3.mlmodelc", isDirectory: true),
+            joint: directory.appendingPathComponent(manifest.jointFileName, isDirectory: true),
             vocabulary: directory.appendingPathComponent(manifest.vocabularyFile)
         )
     }

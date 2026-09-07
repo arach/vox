@@ -23,11 +23,14 @@ Apple apps can embed Vox directly. Bun and Node tools can connect to `voxd` over
 
 Requirements:
 
-- macOS 14+ for the Swift transcription packages and Minivox; macOS 26+ for the Hudson menu app
+- Apple Silicon; Intel Macs are not supported
+- macOS 14+ for the Swift transcription packages and Minivox; macOS 26+ for the Hudson menu app and Apple SpeechTranscriber
 - Bun 1.2+
 - Node 22+
 - Swift 6.2+
 - `uv` for the MLX-backed demo paths
+
+The built-in ASR shortlist includes CoreML Parakeet, Apple SpeechTranscriber, and Moonshine Medium Streaming. The optional MLX Audio bridge adds Qwen3-ASR, Cohere Transcribe, Nemotron 3.5 ASR Streaming, Whisper, and MLX Parakeet variants.
 
 ### a. dev
 
@@ -148,6 +151,10 @@ This lets you answer a few practical questions: is the hot model fast, which int
 vox daemon start
 vox doctor
 vox models list
+vox models catalog
+vox models catalog refresh
+vox plugins list
+vox plugins install mlx-vlm
 vox models install
 vox warmup start
 vox warmup schedule 500

@@ -11,7 +11,7 @@
  * Wire it into ~/.vox/providers.json:
  *   {
  *     "providers": [
- *       { "id": "parakeet", "builtin": true, "models": ["parakeet:v3"] },
+ *       { "id": "parakeet", "builtin": true, "models": ["parakeet:v3", "parakeet:v2"] },
  *       {
  *         "id": "template",
  *         "command": ["bun", "run", "/path/to/examples/provider-template/index.ts"],

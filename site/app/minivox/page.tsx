@@ -62,6 +62,7 @@ export default function MinivoxPage() {
           <nav aria-label="Minivox" className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
             <Link href="/" className="hidden px-2.5 py-1.5 transition-colors hover:text-accent sm:inline-flex">Home</Link>
             <a href={downloadUrl} className="px-2.5 py-1.5 transition-colors hover:text-accent">Download</a>
+            <Link href="/models" className="px-2.5 py-1.5 transition-colors hover:text-accent">Models</Link>
             <Link href="/docs/apple-embed" className="px-2.5 py-1.5 transition-colors hover:text-accent">Embed guide</Link>
             <Link href={sourceUrl} target="_blank" rel="noreferrer noopener" className="px-2.5 py-1.5 transition-colors hover:text-accent">Source</Link>
           </nav>

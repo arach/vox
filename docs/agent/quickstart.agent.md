@@ -9,4 +9,6 @@
 - verify with `vox doctor`
 - repo checkout CLI after build: `node packages/cli/dist/index.js`
 - ASR smoke path: `vox warmup start parakeet:v3` then `vox transcribe file <path>`
+- catalog: `vox models catalog` then `vox models catalog refresh`
+- plugins: `vox plugins list` then `vox plugins install mlx-vlm`
 - do not send Apple-native integrations through Companion by default

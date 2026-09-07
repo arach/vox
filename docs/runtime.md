@@ -81,9 +81,16 @@ The runtime exposes these RPC routes:
 - `synthesize.startSession`
 - `synthesize.sessionStatus`
 - `synthesize.cancel`
+- `models.list`
+- `models.install`
+- `models.preload`
+- `models.catalog`
+- `models.refreshCatalog`
 - `warmup.status`
 - `warmup.start`
 - `warmup.schedule`
+
+`models.catalog` returns the published dictation catalog, including `plugins[]`. Plugin install is `vox plugins install`, not an RPC. `voxd` loads `~/.vox/plugins/*/provider.json` at start. See [Models and plugins](./models.md).
 
 ## Performance routes
 
@@ -132,8 +139,10 @@ CLI flag `--port` takes precedence over env vars for both `voxd` and `voxbridge`
 - `swift/Sources/VoxService/LiveSessionCoordinator.swift`
 - `swift/Sources/VoxService/SynthesisSessionCoordinator.swift`
 - `swift/Sources/VoxService/WarmupCoordinator.swift`
-- `swift/Sources/VoxEngine/ProviderRegistry.swift`
-- `swift/Sources/VoxEngine/TTSProviderRegistry.swift`
+- `swift/Sources/HudsonSpeechEngine/ProviderRegistry.swift`
+- `swift/Sources/HudsonSpeechEngine/TTSProviderRegistry.swift`
+- `swift/Sources/VoxCore/SpeechModelCatalog.swift`
+- `swift/Sources/VoxCore/PluginStore.swift`
 
 Use the operator surface to inspect the runtime without guessing:
 

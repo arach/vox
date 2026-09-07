@@ -59,6 +59,13 @@ struct BuiltinExternalProvider {
         if merged["PYTHONUNBUFFERED"] == nil {
             merged["PYTHONUNBUFFERED"] = "1"
         }
+        if merged["VOX_MLX_AUDIO_ASR_MODELS"] == nil,
+           ProcessInfo.processInfo.environment["VOX_MLX_AUDIO_ASR_MODELS"] == nil {
+            let catalogIDs = ModelCatalogStore.shared.mlxAudioModelIDs()
+            if !catalogIDs.isEmpty {
+                merged["VOX_MLX_AUDIO_ASR_MODELS"] = catalogIDs.joined(separator: ",")
+            }
+        }
 
         if shouldUseUvRunner(merged) {
             merged["PATH"] = expandedExecutableSearchPath(merged["PATH"])

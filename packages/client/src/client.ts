@@ -14,6 +14,7 @@ import type {
   LiveSessionStatus,
   ModelInfo,
   ModelProgress,
+  SpeechModelCatalog,
   SynthesisOptions,
   SynthesisResult,
   SessionFinalEvent,
@@ -83,6 +84,16 @@ export class VoxClient {
   async listModels(): Promise<ModelInfo[]> {
     const result = await this.call("models.list");
     return (result.models as ModelInfo[]) ?? [];
+  }
+
+  async listCatalog(): Promise<SpeechModelCatalog> {
+    const result = await this.call("models.catalog");
+    return parseCatalog(result);
+  }
+
+  async refreshCatalog(): Promise<SpeechModelCatalog> {
+    const result = await this.call("models.refreshCatalog");
+    return parseCatalog(result);
   }
 
   async listVoices(modelId?: string): Promise<VoiceInfo[]> {
@@ -410,6 +421,75 @@ function parseSpeechTimingCues(value: unknown): SpeechTiming["cues"] {
       source: String(fields.source ?? ""),
     };
   }).filter((cue) => cue.id.length > 0);
+}
+
+function parseCatalog(result: Record<string, unknown>): SpeechModelCatalog {
+  const models = Array.isArray(result.models) ? result.models : [];
+  const plugins = Array.isArray(result.plugins) ? result.plugins : [];
+  return {
+    version: Number(result.version ?? 1),
+    updatedAt: String(result.updatedAt ?? ""),
+    models: models.map((entry) => {
+      const fields = isRecord(entry) ? entry : {};
+      const source = isRecord(fields.source) ? fields.source : null;
+      const capabilities = isRecord(fields.capabilities) ? fields.capabilities : null;
+      return {
+        id: String(fields.id ?? ""),
+        kind: String(fields.kind ?? "asr"),
+        family: String(fields.family ?? ""),
+        name: String(fields.name ?? fields.id ?? ""),
+        vendor: fields.vendor ? String(fields.vendor) : undefined,
+        runtime: fields.runtime ? String(fields.runtime) : undefined,
+        status: String(fields.status ?? "ready"),
+        default: Boolean(fields.default),
+        languages: fields.languages ? String(fields.languages) : undefined,
+        notes: fields.notes ? String(fields.notes) : undefined,
+        requires: Array.isArray(fields.requires)
+          ? fields.requires.map((value) => String(value))
+          : undefined,
+        platforms: Array.isArray(fields.platforms)
+          ? fields.platforms.map((value) => String(value))
+          : undefined,
+        architectures: Array.isArray(fields.architectures)
+          ? fields.architectures.map((value) => String(value))
+          : undefined,
+        capabilities: capabilities
+          ? {
+              fileTranscription: Boolean(capabilities.fileTranscription),
+              liveTranscription: Boolean(capabilities.liveTranscription),
+              onDevice: Boolean(capabilities.onDevice),
+              wordTimestamps: Boolean(capabilities.wordTimestamps),
+            }
+          : undefined,
+        plugin: fields.plugin ? String(fields.plugin) : undefined,
+        source: source
+          ? {
+              type: String(source.type ?? ""),
+              repo: source.repo ? String(source.repo) : undefined,
+            }
+          : undefined,
+      };
+    }),
+    plugins: plugins.map((entry) => {
+      const fields = isRecord(entry) ? entry : {};
+      const install = isRecord(fields.install) ? fields.install : null;
+      return {
+        id: String(fields.id ?? ""),
+        kind: String(fields.kind ?? "asr"),
+        name: String(fields.name ?? fields.id ?? ""),
+        status: String(fields.status ?? "ready"),
+        command: Array.isArray(fields.command) ? fields.command.map((value) => String(value)) : undefined,
+        notes: fields.notes ? String(fields.notes) : undefined,
+        install: install
+          ? {
+              kind: String(install.kind ?? ""),
+              id: install.id ? String(install.id) : undefined,
+              package: install.package ? String(install.package) : undefined,
+            }
+          : undefined,
+      };
+    }),
+  };
 }
 
 function optionalNumber(value: unknown): number | null {
