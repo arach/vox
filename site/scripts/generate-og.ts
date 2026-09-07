@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { execFileSync } from "child_process";
@@ -850,8 +850,290 @@ function renderMinivoxTemplate() {
 </html>`;
 }
 
-function renderToPng(htmlPath: string, outputPath: string) {
-  execFileSync("bun", ["x", "@arach/og", htmlPath, "-o", outputPath], {
+function renderGithubSocialTemplate() {
+  const wave = [5, 7, 6, 9, 14, 22, 28, 24, 16, 11, 9, 18, 30, 36, 28, 19, 13, 10, 8, 13, 24, 27, 18, 11, 7, 6, 9, 16, 12, 7, 5, 4, 6, 5, 4, 5, 8, 12, 9, 6];
+  const bars = wave
+    .map((height) => `<span class="bar${height >= 28 ? " peak" : ""}" style="height:${height}px"></span>`)
+    .join("");
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      @font-face {
+        font-family: "Space Grotesk";
+        src: url("${minivoxFonts.sansRegular}") format("woff2");
+        font-style: normal;
+        font-weight: 400;
+      }
+
+      @font-face {
+        font-family: "Space Grotesk";
+        src: url("${minivoxFonts.sansMedium}") format("woff2");
+        font-style: normal;
+        font-weight: 500;
+      }
+
+      @font-face {
+        font-family: "IBM Plex Mono";
+        src: url("${minivoxFonts.monoRegular}") format("woff2");
+        font-style: normal;
+        font-weight: 400;
+      }
+
+      @font-face {
+        font-family: "IBM Plex Mono";
+        src: url("${minivoxFonts.monoMedium}") format("woff2");
+        font-style: normal;
+        font-weight: 500;
+      }
+
+      :root {
+        --bg: #050505;
+        --panel: #0e0e0e;
+        --ink: #f0f0f0;
+        --secondary: #a0a0a0;
+        --muted: #787878;
+        --accent: #ef4444;
+        --line: rgba(255, 255, 255, 0.07);
+        --line-strong: rgba(255, 255, 255, 0.12);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        width: 1280px;
+        height: 640px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 78% 44%, rgba(239, 68, 68, 0.07), transparent 22rem),
+          var(--bg);
+        color: var(--ink);
+        font-family: "Space Grotesk", sans-serif;
+      }
+
+      .frame {
+        width: 100%;
+        height: 100%;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 488px;
+        align-items: center;
+        gap: 52px;
+        padding: 64px 72px;
+      }
+
+      .copy {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-width: 0;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        color: var(--secondary);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 13px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .brand-mark {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+
+      .eyebrow {
+        margin-top: 36px;
+        color: var(--muted);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 13px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 16px 0 0;
+        font-size: 62px;
+        font-weight: 500;
+        line-height: 0.94;
+        letter-spacing: -0.05em;
+      }
+
+      h1 span { color: var(--accent); }
+
+      .description {
+        margin-top: 24px;
+        max-width: 34ch;
+        color: var(--secondary);
+        font-size: 20px;
+        line-height: 1.45;
+        letter-spacing: -0.015em;
+      }
+
+      .wave {
+        display: flex;
+        align-items: flex-end;
+        gap: 3px;
+        height: 40px;
+        margin-top: 32px;
+      }
+
+      .bar {
+        width: 2px;
+        border-radius: 1px;
+        background: rgba(240, 240, 240, 0.22);
+      }
+
+      .bar.peak { background: var(--accent); }
+
+      .url {
+        margin-top: 40px;
+        color: var(--muted);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .window {
+        overflow: hidden;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background: var(--panel);
+        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
+      }
+
+      .window-header {
+        height: 46px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--line);
+        background: var(--bg);
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.16);
+      }
+
+      .window-title {
+        margin-left: auto;
+        color: var(--muted);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+      }
+
+      .ready {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-left: 12px;
+        padding: 5px 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .ready-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+
+      .window-body {
+        padding: 22px 22px 8px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 15px;
+        line-height: 1.7;
+      }
+
+      .cmd { color: var(--muted); }
+      .out { color: var(--ink); }
+      .block { margin-top: 16px; }
+      .block:first-child { margin-top: 0; }
+
+      .window-footer {
+        display: flex;
+        justify-content: space-between;
+        margin: 8px 22px 18px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+        color: #666;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame">
+      <div class="copy">
+        <div class="brand"><span class="brand-mark"></span>Vox / local-first</div>
+        <div class="eyebrow">// speech runtime</div>
+        <h1>macOS transcription<br />and text-to-speech<span>.</span></h1>
+        <div class="description">Embed in Apple apps, or connect browsers and tools through Vox Companion.</div>
+        <div class="wave">${bars}</div>
+        <div class="url">github.com/arach/vox</div>
+      </div>
+
+      <div class="window">
+        <div class="window-header">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="window-title">vox-operator</span>
+          <span class="ready"><span class="ready-dot"></span>ready</span>
+        </div>
+        <div class="window-body">
+          <div class="block">
+            <div class="cmd">$ vox transcribe file --metrics /tmp/sample.wav</div>
+            <div class="out">done · 127ms · "hello from Vox"</div>
+          </div>
+          <div class="block">
+            <div class="cmd">$ vox models catalog</div>
+            <div class="out">parakeet:v3 · gpt-transcribe · gemma-4-e2b-it</div>
+          </div>
+          <div class="block">
+            <div class="cmd">$ vox plugins install mlx-vlm</div>
+            <div class="out">plugin ready · restart voxd</div>
+          </div>
+        </div>
+        <div class="window-footer"><span>local · measurable</span><span>apple · web · cli</span></div>
+      </div>
+    </div>
+  </body>
+</html>`;
+}
+
+function renderToPng(
+  htmlPath: string,
+  outputPath: string,
+  size?: { width: number; height: number; scale?: number },
+) {
+  const args = ["x", "@arach/og", htmlPath, "-o", outputPath];
+  if (size) {
+    args.push("--width", String(size.width), "--height", String(size.height));
+    if (size.scale != null) args.push("--scale", String(size.scale));
+  }
+  execFileSync("bun", args, {
     cwd: siteRoot,
     stdio: "inherit",
   });
@@ -870,10 +1152,28 @@ function renderMinivoxOg() {
   );
 }
 
+function renderGithubSocial() {
+  const githubSize = { width: 1280, height: 640, scale: 2 };
+  const siteOutput = join(publicRoot, "og", "github.png");
+  const repoOutput = join(siteRoot, "..", ".github", "social-preview.png");
+
+  mkdirSync(join(publicRoot, "og"), { recursive: true });
+  mkdirSync(join(siteRoot, "..", ".github"), { recursive: true });
+
+  renderToPng(
+    writeTempHtml("github", renderGithubSocialTemplate()),
+    siteOutput,
+    githubSize,
+  );
+  copyFileSync(siteOutput, repoOutput);
+}
+
 try {
   mkdirSync(docsOgRoot, { recursive: true });
 
-  if (process.argv.includes("--minivox-only")) {
+  if (process.argv.includes("--github-only")) {
+    renderGithubSocial();
+  } else if (process.argv.includes("--minivox-only")) {
     renderMinivoxOg();
   } else {
   renderToPng(join(siteRoot, "og-template.html"), join(publicRoot, "og.png"));
@@ -890,6 +1190,7 @@ try {
   );
 
   renderMinivoxOg();
+  renderGithubSocial();
 
   const docsIndexHtml = writeTempHtml(
     "docs-index",

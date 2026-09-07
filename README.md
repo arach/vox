@@ -183,6 +183,7 @@ Speech synthesis supports Apple system voices locally and OpenAI TTS (`gpt-4o-mi
 - Generated handoff files: `AGENTS.md`, `llms.txt`, `docs.json`, `install.md`
 - Website and `/docs` route: `site/`
 - OG image template: `site/og-template.html`
+- GitHub social preview: `.github/social-preview.png` (1280×640). Generate with `bun run --cwd site scripts/generate-og.ts --github-only`, then upload the PNG in the repository Settings → Social preview.
 
 ## Release automation
 
