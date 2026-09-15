@@ -109,7 +109,7 @@ public final class ModelCatalogStore: @unchecked Sendable {
     }
 
     static func loadBundledCatalog() -> SpeechModelCatalog {
-        if let url = Bundle.module.url(forResource: "models", withExtension: "json"),
+        if let url = SpeechEngineResources.url(forResource: "models", withExtension: "json"),
            let data = try? Data(contentsOf: url),
            let catalog = try? SpeechModelCatalog.decode(from: data) {
             return catalog

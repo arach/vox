@@ -239,3 +239,10 @@ For the first Linea integration, the default plan should be:
 7. Keep Companion mode out of the Apple app path unless the feature is genuinely web or cross-process.
 
 See [Observability](./observability.md) for metric interpretation and [Architecture](./architecture.md) for package ownership.
+
+## Packaged app resources
+
+Copy `Vox_HudsonSpeechEngine.bundle` into the signed app's `Contents/Resources`.
+`SpeechEngineResources` resolves the model catalog and mlx-audio provider script
+from that location in apps, and from SwiftPM resources in command-line builds.
+A packaged app does not fall back to a developer build directory.

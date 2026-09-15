@@ -104,3 +104,10 @@
 - TTS default: `gpt-4o-mini-tts`
 - TTS local fallback: `avspeech:system`
 - use Vox Companion only for web or cross-process workflows
+
+## Packaged app resources
+
+Copy `Vox_HudsonSpeechEngine.bundle` into the signed app's `Contents/Resources`.
+`SpeechEngineResources` resolves the model catalog and mlx-audio provider script
+from that location in apps, and from SwiftPM resources in command-line builds.
+A packaged app does not fall back to a developer build directory.
