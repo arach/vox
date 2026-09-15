@@ -26,7 +26,9 @@ let package = Package(
         .executable(name: "voxttsd", targets: ["VoxTTSRunner"]),
         .executable(name: "voxd", targets: ["voxd"])
     ],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/moonshine-ai/moonshine-swift.git", from: "0.1.5")
+    ],
     targets: [
         .target(
             name: "VoxCore",
@@ -35,11 +37,13 @@ let package = Package(
         .target(
             name: "HudsonSpeechEngine",
             dependencies: [
-                "VoxCore"
+                "VoxCore",
+                .product(name: "MoonshineVoice", package: "moonshine-swift")
             ],
             path: "swift/Sources/HudsonSpeechEngine",
             resources: [
-                .copy("Resources/mlx_audio_provider.py")
+                .copy("Resources/mlx_audio_provider.py"),
+                .copy("Resources/models.json")
             ]
         ),
         .target(

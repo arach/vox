@@ -22,7 +22,7 @@ struct BuiltinExternalProvider {
         kind: BuiltinExternalProviderKind,
         env: [String: String]?
     ) throws -> [String] {
-        guard let scriptURL = Bundle.module.url(forResource: "mlx_audio_provider", withExtension: "py") else {
+        guard let scriptURL = SpeechEngineResources.url(forResource: "mlx_audio_provider", withExtension: "py") else {
             throw BuiltinExternalProviderError.missingResource("mlx_audio_provider.py")
         }
 
