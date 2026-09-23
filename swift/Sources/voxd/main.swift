@@ -23,7 +23,6 @@ func defaultASRConfig() -> ProvidersConfig {
     let catalog = ModelCatalogStore.shared
     let parakeetModels = catalog.parakeetModelIDs()
     let appleSpeechModels = catalog.appleSpeechModelIDs()
-    let moonshineModels = catalog.moonshineModelIDs()
     let openaiModels = catalog.openaiTranscribeModelIDs()
     return ProvidersConfig(providers: [
         ProviderEntry(
@@ -39,12 +38,6 @@ func defaultASRConfig() -> ProvidersConfig {
             models: appleSpeechModels.isEmpty
                 ? AppleSpeechTranscriberProvider.fallbackModelIDs
                 : appleSpeechModels
-        ),
-        ProviderEntry(
-            id: "moonshine",
-            kind: .asr,
-            builtin: true,
-            models: moonshineModels.isEmpty ? MoonshineASRProvider.fallbackModelIDs : moonshineModels
         ),
         ProviderEntry(
             id: "openai-transcribe",

@@ -23,24 +23,22 @@ These families run without a plugin:
 |---|---|---|
 | `parakeet-tdt` | `parakeet:v3` (default), `parakeet:v2` (English) | On-device CoreML |
 | `apple-speech` | `apple:speech-transcriber` | On-device Speech framework; macOS 26+ |
-| `moonshine` | `moonshine:medium-streaming` | Native MoonshineVoice runtime |
 | `openai-transcribe` | `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `whisper-1` | OpenAI Audio API; needs `OPENAI_API_KEY` |
 | `mlx-audio` | Qwen3-ASR, Cohere Transcribe, Nemotron 3.5 ASR Streaming, Whisper turbo, Parakeet MLX ids | mlx-audio provider; opt-in in `providers.json` |
 
 `parakeet:v3` stays the default for Minivox, Vox.app, and CLI warmup. Use `parakeet:v2` when you want the English-only TDT bundle.
 
-Apple SpeechTranscriber and Moonshine are registered by the default daemon, so selecting either model id is enough. Apple downloads locale assets through `AssetInventory`; `VOX_APPLE_SPEECH_LOCALE` selects the locale. Moonshine downloads its native model on first install or preload; `VOX_MOONSHINE_LANGUAGE` selects the language and defaults to `en`.
+Apple SpeechTranscriber is registered by the default daemon, so selecting its model id is enough. Apple downloads locale assets through `AssetInventory`; `VOX_APPLE_SPEECH_LOCALE` selects the locale.
 
 ## Current local shortlist
 
 - `parakeet:v3`: default, mature CoreML path, 25 European languages.
 - `apple:speech-transcriber`: system-managed on-device parity option with word timings on macOS 26+.
-- `moonshine:medium-streaming`: native streaming architecture and the strongest new low-latency path to carry into Vox live sessions.
 - `mlx-community/Qwen3-ASR-1.7B-8bit`: multilingual accuracy candidate on Apple Silicon.
 - `mlx-community/cohere-transcribe-03-2026-mlx-8bit`: strong offline multilingual candidate; not a realtime model.
 - `mlx-community/nemotron-3.5-asr-streaming-0.6b-8bit`: 0.6B cache-aware streaming RNNT candidate covering 35 languages.
 
-Catalog `capabilities.liveTranscription` describes what Vox exposes today, not what an upstream model architecture can theoretically do. It remains `false` for every current provider because Vox's public ASR contract still accepts a completed audio file and returns finalized text. Apple, Moonshine, and Nemotron are streaming-capable foundations for the next runtime slice, but selecting them does not yet turn `session.partial` into model-backed partial transcription.
+Catalog `capabilities.liveTranscription` describes what Vox exposes today, not what an upstream model architecture can theoretically do. It remains `false` for every current provider because Vox's public ASR contract still accepts a completed audio file and returns finalized text. Apple and Nemotron are streaming-capable foundations for the next runtime slice, but selecting them does not yet turn `session.partial` into model-backed partial transcription.
 
 Vox does not ship Intel support. Local runtime entries are marked `architectures: ["arm64"]`. Audio conversion for native model inputs uses platform or provider libraries; do not add hand-written sample-rate conversion or denoising code to a model adapter.
 

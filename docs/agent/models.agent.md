@@ -10,8 +10,8 @@
 - catalog refresh never installs or runs a plugin
 - default ASR: `parakeet:v3`; English TDT: `parakeet:v2`
 - Apple Silicon only; Intel Macs are unsupported
-- native core ASR: `apple:speech-transcriber` on macOS 26+ and `moonshine:medium-streaming`
-- Apple locale env: `VOX_APPLE_SPEECH_LOCALE`; Moonshine language env: `VOX_MOONSHINE_LANGUAGE`
+- native core ASR: `apple:speech-transcriber` on macOS 26+
+- Apple locale env: `VOX_APPLE_SPEECH_LOCALE`
 - recommended MLX candidates: `mlx-community/Qwen3-ASR-1.7B-8bit`, `mlx-community/cohere-transcribe-03-2026-mlx-8bit`, `mlx-community/nemotron-3.5-asr-streaming-0.6b-8bit`
 - catalog capability flags describe the current Vox provider surface; `liveTranscription=false` until the ASR protocol and mic path emit model-backed partials
 - never add hand-written resampling or denoising inside a model adapter; use platform/provider DSP libraries
