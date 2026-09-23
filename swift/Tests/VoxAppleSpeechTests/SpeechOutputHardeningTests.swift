@@ -159,7 +159,7 @@ private final class RecordingAudioPlayerEngine: AudioPlayerEngine, @unchecked Se
         return stops
     }
 
-    func setDelegate(_ delegate: AVAudioPlayerDelegate?) {}
+    func setEventHandler(_ handler: (@Sendable (SpeechAudioPlayerEvent) -> Void)?) {}
 
     func prepareToPlay() {
         lock.lock()
