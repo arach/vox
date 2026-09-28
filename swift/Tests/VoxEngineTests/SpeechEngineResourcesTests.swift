@@ -21,4 +21,19 @@ struct SpeechEngineResourcesTests {
         #expect(resolved.bundleURL.standardizedFileURL == resources.standardizedFileURL)
         #expect(resolved.url(forResource: "marker", withExtension: "txt") != nil)
     }
+
+    @Test func packagedAppFindsTheDependencyBundleName() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let contents = root.appendingPathComponent("Host.app/Contents")
+        try FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let plist: [String: String] = ["CFBundleIdentifier": "test.speech.host", "CFBundlePackageType": "APPL", "CFBundleExecutable": "Host"]
+        try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+            .write(to: contents.appendingPathComponent("Info.plist"))
+        let bundle = try #require(Bundle(url: root.appendingPathComponent("Host.app")))
+        let resources = contents.appendingPathComponent("Resources/HudsonSpeechEngine_HudsonSpeechEngine.bundle")
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        let resolved = try #require(SpeechEngineResources.resourceBundle(appBundle: bundle))
+        #expect(resolved.bundleURL.standardizedFileURL == resources.standardizedFileURL)
+    }
 }
