@@ -17,15 +17,6 @@ struct ProviderRegistryTests {
     }
     #endif
 
-    @Test("Moonshine language prefers provider configuration")
-    func moonshineLanguageResolution() {
-        let language = MoonshineASRProvider.resolveLanguage(
-            env: ["VOX_MOONSHINE_LANGUAGE": "ja"],
-            processEnv: ["VOX_MOONSHINE_LANGUAGE": "en"]
-        )
-        #expect(language == "ja")
-    }
-
     @Test("builtin mlx-audio provider resolves bundled script command")
     func builtinMlxAudioCommandUsesBundledScript() throws {
         let command = try BuiltinExternalProvider.mlxAudioCommand(kind: .asr, env: nil)

@@ -17,7 +17,6 @@ Built-in providers include:
 
 - `parakeet` for on-device CoreML ASR (`parakeet:v3` default, `parakeet:v2` English)
 - `apple-speech` for Apple SpeechTranscriber (`apple:speech-transcriber`, macOS 26+ on Apple Silicon)
-- `moonshine` for native MoonshineVoice ASR (`moonshine:medium-streaming`)
 - `openai-transcribe` for remote OpenAI file transcription (`gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `whisper-1`)
 - `avspeech` for system TTS
 - `openai-tts` for remote TTS
@@ -38,7 +37,6 @@ Each model names a `family`. Built-in families the engine can run without a plug
 
 - `parakeet-tdt`: CoreML Parakeet TDT bundles
 - `apple-speech`: Apple SpeechTranscriber and system-managed locale assets
-- `moonshine`: native MoonshineVoice models
 - `mlx-audio`: Hugging Face ids loaded by the mlx-audio provider
 - `openai-transcribe`: OpenAI Audio transcriptions API
 
@@ -81,15 +79,6 @@ Providers are registered in `~/.vox/providers.json`:
       "models": ["apple:speech-transcriber"],
       "env": {
         "VOX_APPLE_SPEECH_LOCALE": "en-US"
-      }
-    },
-    {
-      "id": "moonshine",
-      "kind": "asr",
-      "builtin": true,
-      "models": ["moonshine:medium-streaming"],
-      "env": {
-        "VOX_MOONSHINE_LANGUAGE": "en"
       }
     },
     {
@@ -197,7 +186,7 @@ Notes:
 - NVIDIA Magpie accepts `NV_API_KEY` and the `NVIDIA_API_KEY` compatibility alias, plus camelCase / snake_case variants. Gemini accepts `GEMINI_API_KEY`, `GOOGLE_API_KEY`, and `GOOGLE_GENAI_API_KEY`.
 - Remote providers are considered for default model selection and in-process default registration only when they are configured in `providers.json` or the daemon environment. An API key in the process environment is not broader user consent than selecting or configuring that provider. Configured aliases such as `magpie`, `groq-tts`, and `google-tts` prevent the canonical default entries from being appended over that family's routing and key config.
 - If `providers.json` contains only ASR entries, Vox falls back to default TTS providers. The inverse is also true. The default TTS model remains `gpt-4o-mini-tts` when OpenAI is configured. App-registry and daemon/config default selection share one canonical ranking independent of `providers.json` order and independent of the alphabetically sorted `TTSProviderRegistry` model list: OpenAI `gpt-4o-mini-tts`, then ElevenLabs, MiniMax, NVIDIA Magpie, Groq, Gemini, then `avspeech:system`.
-- The public ASR provider method is currently file-based. Apple SpeechTranscriber, Moonshine Medium, and Nemotron have streaming-capable internals, but live partial events require a separate runtime/protocol integration.
+- The public ASR provider method is currently file-based. Apple SpeechTranscriber and Nemotron have streaming-capable internals, but live partial events require a separate runtime/protocol integration.
 - Native audio adaptation uses `AVAudioConverter`, SpeechAnalyzer's file path, or provider-owned conversion. Provider adapters must not implement ad hoc resampling or denoising.
 
 ### OpenAI TTS timeout

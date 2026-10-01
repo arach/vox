@@ -6,7 +6,7 @@ import catalog from "../../public/data/models.json";
 
 export const metadata: Metadata = {
   title: "Models · Vox",
-  description: "Published dictation catalog for Vox: Apple SpeechTranscriber, Parakeet, Moonshine, OpenAI, mlx-audio, and plugins.",
+  description: "Published dictation catalog for Vox: Apple SpeechTranscriber, Parakeet, OpenAI, mlx-audio, and plugins.",
   openGraph: {
     title: "Models · Vox",
     description: "The dictation catalog Vox publishes at /data/models.json.",

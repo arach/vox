@@ -3,7 +3,6 @@ import Foundation
 public enum SpeechModelFamily {
     public static let parakeetTDT = "parakeet-tdt"
     public static let appleSpeech = "apple-speech"
-    public static let moonshine = "moonshine"
     public static let mlxAudio = "mlx-audio"
     public static let openaiTranscribe = "openai-transcribe"
     public static let mlxVlm = "mlx-vlm"

@@ -11,7 +11,7 @@ struct ModelCatalogStoreTests {
 
         #expect(catalog.version == 2)
         #expect(ids.contains("apple:speech-transcriber"))
-        #expect(ids.contains("moonshine:medium-streaming"))
+        #expect(!ids.contains("moonshine:medium-streaming"))
         #expect(ids.contains("mlx-community/Qwen3-ASR-1.7B-8bit"))
         #expect(ids.contains("mlx-community/cohere-transcribe-03-2026-mlx-8bit"))
         #expect(ids.contains("mlx-community/nemotron-3.5-asr-streaming-0.6b-8bit"))

@@ -30,7 +30,7 @@ Requirements:
 - Swift 6.2+
 - `uv` for the MLX-backed demo paths
 
-The built-in ASR shortlist includes CoreML Parakeet, Apple SpeechTranscriber, and Moonshine Medium Streaming. The optional MLX Audio bridge adds Qwen3-ASR, Cohere Transcribe, Nemotron 3.5 ASR Streaming, Whisper, and MLX Parakeet variants.
+The built-in ASR shortlist includes CoreML Parakeet and Apple SpeechTranscriber. The optional MLX Audio bridge adds Qwen3-ASR, Cohere Transcribe, Nemotron 3.5 ASR Streaming, Whisper, and MLX Parakeet variants.
 
 ### a. dev
 

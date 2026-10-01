@@ -109,29 +109,6 @@
       }
     },
     {
-      "id": "moonshine:medium-streaming",
-      "kind": "asr",
-      "family": "moonshine",
-      "name": "Moonshine Medium Streaming",
-      "vendor": "moonshine-ai",
-      "runtime": "moonshine-swift",
-      "status": "ready",
-      "languages": "Configurable; English by default",
-      "notes": "Native next-generation streaming architecture through MoonshineVoice. Vox currently exposes it through the finalized file-transcription contract; VOX_MOONSHINE_LANGUAGE selects the downloaded language model.",
-      "platforms": ["macOS 14+"],
-      "architectures": ["arm64"],
-      "capabilities": {
-        "fileTranscription": true,
-        "liveTranscription": false,
-        "onDevice": true,
-        "wordTimestamps": false
-      },
-      "source": {
-        "type": "package",
-        "repo": "moonshine-ai/moonshine-swift"
-      }
-    },
-    {
       "id": "mlx-community/parakeet-tdt-0.6b-v3",
       "kind": "asr",
       "family": "mlx-audio",

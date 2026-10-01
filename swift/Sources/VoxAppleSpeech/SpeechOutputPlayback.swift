@@ -229,7 +229,8 @@ protocol AudioPlayerScheduling: AnyObject, Sendable {
 }
 
 protocol AudioPlayerEngine: AnyObject, Sendable {
-    func setDelegate(_ delegate: AVAudioPlayerDelegate?)
+    /// Routes playback completion events to `handler`; `nil` stops delivery.
+    func setEventHandler(_ handler: (@Sendable (SpeechAudioPlayerEvent) -> Void)?)
     func prepareToPlay()
     func play() -> Bool
     func stop()
@@ -248,15 +249,59 @@ final class MainQueueAudioPlayerScheduler: AudioPlayerScheduling, @unchecked Sen
     }
 }
 
+/// Lock-protected handler slot shared between the engine and its delegate.
+final class AudioPlayerEventRelay: @unchecked Sendable {
+    private let lock = NSLock()
+    private var handler: (@Sendable (SpeechAudioPlayerEvent) -> Void)?
+
+    func set(_ handler: (@Sendable (SpeechAudioPlayerEvent) -> Void)?) {
+        lock.lock()
+        self.handler = handler
+        lock.unlock()
+    }
+
+    func emit(_ event: SpeechAudioPlayerEvent) {
+        lock.lock()
+        let handler = self.handler
+        lock.unlock()
+        handler?(event)
+    }
+}
+
+/// `AVAudioPlayerDelegate` is main-actor isolated, so its conformance lives on
+/// this dedicated object instead of the nonisolated, thread-safe sink.
+final class AudioPlayerDelegateProxy: NSObject, AVAudioPlayerDelegate {
+    nonisolated let relay: AudioPlayerEventRelay
+
+    nonisolated init(relay: AudioPlayerEventRelay) {
+        self.relay = relay
+        super.init()
+    }
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        relay.emit(flag ? .didFinish : .didFail("Audio playback did not complete successfully."))
+    }
+
+    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        relay.emit(.didFail(error?.localizedDescription ?? "Audio decode failed."))
+    }
+}
+
+/// Owns the `AVAudioPlayer`. Every call reaches it through the sink's
+/// scheduler, which confines the player to the main queue.
 final class AVFoundationAudioPlayerEngine: AudioPlayerEngine, @unchecked Sendable {
     let player: AVAudioPlayer
+    private let relay = AudioPlayerEventRelay()
+    private let delegate: AudioPlayerDelegateProxy
 
     init(data: Data) throws {
         self.player = try AVAudioPlayer(data: data)
+        self.delegate = AudioPlayerDelegateProxy(relay: relay)
     }
 
-    func setDelegate(_ delegate: AVAudioPlayerDelegate?) {
-        player.delegate = delegate
+    func setEventHandler(_ handler: (@Sendable (SpeechAudioPlayerEvent) -> Void)?) {
+        relay.set(handler)
+        player.delegate = handler == nil ? nil : delegate
     }
 
     func prepareToPlay() {
@@ -272,7 +317,9 @@ final class AVFoundationAudioPlayerEngine: AudioPlayerEngine, @unchecked Sendabl
     }
 }
 
-public final class AVAudioPlayerSink: NSObject, SpeechAudioPlaying, AVAudioPlayerDelegate, @unchecked Sendable {
+/// Generated-audio sink. Nonisolated and thread-safe: callers may use it from
+/// any isolation domain; player work hops through the scheduler.
+public final class AVAudioPlayerSink: SpeechAudioPlaying, @unchecked Sendable {
     private let engine: any AudioPlayerEngine
     private let scheduler: any AudioPlayerScheduling
     private let lock = NSLock()
@@ -286,9 +333,10 @@ public final class AVAudioPlayerSink: NSObject, SpeechAudioPlaying, AVAudioPlaye
     init(engine: any AudioPlayerEngine, scheduler: any AudioPlayerScheduling) {
         self.engine = engine
         self.scheduler = scheduler
-        super.init()
         scheduler.sync {
-            engine.setDelegate(self)
+            engine.setEventHandler { [weak self] event in
+                self?.handleEngineEvent(event)
+            }
         }
     }
 
@@ -307,7 +355,7 @@ public final class AVAudioPlayerSink: NSObject, SpeechAudioPlaying, AVAudioPlaye
         callback = nil
         lock.unlock()
         scheduler.sync {
-            self.engine.setDelegate(nil)
+            self.engine.setEventHandler(nil)
         }
     }
 
@@ -321,27 +369,11 @@ public final class AVAudioPlayerSink: NSObject, SpeechAudioPlaying, AVAudioPlaye
     public func stop() {
         scheduler.sync {
             self.engine.stop()
-            self.engine.setDelegate(nil)
+            self.engine.setEventHandler(nil)
         }
         lock.lock()
         callback = nil
         lock.unlock()
-    }
-
-    public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        let event: SpeechAudioPlayerEvent = flag
-            ? .didFinish
-            : .didFail("Audio playback did not complete successfully.")
-        scheduler.async { [weak self] in
-            self?.emit(event)
-        }
-    }
-
-    public func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-        let message = error?.localizedDescription ?? "Audio decode failed."
-        scheduler.async { [weak self] in
-            self?.emit(.didFail(message))
-        }
     }
 
     func handleEngineEvent(_ event: SpeechAudioPlayerEvent) {

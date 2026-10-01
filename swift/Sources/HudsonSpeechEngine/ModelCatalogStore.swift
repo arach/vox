@@ -82,10 +82,6 @@ public final class ModelCatalogStore: @unchecked Sendable {
         asrModels(family: SpeechModelFamily.appleSpeech).map(\.id)
     }
 
-    public func moonshineModelIDs() -> [String] {
-        asrModels(family: SpeechModelFamily.moonshine).map(\.id)
-    }
-
     public func openaiTranscribeModelIDs() -> [String] {
         asrModels(family: SpeechModelFamily.openaiTranscribe).map(\.id)
     }

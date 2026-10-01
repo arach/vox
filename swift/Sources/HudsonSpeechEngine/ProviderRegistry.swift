@@ -23,14 +23,6 @@ public actor ProviderRegistry: ASRProvider {
                     log.warning("Apple SpeechTranscriber requires macOS on Apple Silicon: \(entry.id)")
                     continue
                     #endif
-                case "moonshine", "moonshine-asr":
-                    #if arch(arm64)
-                    provider = MoonshineASRProvider(env: entry.env)
-                    log.info("Registered builtin Moonshine ASR provider: \(entry.id)")
-                    #else
-                    log.warning("Moonshine ASR requires Apple Silicon: \(entry.id)")
-                    continue
-                    #endif
                 case "openai", "openai-asr", "openai-transcribe":
                     provider = OpenAIASRProvider(env: entry.env)
                     log.info("Registered builtin OpenAI transcription provider: \(entry.id)")
